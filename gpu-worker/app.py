@@ -45,6 +45,9 @@ TTS_MODELS = {
     "fr": "facebook/mms-tts-fra", "fr-fr": "facebook/mms-tts-fra",
     "de": "facebook/mms-tts-deu", "de-de": "facebook/mms-tts-deu",
     "es": "facebook/mms-tts-spa", "es-es": "facebook/mms-tts-spa",
+    "zh": "facebook/mms-tts-cmn", "zh-cn": "facebook/mms-tts-cmn",
+    "ja": "facebook/mms-tts-jpn", "ja-jp": "facebook/mms-tts-jpn",
+    "ko": "facebook/mms-tts-kor", "ko-kr": "facebook/mms-tts-kor",
 }
 
 
@@ -110,7 +113,7 @@ def chat(request: ChatRequest, authorization: str | None = Header(default=None))
     if not request.message.strip():
         return {"reply": "Please enter a message so I can help."}
 
-    language_names = {"en": "English", "en-in": "English", "hi": "Hindi", "hi-in": "Hindi", "ta": "Tamil", "ta-in": "Tamil", "te": "Telugu", "te-in": "Telugu", "bn": "Bengali", "bn-in": "Bengali", "mr": "Marathi", "mr-in": "Marathi", "pa": "Punjabi", "pa-in": "Punjabi", "kn": "Kannada", "kn-in": "Kannada", "ml": "Malayalam", "ml-in": "Malayalam", "fr": "French", "fr-fr": "French", "de": "German", "de-de": "German", "es": "Spanish", "es-es": "Spanish"}
+    language_names = {"en": "English", "en-in": "English", "hi": "Hindi", "hi-in": "Hindi", "ta": "Tamil", "ta-in": "Tamil", "te": "Telugu", "te-in": "Telugu", "bn": "Bengali", "bn-in": "Bengali", "mr": "Marathi", "mr-in": "Marathi", "pa": "Punjabi", "pa-in": "Punjabi", "kn": "Kannada", "kn-in": "Kannada", "ml": "Malayalam", "ml-in": "Malayalam", "fr": "French", "fr-fr": "French", "de": "German", "de-de": "German", "es": "Spanish", "es-es": "Spanish", "zh": "Chinese", "zh-cn": "Chinese", "ja": "Japanese", "ja-jp": "Japanese", "ko": "Korean", "ko-kr": "Korean"}
     language_name = language_names.get(request.language.lower(), "the user's language")
     messages = [{"role": "system", "content": SYSTEM_PROMPT + f" Reply in {language_name} unless the user explicitly asks for another language."}]
     for item in request.history[-10:]:
