@@ -36,8 +36,5 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Download approved starter avatar
-        run: npm run assets:download
-
       - name: Build application
         run: npm run build
