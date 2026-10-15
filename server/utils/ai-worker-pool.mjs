@@ -1,12 +1,4 @@
-/**
- * @typedef {Object} AIWorker
- * @property {string} id
- * @property {string} platform
- * @property {string} baseUrl
- * @property {string} token
- * @property {number} leaseHours
- * @property {number} priority
- */
+/** @typedef {import("./ai-worker-types").AIWorker} AIWorker */
 
 /**
  * @typedef {Object} WorkerPoolEnv
