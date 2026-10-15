@@ -286,6 +286,40 @@ export function OpenSourceAvatarPanel() {
     window.speechSynthesis.speak(utterance);
   }
 
+  async function checkWorkerCapabilities() {
+    if (!orderedEndpoints.length) {
+      flash("Enter at least one worker URL first.");
+      return;
+    }
+    setStatus("Reading configured worker capabilities…");
+    for (const candidate of orderedEndpoints) {
+      try {
+        const endpoint = new URL(candidate);
+        endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/capabilities";
+        endpoint.search = "";
+        const response = await fetch(endpoint.toString(), {
+          method: "GET",
+          headers: workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {},
+        });
+        if (!response.ok) continue;
+        const data = await response.json() as {
+          tts?: { provider?: string; ready?: boolean; languages?: Array<{ code?: string; label?: string }>; readyLanguages?: string[] };
+          chat?: { model?: string; ready?: boolean };
+        };
+        const provider = data.tts?.provider || data.chat?.model || "Worker";
+        const languages = data.tts?.languages?.map((item) => item.label || item.code).filter(Boolean)
+          || data.tts?.readyLanguages
+          || [];
+        const summary = languages.length ? languages.slice(0, 12).join(", ") + (languages.length > 12 ? "…" : "") : "language list not advertised";
+        setStatus(provider + " · TTS " + (data.tts?.ready ? "ready" : "capability endpoint reachable") + " · " + summary);
+        return;
+      } catch {
+        // Continue through the configured endpoint order.
+      }
+    }
+    setStatus("No worker capabilities endpoint responded · check HTTPS, CORS and worker readiness");
+  }
+
   async function loadLocalModel() {
     if (localGeneratorRef.current || localModelLoading) return;
     setLocalModelLoading(true);
@@ -500,6 +534,7 @@ export function OpenSourceAvatarPanel() {
             <button className="mf-ghost" type="button" onClick={() => { setWorkerUrl(""); setWorkerToken(""); setStatus(localModelReady ? "Local open-source AI selected" : "Local fallback selected"); }}>Use local fallback</button>
             <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
             <button className="mf-ghost" type="button" onClick={async () => { const urls = orderedEndpoints; if (!urls.length) { flash("Enter at least one worker URL first."); return; } setStatus("Checking workers in priority order…"); let found = false; for (let i = 0; i < urls.length; i++) { try { const u = new URL(urls[i]); const health = new URL(u.toString()); health.pathname = health.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/health"; health.search = ""; const controller = new AbortController(); const timeout = window.setTimeout(() => controller.abort(), 8000); try { const res = await fetch(health, { method: "GET", signal: controller.signal }); if (res.ok) { const data = await res.json() as { status?: string; model?: string; provider?: string; device?: string; referenceAudioConfigured?: boolean }; const state = data.status || "reachable"; const provider = data.model || data.provider || ""; setStatus(`Worker ${i + 1}/${urls.length} reachable · ${state}${provider ? ` · ${provider}` : ""}${data.device ? ` · ${data.device}` : ""}`); found = true; break; } } finally { window.clearTimeout(timeout); } } catch { /* try the next configured worker */ } } if (!found) setStatus("No health endpoint responded. Check the worker URL, HTTPS, and CORS."); }}>Check connection</button>
+            <button className="mf-ghost" type="button" onClick={() => void checkWorkerCapabilities()}>Check voice capabilities</button>
           </div>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
             {turns.map((turn, i) => <div key={i} style={{ alignSelf: turn.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%", padding: "10px 12px", borderRadius: 12, background: turn.role === "user" ? "rgba(88,166,255,.18)" : "rgba(127,127,127,.12)" }}><small style={{ display: "block", opacity: .7, marginBottom: 4 }}>{turn.role === "user" ? "You" : "NKAI Avatar"}</small><span>{turn.text}</span></div>)}
