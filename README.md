@@ -7,7 +7,7 @@ NKAI Studio includes an open-source avatar chat panel with local-first AI option
 - Interactive 3D model preview.
 - Multiple sample rigged avatar presets plus custom GLB URL support.
 - Optional TalkingHead + HeadTTS mode for rigged-avatar lip-sync and English neural speech, running in the browser without a paid TTS API.
-- Language selector for English, Hindi, Tamil, Telugu, Bengali, Marathi, Punjabi, Kannada, Malayalam, French, German, and Spanish. Non-English neural speech uses the optional `/tts` endpoint in the GPU worker; installed browser voices are the fallback.
+- Language selector for English, Hindi, Tamil, Telugu, Bengali, Marathi, Punjabi, Kannada, Malayalam, French, German, Spanish, Chinese, Japanese, and Korean. Neural speech uses the optional `/tts` endpoint when the configured worker supports that language; installed browser voices are the fallback.
 - Optional browser-local Qwen2.5-0.5B-Instruct model through Transformers.js (WebGPU first, WASM fallback). The first use downloads model files and may require substantial memory and bandwidth.
 - Optional self-hosted Transformers/FastAPI GPU worker using open model weights.
 - Persistent timed platform rotation (configured hours and endpoint per slot), ordered worker failover, and an explicitly labeled scripted fallback.
