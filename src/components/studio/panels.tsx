@@ -53,66 +53,219 @@ async function say(text: string) {
 export function AvatarsPanel() {
   const avatars = useStudio((s) => s.avatars);
   const avatar = useStudio((s) => s.avatar);
+  const speaking = useStudio((s) => s.speaking);
+  const mouth = useStudio((s) => s.mouth);
   const flash = useStudio((s) => s.flash);
   const [name, setName] = useState("");
+  const [draft, setDraft] = useState("");
+  const [listening, setListening] = useState(false);
+  const [turns, setTurns] = useState<{ role: "assistant" | "user"; text: string }[]>([
+    { role: "assistant", text: "Hello! I’m your local interactive presenter. Ask me about the studio, practice an introduction, or try a voice conversation. I work without an AI API." },
+  ]);
+  const recognition = useRef<{ stop: () => void } | null>(null);
+  const current = avatars[avatar] || avatars[0];
+
+  useEffect(() => {
+    if (!speaking) return;
+    const timer = window.setInterval(() => {
+      const next = Math.random() > 0.42 ? 0.22 + Math.random() * 0.62 : 0.04;
+      useStudio.setState({ mouth: next });
+    }, 115);
+    return () => window.clearInterval(timer);
+  }, [speaking]);
+
+  function respond(message: string) {
+    const text = message.trim();
+    if (!text) return;
+    const history = [...turns, { role: "user" as const, text }];
+    setTurns(history);
+    setDraft("");
+    const reply = studioLocalReply(text);
+    setTurns([...history, { role: "assistant", text: reply }]);
+    useStudio.setState({ speaking: true });
+    if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined") {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(reply);
+      utterance.lang = useStudio.getState().settings.lang || "en-US";
+      utterance.rate = useStudio.getState().vp?.rate || 0.96;
+      utterance.pitch = useStudio.getState().vp?.pitch || 1;
+      utterance.onend = () => useStudio.setState({ speaking: false, mouth: 0.04 });
+      utterance.onerror = () => useStudio.setState({ speaking: false, mouth: 0.04 });
+      window.speechSynthesis.speak(utterance);
+    } else {
+      useStudio.setState({ speaking: false, mouth: 0.04 });
+      flash("Speech output is not supported in this browser. The text conversation still works.");
+    }
+  }
+
+  function toggleMic() {
+    type Recognition = {
+      lang: string;
+      interimResults: boolean;
+      onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+      onerror: (() => void) | null;
+      onend: (() => void) | null;
+      start: () => void;
+      stop: () => void;
+    };
+    const browser = window as Window & {
+      SpeechRecognition?: new () => Recognition;
+      webkitSpeechRecognition?: new () => Recognition;
+    };
+    const RecognitionCtor = browser.SpeechRecognition || browser.webkitSpeechRecognition;
+    if (listening) {
+      recognition.current?.stop();
+      setListening(false);
+      return;
+    }
+    if (!RecognitionCtor) {
+      flash("Voice input is not available in this browser. Type your message instead.");
+      return;
+    }
+    const mic = new RecognitionCtor();
+    mic.lang = useStudio.getState().settings.lang || "en-US";
+    mic.interimResults = false;
+    mic.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript || "";
+      setListening(false);
+      recognition.current = null;
+      if (transcript) respond(transcript);
+    };
+    mic.onerror = () => {
+      setListening(false);
+      recognition.current = null;
+      flash("Could not hear that. Check microphone permission and try again.");
+    };
+    mic.onend = () => {
+      setListening(false);
+      recognition.current = null;
+    };
+    recognition.current = mic;
+    setListening(true);
+    try {
+      mic.start();
+    } catch {
+      setListening(false);
+      recognition.current = null;
+      flash("Microphone could not start. Please try again.");
+    }
+  }
+
   return (
-    <Page title="Avatars" lede="Choose the presenter, or create one from a front-facing photo stored in this browser.">
-      <div className="mf-grid cards">
-        {avatars.map((p, i) => (
-          <div className={`mf-card ${i === avatar ? "sel" : ""}`} key={`${p.name}-${i}`}>
-            <button
-              className="mf-portrait"
-              style={{ aspectRatio: "0.8", width: "100%" }}
-              onClick={() => {
-                useStudio.getState().remember();
-                useStudio.setState({ avatar: i });
-                useStudio.getState().persist();
-                flash(`${p.name} is now the presenter`);
+    <Page title="Interactive Avatar" lede="A local, voice-enabled presenter. No AI API, API key, or usage credits required.">
+      <div className="mf-grid two" style={{ alignItems: "start" }}>
+        <div className="mf-card" style={{ overflow: "hidden" }}>
+          <div style={{ position: "relative", maxWidth: 440, margin: "0 auto" }}>
+            <div style={{ position: "absolute", inset: "8% 10%", borderRadius: "48%", background: "radial-gradient(ellipse, rgba(88,166,255,.2), transparent 68%)", pointerEvents: "none" }} />
+            <img
+              className="av"
+              src={current?.src || BG_OFFICE}
+              alt={current?.name || "Presenter avatar"}
+              style={{
+                display: "block",
+                width: "100%",
+                maxHeight: 480,
+                objectFit: "cover",
+                borderRadius: 18,
+                transform: speaking ? `translateY(-2px) scale(${1 + mouth * 0.018})` : "translateY(0) scale(1)",
+                transition: "transform 120ms ease",
+                boxShadow: speaking ? "0 0 0 2px rgba(88,166,255,.45), 0 16px 48px rgba(0,0,0,.24)" : "0 16px 48px rgba(0,0,0,.18)",
               }}
-            >
-              <img className="av" src={p.src} alt="" />
-            </button>
-            <b>{p.name}</b>
-            {p.custom ? (
-              <button
-                className="mf-ghost"
-                onClick={() => {
-                  const next = avatars.filter((_, idx) => idx !== i);
-                  useStudio.setState({ avatars: next, avatar: 0 });
-                  useStudio.getState().persist();
-                }}
-              >
-                Delete
-              </button>
-            ) : (
-              <small>Library</small>
-            )}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 12 }}>
+              <div><b>{current?.name || "Presenter"}</b><div><small>{speaking ? "Speaking · local device voice" : listening ? "Listening · microphone active" : "Ready for a conversation"}</small></div></div>
+              <span className="mf-pill" style={{ borderRadius: 99, padding: "6px 10px", whiteSpace: "nowrap" }}>API-free mode</span>
+            </div>
           </div>
-        ))}
-      </div>
-      <div className="mf-card" style={{ marginTop: 14 }}>
-        <b>Create avatar from a photo</b>
-        <div className="mf-bar">
-          <input value={name} placeholder="Name" onChange={(e) => setName(e.target.value)} style={{ flex: 1 }} />
-          <button
-            className="mf-ghost"
-            onClick={async () => {
-              const file = await pickFile("image/*");
-              if (!file) return;
-              const src = await shrinkFile(file, 700);
-              const av = { name: name.trim() || file.name.replace(/\.\w+$/, ""), src, custom: true };
-              const list = [...useStudio.getState().avatars, av];
-              useStudio.setState({ avatars: list, avatar: list.length - 1 });
-              useStudio.getState().persist();
-              flash("Avatar created");
-            }}
-          >
-            Choose photo
-          </button>
+          <div style={{ marginTop: 16 }}>
+            <b>Choose presenter</b>
+            <div className="mf-grid cards" style={{ marginTop: 10 }}>
+              {avatars.map((p, i) => (
+                <button
+                  className={i === avatar ? "mf-card sel" : "mf-card"}
+                  key={`${p.name}-${i}`}
+                  onClick={() => {
+                    useStudio.getState().remember();
+                    useStudio.setState({ avatar: i });
+                    useStudio.getState().persist();
+                    flash(`${p.name} is now the presenter`);
+                  }}
+                  style={{ cursor: "pointer", textAlign: "left", minWidth: 0 }}
+                >
+                  <img src={p.src} alt="" style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 10 }} />
+                  <small>{p.name}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <b>Add a photo presenter</b>
+            <div className="mf-bar">
+              <input value={name} placeholder="Presenter name" onChange={(e) => setName(e.target.value)} style={{ flex: 1 }} />
+              <button className="mf-ghost" onClick={async () => {
+                const file = await pickFile("image/*");
+                if (!file) return;
+                const src = await shrinkFile(file, 700);
+                const av = { name: name.trim() || file.name.replace(/\.\w+$/, ""), src, custom: true };
+                const list = [...useStudio.getState().avatars, av];
+                useStudio.setState({ avatars: list, avatar: list.length - 1 });
+                useStudio.getState().persist();
+                flash("Photo presenter added to this browser");
+              }}>Choose photo</button>
+            </div>
+          </div>
+        </div>
+        <div className="mf-card" style={{ display: "flex", flexDirection: "column", minHeight: 540 }}>
+          <b>Talk to your avatar</b>
+          <p style={{ marginTop: 6, opacity: 0.75 }}>Responses use built-in conversation rules. Speech uses your browser or device voice; no remote AI service is called by this panel.</p>
+          <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 300, maxHeight: 470, overflowY: "auto", padding: "14px 0" }}>
+            {turns.map((turn, i) => (
+              <div key={i} style={{ alignSelf: turn.role === "user" ? "flex-end" : "flex-start", maxWidth: "92%", padding: "10px 12px", borderRadius: 12, background: turn.role === "user" ? "rgba(88,166,255,.18)" : "rgba(127,127,127,.12)" }}>
+                <small style={{ display: "block", opacity: 0.7, marginBottom: 4 }}>{turn.role === "user" ? "You" : current?.name || "Avatar"}</small>
+                <span>{turn.text}</span>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={(e) => { e.preventDefault(); respond(draft); }} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Type a message…" aria-label="Message to avatar" style={{ flex: 1, minWidth: 0 }} />
+            <button type="submit" disabled={!draft.trim()} className="mf-ghost">Send</button>
+          </form>
+          <div className="mf-bar" style={{ marginTop: 10 }}>
+            <button className="mf-ghost" type="button" onClick={toggleMic}>{listening ? "Stop listening" : "🎙 Speak"}</button>
+            <button className="mf-ghost" type="button" onClick={() => {
+              if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+              recognition.current?.stop();
+              setListening(false);
+              useStudio.setState({ speaking: false, mouth: 0.04 });
+            }}>Stop voice</button>
+            <button className="mf-ghost" type="button" onClick={() => setTurns([{ role: "assistant", text: "Hello! I’m your local interactive presenter. Ask me about the studio, practice an introduction, or try a voice conversation. I work without an AI API." }])}>Clear chat</button>
+          </div>
+          <small style={{ marginTop: 12, opacity: 0.68 }}>Note: this version animates the portrait while speaking. A rigged 3D character with true facial blendshapes requires a compatible 3D model asset.</small>
         </div>
       </div>
     </Page>
   );
+}
+
+function studioLocalReply(message: string) {
+  const text = message.trim();
+  const lower = text.toLowerCase();
+  if (/\b(hi|hello|hey|good morning|good evening)\b/i.test(lower)) {
+    return "Hello! I’m ready to help. Tell me what you would like to create, practise, or explore today.";
+  }
+  if (lower.includes("who are you") || lower.includes("your name")) {
+    return "I’m the NKAI Studio interactive presenter. I can guide you through local scripts, voice practice, and the studio tools without connecting to a cloud AI API.";
+  }
+  if (lower.includes("script") || lower.includes("video") || lower.includes("present")) {
+    return "A clear presentation works best with three beats: open with the main promise, explain one practical idea, and finish with a specific next step. Try drafting one sentence for each beat.";
+  }
+  if (lower.includes("help") || lower.includes("what can you do")) {
+    return "I can give guided prompts, help structure a short presentation, practise introductions, and read responses aloud. My replies are rule-based rather than generated by a large language model.";
+  }
+  if (lower.includes("thank")) {
+    return "You’re welcome. What would you like to work on next?";
+  }
+  return `I heard: “${text.slice(0, 180)}”. Let’s turn that into one practical next step. What outcome would you like to achieve first?`;
 }
 
 export function VideoPanel() {
