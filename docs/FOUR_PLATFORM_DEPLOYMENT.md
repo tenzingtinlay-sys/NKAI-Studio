@@ -24,9 +24,18 @@ The public studio is a full-stack app because it uses Nitro server routes for pr
 - The Space serves the web UI and same-origin `/api/ai/*` gateway.
 - The GPU worker can be deployed independently on Lightning AI.
 - Secrets stay in the Space's server environment, never in `VITE_*` variables or committed files. Deployment authentication tokens are hosting credentials, not inference API credits; keep them private and use only the minimum permissions needed.
-- The included GitHub Actions workflow can upload the repository to an existing HF Space when manually dispatched, once repository secrets `HF_TOKEN` and `HF_SPACE_ID` are configured.
-- The deployment workflow can create the Docker Space automatically if it does not exist and the token has write permission. Add GitHub repository secrets under **Settings → Secrets and variables → Actions**: `HF_TOKEN` (a Hugging Face write token) and `HF_SPACE_ID` (`your-hf-username/nkai-studio`, or another Space ID you control). Then run **Actions → Deploy NKAI Studio to Hugging Face Spaces → Run workflow**. Deployment cannot proceed without a valid token and Space ID.
-- The default PGLite database may be ephemeral on hosted containers. Configure a supported persistent database/storage before relying on durable user accounts or long-lived user data.
+- The included GitHub Actions workflow creates or updates a Docker Space, configures server-only Space secrets, waits for the Space runtime, and smoke-tests `/deployment`. It does not claim that the GPU, voice, or WebRTC worker is healthy merely because the page loads.
+- Add the following GitHub repository secrets under **Settings → Secrets and variables → Actions**:
+  - `HF_TOKEN`: Hugging Face write token.
+  - `HF_SPACE_ID`: `your-hf-username/nkai-studio`, or another Space ID you control.
+  - `NKAI_BETTER_AUTH_SECRET`: a strong random session/signing secret.
+  - `NKAI_GROK_AUTH_ISSUER`, `NKAI_GROK_AUTH_CLIENT_ID`, `NKAI_GROK_AUTH_CLIENT_SECRET`: a valid per-app client registered with the configured auth broker. Register the Hugging Face Space callback/origin with that broker.
+  - `NKAI_DATABASE_URL`: PostgreSQL connection string for persistent user sessions and app data.
+  - `NKAI_AI_WORKER_INTERNAL_URL`, `NKAI_AI_WORKER_API_TOKEN`: reachable HTTPS base URL and matching private token for the first self-hosted chat worker.
+  - Optional: `NKAI_TTS_INTERNAL_URL`, `NKAI_TTS_API_TOKEN` for a dedicated OpenVoice TTS worker, and `NKAI_LIVETALKING_INTERNAL_URL` for the separate live avatar stream.
+- The workflow copies these values into Hugging Face Space secrets and derives `BETTER_AUTH_URL` from `HF_SPACE_ID`. The production Docker image enables the real sign-in UI; deployment deliberately fails before upload if the required auth, persistent database, or protected chat-worker secrets are missing. Do not paste any secret values into chat or commit them to Git.
+- After adding secrets, run **Actions → Deploy NKAI Studio to Hugging Face Spaces → Run workflow**. The workflow creates the Docker Space if needed and the token has write permission, then waits up to 15 minutes for the runtime and checks the actual `/deployment` route. A successful page smoke test is not a substitute for real chat, TTS, or WebRTC acceptance tests.
+- This deployment requires a real identity-broker client and PostgreSQL URL; neither can be safely invented by the code. The database can use a free provider tier if available to your account, but its uptime/storage limits still apply.
 
 ## First live worker: Lightning AI
 
