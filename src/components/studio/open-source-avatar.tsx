@@ -63,6 +63,7 @@ export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
   const [neuralVoice, setNeuralVoice] = useState("am_fenrir");
+  const [indicVoiceStyle, setIndicVoiceStyle] = useState("default");
   const [voiceConsent, setVoiceConsent] = useState(false);
   const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
   const [selectedVoice, setSelectedVoice] = useState("");
@@ -214,7 +215,7 @@ export function OpenSourceAvatarPanel() {
         const response = await fetch(endpoint.toString(), {
           method: "POST",
           headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
-          body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage, consent_confirmed: voiceConsent }),
+          body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage, consent_confirmed: voiceConsent, voice: indicVoiceStyle === "default" ? undefined : indicVoiceStyle }),
         });
         if (!response.ok) continue;
         const data = await response.json() as { audio_base64?: string; mime_type?: string; provider?: string; language?: string };
@@ -450,6 +451,15 @@ export function OpenSourceAvatarPanel() {
                 <option value="af_bella">Bella · feminine</option>
               </select>
             </label>}
+            <label style={{ flex: 1, minWidth: 150 }}>AI voice style
+              <select value={indicVoiceStyle} onChange={(e) => setIndicVoiceStyle(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                <option value="default">Language default</option>
+                <option value="A female speaker">Female</option>
+                <option value="A male speaker">Male</option>
+                <option value="A warm, expressive female speaker">Warm and expressive</option>
+                <option value="A deep, calm male speaker">Deep and calm</option>
+              </select>
+            </label>
           </div>
           <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. For generated multilingual audio, connect a running worker that implements POST /tts (for example, the optional OpenVoice V2 worker for English, Spanish, French, Chinese, Japanese and Korean). Hindi and other Indian languages need a matching installed browser voice or a separately configured TTS checkpoint. The included MMS-TTS checkpoints are CC-BY-NC 4.0; use them for non-commercial testing only unless separately licensed.</small>
           <div className="mf-bar" style={{ marginBottom: 12 }}>
