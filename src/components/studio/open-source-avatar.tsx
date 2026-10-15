@@ -15,6 +15,11 @@ const LANGUAGES = [
   { label: "Kannada", code: "kn-IN" }, { label: "Malayalam", code: "ml-IN" },
   { label: "French", code: "fr-FR" }, { label: "German", code: "de-DE" }, { label: "Spanish", code: "es-ES" },
   { label: "Chinese (Mandarin)", code: "zh-CN" }, { label: "Japanese", code: "ja-JP" }, { label: "Korean", code: "ko-KR" },
+  { label: "Assamese", code: "as-IN" }, { label: "Gujarati", code: "gu-IN" }, { label: "Odia", code: "or-IN" },
+  { label: "Urdu", code: "ur-IN" }, { label: "Nepali", code: "ne-NP" }, { label: "Sanskrit", code: "sa-IN" },
+  { label: "Bodo", code: "brx-IN" }, { label: "Dogri", code: "doi-IN" }, { label: "Konkani", code: "kok-IN" },
+  { label: "Maithili", code: "mai-IN" }, { label: "Manipuri", code: "mni-IN" }, { label: "Santali", code: "sat-IN" },
+  { label: "Sindhi", code: "sd-IN" },
 ];
 const DEFAULT_GREETING =
   "Hi, I’m your NKAI avatar. Load the local Qwen model or connect an open-source GPU worker for generated conversations.";
@@ -34,6 +39,19 @@ const VOICE_TEST_PHRASES: Record<string, string> = {
   zh: "你好！这是 NKAI Studio 的语音测试。",
   ja: "こんにちは！これは NKAI Studio の音声テストです。",
   ko: "안녕하세요! NKAI Studio 음성 테스트입니다.",
+  as: "নমস্কাৰ! এইটো NKAI Studio-ৰ কণ্ঠ পৰীক্ষা।",
+  gu: "નમસ્તે! આ NKAI Studio નો અવાજ પરીક્ષણ છે.",
+  or: "ନମସ୍କାର! ଏହା NKAI Studio ର କଣ୍ଠ ପରୀକ୍ଷା।",
+  ur: "السلام علیکم! یہ NKAI Studio کی آواز کا ٹیسٹ ہے۔",
+  ne: "नमस्कार! यो NKAI Studio को आवाज परीक्षण हो।",
+  sa: "नमः! एतत् NKAI Studio इत्यस्य स्वरपरीक्षणम् अस्ति।",
+  brx: "खुलुमबाय! बेयो NKAI Studio नि रावनि टेस्ट।",
+  doi: "नमस्कार! एह NKAI Studio दी आवाज़ दा परीक्षण ऐ।",
+  kok: "नमस्कार! ही NKAI Studio आवाज चाचणी आसा.",
+  mai: "प्रणाम! ई NKAI Studio के आवाज परीक्षण अछि।",
+  mni: "ꯀꯨꯝꯖꯩ! ꯑꯁꯤ NKAI Studio ꯒꯤ ꯋꯥꯍꯩ ꯑꯁꯤꯅꯤ।",
+  sat: "ᱡᱚᱦᱟᱨ! ᱱᱚᱣᱟ NKAI Studio ᱨᱮᱭᱟᱜ ᱟᱲᱟᱝ ᱛᱮᱥᱴ ᱠᱟᱱᱟ।",
+  sd: "سلام! هي NKAI Studio جي آواز جي جاچ آهي۔",
 };
 
 type Turn = { role: "user" | "assistant"; text: string };
