@@ -76,6 +76,7 @@ export function OpenSourceAvatarPanel() {
   const [localModelReady, setLocalModelReady] = useState(false);
   const localGeneratorRef = useRef<LocalGenerator | null>(null);
   const talkingContainerRef = useRef<HTMLDivElement | null>(null);
+  const streamingContainerRef = useRef<HTMLDivElement | null>(null);
   const talkingHeadRef = useRef<TalkingHeadApi | null>(null);
   const headTtsRef = useRef<HeadTTSApi | null>(null);
   const viewerRef = useRef<HTMLElement | null>(null);
@@ -400,6 +401,16 @@ export function OpenSourceAvatarPanel() {
         <div><h1>Open-source AI Avatar</h1><p>3D character viewer, browser voice, and optional self-hosted GPU inference — no paid AI API key required.</p></div>
         <div className="mf-bar"><span className="mf-pill">API-key-free architecture</span></div>
       </div>
+      <section className="mf-card" style={{ marginBottom: 16 }}>
+        <h2 style={{ marginTop: 0 }}>Launch an avatar engine inside NKAI Studio</h2>
+        <p style={{ opacity: .75 }}>These controls switch between in-app experiences. They do not open an external website.</p>
+        <div className="mf-bar" style={{ flexWrap: "wrap" }}>
+          <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); setStatus("3D avatar viewer active"); }}>Launch 3D Avatar</button>
+          <button className="mf-ghost" type="button" onClick={() => { setModelError(false); setTalkingEnabled(true); setStatus("Starting TalkingHead lip-sync engine…"); }}>Launch TalkingHead Lip-Sync</button>
+          <button className="mf-ghost" type="button" onClick={() => { streamingContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); setStatus("Opening embedded LiveTalking workspace…"); }}>Launch LiveTalking Workspace</button>
+          <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI Ready" : "Launch Local AI"}</button>
+        </div>
+      </section>
       <div className="mf-grid two" style={{ alignItems: "start" }}>
         <section className="mf-card" style={{ minWidth: 0 }}>
           <div style={{ position: "relative", minHeight: 420, borderRadius: 16, overflow: "hidden", background: "radial-gradient(ellipse at 50% 35%, rgba(88,166,255,.22), rgba(7,12,25,.96) 72%)" }}>
@@ -486,7 +497,7 @@ export function OpenSourceAvatarPanel() {
             <button className="mf-ghost" type="button" onClick={() => void checkWorkerCapabilities()}>Check voice capabilities</button>
             <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
           </div>
-          <h3>Real-time avatar streaming</h3>
+          <div ref={streamingContainerRef} />\n          <h3>Real-time avatar streaming</h3>
           <p style={{ opacity: .75 }}>The streaming workspace is embedded in NKAI Studio. It connects only through the app's same-origin backend route; the GPU streaming service must be configured by the deployment operator. No third-party launch links are shown here.</p>
           <div style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, overflow: "hidden", background: "#101318", minHeight: 360 }}>
             <iframe title="NKAI real-time avatar streaming workspace" src="/api/livetalking/" style={{ width: "100%", minHeight: 360, height: 520, border: 0, background: "#101318" }} allow="camera; microphone; autoplay; fullscreen; display-capture" />
