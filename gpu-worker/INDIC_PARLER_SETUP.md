@@ -16,7 +16,7 @@ Accept the model conditions at https://huggingface.co/ai4bharat/indic-parler-tts
 export HF_TOKEN='your-hugging-face-read-token'
 export WORKER_API_TOKEN='a-long-random-worker-secret'
 export CORS_ORIGINS='https://YOUR-STUDIO-HOST'
-uvicorn gpu-worker.indic_parler_app:app --host 0.0.0.0 --port 7862
+cd gpu-worker && uvicorn indic_parler_app:app --host 0.0.0.0 --port 7862
 ```
 
 For a direct module launch from the `gpu-worker` directory, use `uvicorn indic_parler_app:app --host 0.0.0.0 --port 7862`.
