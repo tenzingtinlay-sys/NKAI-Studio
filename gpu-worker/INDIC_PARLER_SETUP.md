@@ -28,7 +28,7 @@ For a direct module launch from the `gpu-worker` directory, use `uvicorn indic_p
 - `POST /tts` accepts `{"text":"नमस्ते","language":"hi-IN"}` and returns base64 WAV audio.
 - `/chat` intentionally returns HTTP 501; configure a separate chat worker.
 
-In the Studio, add the worker's HTTPS endpoint ending in `/chat` to the endpoint list. The UI derives `/tts` for speech and sends the same `WORKER_API_TOKEN`. Put this worker ahead of MMS-TTS for Indian languages if you want to avoid MMS's CC-BY-NC model terms. OpenVoice can be first for English, Spanish, French, Chinese, Japanese and Korean.
+In the Studio, add the worker's HTTPS endpoint ending in `/chat` to the endpoint list. The UI derives `/tts` for speech and sends the same `WORKER_API_TOKEN`. A practical endpoint order is OpenVoice first, Indic Parler second, then your chat worker; add MMS-TTS only as a fallback if its CC-BY-NC model terms are acceptable for your use. OpenVoice handles English, Spanish, French, Chinese, Japanese and Korean; Indic Parler handles Indian languages. For chat requests, both TTS-only workers return HTTP 501 and the Studio continues to the chat worker.
 
 ## Model access, licence and runtime
 
