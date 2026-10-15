@@ -117,11 +117,12 @@ export function OpenSourceAvatarPanel() {
           cameraView: "full",
           cameraRotateEnable: true,
           cameraZoomEnable: true,
-          lipsyncModules: ["en"],
+          lipsyncModules: ["en", "de", "fr", "fi", "lt"],
           avatarMood: "neutral",
         }) as TalkingHeadApi;
         talkingHeadRef.current = head;
-        await head.showAvatar({ url: modelUrl, body: "M", lipsyncLang: "en", avatarMood: "neutral" });
+        const chosenAvatar = AVATARS.find((avatar) => avatar.url === modelUrl);
+        await head.showAvatar({ url: modelUrl, body: chosenAvatar?.body || "M", lipsyncLang: speechLanguage.startsWith("fr") ? "fr" : speechLanguage.startsWith("de") ? "de" : "en", avatarMood: "neutral" });
         if (cancelled) return;
         const tts = new ttsModule.HeadTTS({
           endpoints: ["webgpu", "wasm"],
@@ -158,7 +159,8 @@ export function OpenSourceAvatarPanel() {
 
   async function speak(text: string) {
     const tts = headTtsRef.current;
-    if (talkingReady && tts) {
+    const isEnglish = speechLanguage.toLowerCase().startsWith("en");
+    if (talkingReady && tts && isEnglish) {
       try {
         setStatus("Generating local neural speech with lip-sync…");
         await tts.synthesize({ input: text.slice(0, 500) });
@@ -173,7 +175,11 @@ export function OpenSourceAvatarPanel() {
     }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = useStudio.getState().settings.lang || "en-US";
+    utterance.lang = speechLanguage;
+    const voice = window.speechSynthesis.getVoices().find((item) => item.name === selectedVoice)
+      || window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase() === speechLanguage.toLowerCase())
+      || window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith(speechLanguage.slice(0, 2).toLowerCase()));
+    if (voice) utterance.voice = voice;
     utterance.rate = useStudio.getState().vp?.rate || 1;
     utterance.onstart = () => setStatus("Speaking · device/browser voice");
     utterance.onend = () => setStatus("Ready · 3D viewer remains active");
@@ -214,7 +220,7 @@ export function OpenSourceAvatarPanel() {
     setBusy(true);
     setStatus(workerUrl.trim() ? "Connecting to configured GPU worker…" : "No GPU worker configured · local fallback");
     let reply = "";
-    const endpoints = workerUrl.split(/[\n,]+/).map((url) => url.trim()).filter(Boolean);
+    const endpoints = orderedEndpoints;
     if (endpoints.length) {
       const failures: string[] = [];
       for (let index = 0; index < endpoints.length && !reply; index++) {
