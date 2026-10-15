@@ -116,7 +116,7 @@ export default defineEventHandler(async (event) => {
       headers,
       body,
       redirect: "manual",
-      signal: AbortSignal.timeout(suffix[0] === "chat" || suffix[0] === "tts" ? 120000 : 15000),
+      signal: AbortSignal.timeout(["chat", "stream", "tts"].includes(suffix[0]) ? 120000 : 15000),
     });
     const responseHeaders = new Headers();
     upstream.headers.forEach((value, name) => {
