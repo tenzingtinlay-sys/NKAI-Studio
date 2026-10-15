@@ -45,6 +45,17 @@ If running from the gpu-worker directory, use the equivalent module path support
 
 For the Studio router, configure this worker endpoint in the rotation list with a trailing /chat path, for example https://YOUR-OPENVOICE-HOST/chat. The app will try /chat for LLM responses (this worker returns HTTP 501) and then /tts for speech; configure your separate LLM endpoint as another rotation candidate. The request must explicitly confirm that the configured reference voice is authorized. The API token is required if WORKER_API_TOKEN is set.
 
+## Verify the deployed worker
+
+After starting the service and setting the same bearer token used by the Studio, run the standard-library smoke test from the repository root:
+
+\`\`\`bash
+WORKER_API_TOKEN='your-secret' python gpu-worker/smoke_test_openvoice.py https://YOUR-OPENVOICE-HOST
+WORKER_API_TOKEN='your-secret' python gpu-worker/smoke_test_openvoice.py https://YOUR-OPENVOICE-HOST --test-tts --consent-confirmed --language en-US --output test.wav
+\`\`\`
+
+The first command checks health and capabilities. The second synthesizes a short sample and validates the WAV header. The script does not upload a voice recording; it uses the reference audio already configured on your worker.
+
 ## Licensing and safety
 
 OpenVoice V1/V2 project code is MIT according to upstream. MeloTTS, checkpoints, dependencies and reference audio have separate terms; audit all of them before production. Do not clone a public figure, colleague, customer or other real person without permission. Add account-level consent records, retention controls and rate limits before exposing voice cloning to end users.
