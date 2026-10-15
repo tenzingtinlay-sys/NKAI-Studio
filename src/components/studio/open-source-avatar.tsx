@@ -61,6 +61,7 @@ type LocalGenerator = (messages: Array<{ role: "system" | "user" | "assistant"; 
 
 export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
+  const [localModelName, setLocalModelName] = useState("");
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
   const [neuralVoice, setNeuralVoice] = useState("am_fenrir");
   const [indicVoiceStyle, setIndicVoiceStyle] = useState("default");
@@ -89,8 +90,13 @@ export function OpenSourceAvatarPanel() {
   const talkingHeadRef = useRef<TalkingHeadApi | null>(null);
   const headTtsRef = useRef<HeadTTSApi | null>(null);
   const viewerRef = useRef<HTMLElement | null>(null);
+  const localModelUrlRef = useRef<string | null>(null);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const flash = useStudio((s) => s.flash);
+
+  useEffect(() => () => {
+    if (localModelUrlRef.current) URL.revokeObjectURL(localModelUrlRef.current);
+  }, []);
 
   useEffect(() => {
     if (document.querySelector('script[data-nkai-model-viewer="true"]')) return;
@@ -418,16 +424,21 @@ export function OpenSourceAvatarPanel() {
           </div>
           <label style={{ display: "block", marginTop: 16 }}><b>Choose avatar</b>
             <select value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} style={{ width: "100%", marginTop: 8 }}>
-              {AVATARS.map((avatar) => <option key={avatar.url} value={avatar.url}>{avatar.label}</option>)}
+              {AVATARS.map((avatar) => <option key={avatar.url} value={avatar.url} onClick={() => { if (localModelUrlRef.current) { URL.revokeObjectURL(localModelUrlRef.current); localModelUrlRef.current = null; } setLocalModelName(""); }}>{avatar.label}</option>)}
+              {localModelName && <option value={modelUrl}>{localModelName} · local GLB</option>}
             </select>
           </label>
           <label style={{ display: "block", marginTop: 16 }}><b>Rigged 3D model URL (GLB/GLTF)</b>
-            <input value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} placeholder="https://…/avatar.glb" style={{ width: "100%", marginTop: 8 }} />
+            <input value={modelUrl.startsWith("blob:") ? "" : modelUrl} onChange={(e) => { if (localModelUrlRef.current) { URL.revokeObjectURL(localModelUrlRef.current); localModelUrlRef.current = null; } setLocalModelName(""); setModelUrl(e.target.value); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} placeholder="https://…/avatar.glb" style={{ width: "100%", marginTop: 8 }} />
+          </label>
+          <label style={{ display: "block", marginTop: 14 }}><b>Load a local avatar file (GLB, up to 100 MB)</b>
+            <input type="file" accept=".glb,model/gltf-binary" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; if (!file.name.toLowerCase().endsWith(".glb") || file.size > 100 * 1024 * 1024) { flash("Choose a .glb file no larger than 100 MB."); e.currentTarget.value = ""; return; } if (localModelUrlRef.current) URL.revokeObjectURL(localModelUrlRef.current); const url = URL.createObjectURL(file); localModelUrlRef.current = url; setLocalModelName(file.name); setModelUrl(url); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} style={{ display: "block", width: "100%", marginTop: 8 }} />
+            <small style={{ opacity: .72 }}>Loaded in this browser session only; the file is not uploaded to the server or committed to Git. Use only models you are authorized to use.</small>
           </label>
           <small style={{ opacity: .72, display: "block", marginTop: 8 }}>The MPFB sample is intended as the redistribution-friendly starter; the local file is added by the asset download script. Avaturn, AvatarSDK and Brunette samples have non-commercial or CC BY-NC terms and must not be used commercially without a separate grant. English can use local neural HeadTTS; the GPU worker supplies the currently configured multilingual voices. Check docs/AI_AVATAR_ECOSYSTEM.md before redistribution.</small>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
             <button className="mf-ghost" type="button" onClick={() => { const el = viewerRef.current as (HTMLElement & { cameraOrbit?: string; jumpCameraToGoal?: () => void }) | null; if (el) { el.cameraOrbit = "0deg 75deg 2.5m"; el.jumpCameraToGoal?.(); } }}>Reset view</button>
-            <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; setModelUrl(DEFAULT_MODEL); setModelError(false); }}>Load sample model</button>
+            <button className="mf-ghost" type="button" onClick={() => { if (localModelUrlRef.current) { URL.revokeObjectURL(localModelUrlRef.current); localModelUrlRef.current = null; } setLocalModelName(""); setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; setModelUrl(DEFAULT_MODEL); setModelError(false); }}>Load sample model</button>
             <button className="mf-ghost" type="button" disabled={talkingEnabled} onClick={() => { setModelError(false); setTalkingEnabled(true); }}>Enable real lip-sync</button>
           </div>
         </section>
