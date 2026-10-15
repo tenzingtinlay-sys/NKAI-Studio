@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useStudio } from "@/lib/studio/store";
 
-const DEFAULT_MODEL =
-  "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avaturn.glb";
+const AVATARS = [
+  { label: "Avaturn · realistic", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avaturn.glb", body: "M" },
+  { label: "Avatar SDK · realistic", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avatarsdk.glb", body: "M" },
+  { label: "Brunette · female", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/brunette.glb", body: "F" },
+  { label: "VRoid · stylized", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/vroid.glb", body: "F" },
+];
+const DEFAULT_MODEL = AVATARS[0].url;
+const LANGUAGES = [
+  { label: "English (India)", code: "en-IN" }, { label: "English (US)", code: "en-US" },
+  { label: "Hindi", code: "hi-IN" }, { label: "Tamil", code: "ta-IN" }, { label: "Telugu", code: "te-IN" },
+  { label: "Bengali", code: "bn-IN" }, { label: "Marathi", code: "mr-IN" }, { label: "Punjabi", code: "pa-IN" },
+  { label: "Kannada", code: "kn-IN" }, { label: "Malayalam", code: "ml-IN" },
+  { label: "French", code: "fr-FR" }, { label: "German", code: "de-DE" }, { label: "Spanish", code: "es-ES" },
+];
 const DEFAULT_GREETING =
   "Hi, I’m your NKAI avatar. Connect an open-source model worker to enable generated conversations, or use browser voice with the local demo.";
 
