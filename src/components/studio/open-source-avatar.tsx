@@ -142,10 +142,9 @@ export function OpenSourceAvatarPanel() {
   const activeRotation = rotationEntries[activeRotationIndex];
   const rotationElapsedInSlot = activeRotationIndex < 0 ? 0 : rotationPosition - (rotationCursor - rotationEntries[activeRotationIndex].hours * 3600000);
   const rotationRemainingMs = activeRotationIndex < 0 ? 0 : rotationEntries[activeRotationIndex].hours * 3600000 - rotationElapsedInSlot;
-  const configuredRotationUrls = rotationEntries.filter((entry) => entry.url).map((entry) => entry.url);
-  const orderedEndpoints = rotationEnabled
-    ? [...(activeRotation?.url ? [activeRotation.url] : []), ...configuredRotationUrls.filter((url) => url !== activeRotation?.url), ...workerUrl.split(/[\n,]+/).map((url) => url.trim()).filter((url) => url && url !== activeRotation?.url && !configuredRotationUrls.includes(url))]
-    : workerUrl.split(/[\n,]+/).map((url) => url.trim()).filter(Boolean);
+  // All inference calls stay on the NKAI Studio origin. The server selects the
+  // private worker using AI_WORKER_INTERNAL_URL; no public worker URL/token is exposed.
+  const orderedEndpoints = ["/api/ai/chat"];
 
   useEffect(() => {
     if (!talkingEnabled || !talkingContainerRef.current || talkingHeadRef.current) return;
@@ -212,12 +211,12 @@ export function OpenSourceAvatarPanel() {
     // to be used instead of silently bypassing them when local English TTS is ready.
     for (const candidate of orderedEndpoints) {
       try {
-        const endpoint = new URL(candidate);
+        const endpoint = new URL(candidate, window.location.origin);
         endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/tts";
         endpoint.search = "";
         const response = await fetch(endpoint.toString(), {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage, consent_confirmed: voiceConsent, voice: indicVoiceStyle === "default" ? undefined : indicVoiceStyle }),
         });
         if (!response.ok) continue;
@@ -296,7 +295,7 @@ export function OpenSourceAvatarPanel() {
         endpoint.search = "";
         const response = await fetch(endpoint.toString(), {
           method: "GET",
-          headers: workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {},
+          headers: {},
         });
         if (!response.ok) continue;
         const data = await response.json() as {
@@ -350,7 +349,7 @@ export function OpenSourceAvatarPanel() {
     setTurns(history);
     setDraft("");
     setBusy(true);
-    setStatus(workerUrl.trim() ? "Connecting to configured GPU worker…" : "No GPU worker configured · local fallback");
+    setStatus("Connecting to NKAI private inference worker…");
     let reply = "";
     const endpoints = orderedEndpoints;
     if (endpoints.length) {
@@ -366,7 +365,7 @@ export function OpenSourceAvatarPanel() {
           try {
             const response = await fetch(endpoint.toString(), {
               method: "POST",
-              headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ message: prompt, language: speechLanguage, history: history.slice(0, -1).slice(-10), app: "NKAI-Studio" }),
               signal: controller.signal,
             });
@@ -402,7 +401,7 @@ export function OpenSourceAvatarPanel() {
     }
     if (!reply) {
       reply = localReply(prompt);
-      if (workerUrl.trim()) reply = "GPU workers are unavailable and the local AI model is not ready, so I switched to the built-in offline conversation fallback. " + reply;
+      if (!localModelReady) reply = "NKAI private AI worker is unavailable and the local AI model is not ready. This is an offline fallback, not a generated AI answer. " + reply;
     }
     setTurns([...history, { role: "assistant", text: reply }]);
     setBusy(false);
@@ -515,32 +514,20 @@ export function OpenSourceAvatarPanel() {
             <input type="checkbox" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} style={{ marginTop: 2 }} />
             <span>I own or have permission to use the configured reference voice for voice cloning. Required only for OpenVoice voice-cloning workers.</span>
           </label>
-          <h3>GPU platform rotation</h3>
-          <p style={{ opacity: .75 }}>The scheduler selects a configured platform slot by elapsed time and tries that endpoint first, then other configured workers. It cannot start or wake a notebook session.</p>
-          <label><b>Platform schedule (one line: platform | hours | HTTPS /chat URL)</b>
-            <textarea value={rotationPlan} onChange={(e) => setRotationPlan(e.target.value)} placeholder={"Lightning AI|4|https://.../chat\nKaggle|12|https://.../chat"} style={{ width: "100%", minHeight: 110, marginTop: 8 }} />
-          </label>
-          <div className="mf-bar" style={{ alignItems: "center", marginTop: 8 }}>
-            <button className="mf-ghost" type="button" onClick={() => { setRotationStartedAt(Date.now()); setRotationNow(Date.now()); }}>Restart rotation clock</button>
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={rotationEnabled} onChange={(e) => setRotationEnabled(e.target.checked)} /> Enable timed rotation</label>
+          <h3>Private inference worker</h3>
+          <p style={{ opacity: .75 }}>Chat, speech generation, health checks and capability discovery use NKAI Studio's own backend routes. Private worker URLs and access tokens stay on the server; no external worker website is opened from this panel.</p>
+          <div className="mf-bar" style={{ marginTop: 10, marginBottom: 14 }}>
+            <button className="mf-ghost" type="button" onClick={async () => { setStatus("Checking NKAI private inference worker…"); try { const response = await fetch("/api/ai/health", { cache: "no-store" }); const data = await response.json() as { status?: string; model?: string; error?: string }; if (!response.ok) throw new Error(data.error || "HTTP " + response.status); setStatus("Private worker " + (data.status || "reachable") + (data.model ? " · " + data.model : "")); } catch (error) { setStatus("Private AI worker unavailable · " + (error instanceof Error ? error.message : "check server configuration")); } }}>Check connection</button>
+            <button className="mf-ghost" type="button" onClick={() => void checkWorkerCapabilities()}>Check voice capabilities</button>
+            <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
           </div>
-          <small style={{ opacity: .75, display: "block", marginBottom: 12 }}>{activeRotation ? "Scheduled slot: " + activeRotation.platform + " · " + Math.ceil(rotationRemainingMs / 60000) + " min remaining · " + (activeRotation.url ? "endpoint configured" : "waiting for endpoint URL") : "Add platform schedule entries to enable rotation."} Colab is excluded as a web-service worker because its free-tier rules prohibit offering web services. ZeroGPU is limited to about 5 GPU minutes/day on free accounts. Kaggle session and weekly quotas may prevent a daily 12-hour slot; confirm your current quota and permitted networking. Lightning AI free Studios restart every 4 hours.</small>
           <h3>Real-time avatar streaming</h3>
           <p style={{ opacity: .75 }}>The streaming workspace is embedded in NKAI Studio. It connects only through the app's same-origin backend route; the GPU streaming service must be configured by the deployment operator. No third-party launch links are shown here.</p>
           <div style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, overflow: "hidden", background: "#101318", minHeight: 360 }}>
             <iframe title="NKAI real-time avatar streaming workspace" src="/api/livetalking/" style={{ width: "100%", minHeight: 360, height: 520, border: 0, background: "#101318" }} allow="camera; microphone; autoplay; fullscreen; display-capture" />
           </div>
           <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>If the stream workspace is unavailable, configure LIVETALKING_INTERNAL_URL on the backend and deploy the LiveTalking GPU service with its model checkpoints and permitted WebRTC network ports. Browser build success alone does not mean a GPU stream is online.</small>
-          <h3>GPU worker connection</h3>
-          <p style={{ opacity: .75 }}>Paste one or more HTTPS endpoints of your own open-source inference workers, one per line in failover priority order. Each worker should accept POST JSON with <code>message</code> and <code>history</code>, then return JSON containing <code>reply</code>. No provider API key is used by this UI.</p>
-          <label><b>Worker endpoint URLs (priority order)</b><textarea value={workerUrl} onChange={(e) => setWorkerUrl(e.target.value)} placeholder={"https://primary-worker.example/chat\nhttps://backup-worker.example/chat"} style={{ width: "100%", marginTop: 8, minHeight: 84 }} /></label><small style={{ opacity: .72 }}>Enter one HTTPS /chat endpoint per line, in priority order. The app tries each live worker before switching to the local fallback.</small>
-          <label style={{ display: "block", marginTop: 10 }}><b>Optional worker access token</b><input type="password" autoComplete="off" value={workerToken} onChange={(e) => setWorkerToken(e.target.value)} placeholder="Only if WORKER_API_TOKEN is configured" style={{ width: "100%", marginTop: 8 }} /><small style={{ opacity: .72 }}>Kept in this page memory only; it is not saved to local storage.</small></label>
-          <div className="mf-bar" style={{ marginTop: 10 }}>
-            <button className="mf-ghost" type="button" onClick={() => { setWorkerUrl(""); setWorkerToken(""); setStatus(localModelReady ? "Local open-source AI selected" : "Local fallback selected"); }}>Use local fallback</button>
-            <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
-            <button className="mf-ghost" type="button" onClick={async () => { const urls = orderedEndpoints; if (!urls.length) { flash("Enter at least one worker URL first."); return; } setStatus("Checking workers in priority order…"); let found = false; for (let i = 0; i < urls.length; i++) { try { const u = new URL(urls[i]); const health = new URL(u.toString()); health.pathname = health.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/health"; health.search = ""; const controller = new AbortController(); const timeout = window.setTimeout(() => controller.abort(), 8000); try { const res = await fetch(health, { method: "GET", signal: controller.signal }); if (res.ok) { const data = await res.json() as { status?: string; model?: string; provider?: string; device?: string; referenceAudioConfigured?: boolean }; const state = data.status || "reachable"; const provider = data.model || data.provider || ""; setStatus(`Worker ${i + 1}/${urls.length} reachable · ${state}${provider ? ` · ${provider}` : ""}${data.device ? ` · ${data.device}` : ""}`); found = true; break; } } finally { window.clearTimeout(timeout); } } catch { /* try the next configured worker */ } } if (!found) setStatus("No health endpoint responded. Check the worker URL, HTTPS, and CORS."); }}>Check connection</button>
-            <button className="mf-ghost" type="button" onClick={() => void checkWorkerCapabilities()}>Check voice capabilities</button>
-          </div>
+          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>If the private worker is offline, browser-local Qwen can answer after you load it. Browser speech synthesis is a device fallback and does not guarantee a neural voice for every language.</small>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
             {turns.map((turn, i) => <div key={i} style={{ alignSelf: turn.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%", padding: "10px 12px", borderRadius: 12, background: turn.role === "user" ? "rgba(88,166,255,.18)" : "rgba(127,127,127,.12)" }}><small style={{ display: "block", opacity: .7, marginBottom: 4 }}>{turn.role === "user" ? "You" : "NKAI Avatar"}</small><span>{turn.text}</span></div>)}
           </div>
