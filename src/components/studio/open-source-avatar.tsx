@@ -231,8 +231,17 @@ export function OpenSourceAvatarPanel() {
             void audioContext.close();
           }
         } else {
-          const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" })));
-          await audio.play();
+          const objectUrl = URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" }));
+          const audio = new Audio(objectUrl);
+          const revokeAudioUrl = () => URL.revokeObjectURL(objectUrl);
+          audio.addEventListener("ended", revokeAudioUrl, { once: true });
+          audio.addEventListener("error", revokeAudioUrl, { once: true });
+          try {
+            await audio.play();
+          } catch (error) {
+            revokeAudioUrl();
+            throw error;
+          }
         }
         setStatus("Neural speech · " + (data.provider || "worker") + " · " + candidate);
         return;
