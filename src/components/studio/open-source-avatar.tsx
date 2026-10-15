@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useStudio } from "@/lib/studio/store";
+import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
 
 const AVATARS = [
   { label: "MPFB sample · verify licence/rig", url: "/assets/avatars/mpfb.glb", body: "M" },
@@ -531,12 +532,13 @@ export function OpenSourceAvatarPanel() {
             <button className="mf-ghost" type="button" onClick={() => void checkWorkerCapabilities()}>Check voice capabilities</button>
             <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
           </div>
-          <div ref={streamingContainerRef} />\n          <h3>Real-time avatar streaming</h3>
-          <p style={{ opacity: .75 }}>The streaming workspace is embedded in NKAI Studio. It connects only through the app's same-origin backend route; the GPU streaming service must be configured by the deployment operator. No third-party launch links are shown here.</p>
-          <div style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, overflow: "hidden", background: "#101318", minHeight: 360 }}>
-            <iframe title="NKAI real-time avatar streaming workspace" src="/api/livetalking/" style={{ width: "100%", minHeight: 360, height: 520, border: 0, background: "#101318" }} allow="camera; microphone; autoplay; fullscreen; display-capture" />
+          <div ref={streamingContainerRef} />
+          <h3>Real-time avatar streaming</h3>
+          <p style={{ opacity: .75 }}>This native panel negotiates WebRTC and sends speech commands through NKAI Studio's same-origin backend. It does not open the upstream LiveTalking website.</p>
+          <div style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, padding: 14, background: "#101318", minHeight: 360 }}>
+            <LiveTalkingNativePanel />
           </div>
-          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>If the stream workspace is unavailable, configure LIVETALKING_INTERNAL_URL on the backend and deploy the LiveTalking GPU service with its model checkpoints and permitted WebRTC network ports. Browser build success alone does not mean a GPU stream is online.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Configure LIVETALKING_INTERNAL_URL on the backend and deploy the open-source LiveTalking GPU service with compatible model checkpoints and reachable WebRTC media ports. Browser build success alone does not mean a GPU stream is online.</small>
           <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>If the private worker is offline, browser-local Qwen can answer after you load it. Browser speech synthesis is a device fallback and does not guarantee a neural voice for every language.</small>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
             {turns.map((turn, i) => <div key={i} style={{ alignSelf: turn.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%", padding: "10px 12px", borderRadius: 12, background: turn.role === "user" ? "rgba(88,166,255,.18)" : "rgba(127,127,127,.12)" }}><small style={{ display: "block", opacity: .7, marginBottom: 4 }}>{turn.role === "user" ? "You" : "NKAI Avatar"}</small><span>{turn.text}</span></div>)}
