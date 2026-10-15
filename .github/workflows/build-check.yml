@@ -45,6 +45,20 @@ jobs:
         run: |
           node -e "JSON.parse(require('node:fs').readFileSync('src/data/avatar-catalog.json', 'utf8'))"
           node -e "JSON.parse(require('node:fs').readFileSync('vercel.json', 'utf8'))"
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import textwrap
+
+          workflow_path = Path(".github/workflows/deploy-huggingface-space.yml")
+          workflow = workflow_path.read_text(encoding="utf-8")
+          match = re.search(r"(?m)^          python - <<'PY'\n(.*?)^          PY$", workflow, re.DOTALL)
+          if not match:
+              raise SystemExit("Could not locate embedded Hugging Face deployment script.")
+          source = textwrap.dedent(match.group(1))
+          compile(source, str(workflow_path) + "::embedded-python", "exec")
+          print("Hugging Face deployment script syntax is valid.")
+          PY
 
       - name: TypeScript check
         run: npm run typecheck
