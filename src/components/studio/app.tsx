@@ -90,7 +90,7 @@ export function StudioApp() {
           <div className="mf-mark">
             <i />
           </div>
-          MediaForge
+          NKAI Studio
         </div>
         <div className="mf-crumbs">
           <span>Projects</span>
