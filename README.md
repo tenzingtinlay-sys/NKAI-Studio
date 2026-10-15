@@ -33,6 +33,7 @@ npm run build
 ## Avatar assets and model licences
 
 - Run `npm run assets:download` to download the approved MPFB starter avatar into `public/assets/avatars/` and write its SHA-256 provenance record. CI runs this step before building.
+- Run `npm run assets:rocketbox` to download Microsoft's MIT-licensed Rocketbox collection into `downloads/third-party/Microsoft-Rocketbox/`. It contains FBX assets rather than browser-ready GLB files; convert selected characters with Blender before adding them to the app. The collection is ignored by Git so large binaries are not committed.
 - Review the [AI avatar ecosystem and build blueprint](docs/AI_AVATAR_ECOSYSTEM.md), [product parity matrix](docs/PRODUCT_PARITY_MATRIX.md), and [avatar/voice registry](src/data/avatar-catalog.json) before bundling or redistributing assets.
 - Optional multilingual voice cloning worker: [OpenVoice V2 setup](gpu-worker/OPENVOICE_SETUP.md). It requires its own model checkpoints and an authorized reference voice recording; it is not automatically installed with the default worker.
 - The TalkingHead library is MIT, but its sample avatars do not all share that licence. Some examples are non-commercial or CC BY-NC. Do not bundle them in a commercial app without permission.
