@@ -1,0 +1,32 @@
+FROM python:3.9-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    OPENVOICE_ROOT=/opt/OpenVoice \
+    OPENVOICE_CHECKPOINT_ROOT=/opt/OpenVoice/checkpoints_v2 \
+    DOWNLOAD_OPENVOICE_CHECKPOINTS=true
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl git unzip ffmpeg libsndfile1 espeak-ng build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt
+RUN git clone --depth 1 https://github.com/myshell-ai/OpenVoice.git /opt/OpenVoice
+
+# CUDA 11.8 wheel: GPU inference works when the host has a compatible NVIDIA driver
+# and the container is started with NVIDIA Container Toolkit. CPU fallback remains possible.
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && python -m pip install torch==2.1.2 --index-url https://download.pytorch.org/whl/cu118 \
+    && python -m pip install -e /opt/OpenVoice \
+    && python -m pip install git+https://github.com/myshell-ai/MeloTTS.git \
+    && python -m unidic download
+
+WORKDIR /app/gpu-worker
+COPY gpu-worker/openvoice_app.py /app/gpu-worker/openvoice_app.py
+COPY gpu-worker/download_openvoice_checkpoints.sh /app/gpu-worker/download_openvoice_checkpoints.sh
+COPY gpu-worker/start-openvoice-container.sh /app/gpu-worker/start-openvoice-container.sh
+RUN chmod +x /app/gpu-worker/*.sh
+
+EXPOSE 7861
+CMD ["/app/gpu-worker/start-openvoice-container.sh"]
