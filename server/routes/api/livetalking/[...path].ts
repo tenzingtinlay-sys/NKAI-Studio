@@ -27,6 +27,13 @@ export default defineEventHandler(async (event) => {
     const upstream = await fetch(target, { method, headers, body, redirect: "manual", signal: AbortSignal.timeout(120000) });
     const responseHeaders = new Headers();
     upstream.headers.forEach((value, name) => { if (!HOP_BY_HOP.has(name.toLowerCase()) && name.toLowerCase() !== "content-length") responseHeaders.set(name, value); });
+    const contentType = upstream.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      let html = await upstream.text();
+      html = html.replaceAll('src="/', 'src="/api/livetalking/').replaceAll('href="/', 'href="/api/livetalking/').replaceAll('action="/', 'action="/api/livetalking/');
+      responseHeaders.set("content-type", "text/html; charset=utf-8");
+      return new Response(html, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
+    }
     return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
   } catch (error) {
     setResponseStatus(event, 502);
