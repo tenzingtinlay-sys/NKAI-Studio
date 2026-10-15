@@ -20,7 +20,7 @@ const DEFAULT_GREETING =
 type Turn = { role: "user" | "assistant"; text: string };
 type TalkingHeadApi = { showAvatar: (avatar: { url: string; body?: string; lipsyncLang?: string; avatarMood?: string }) => Promise<void>; speakAudio: (audio: unknown, options?: object, onSubtitles?: (word: string) => void) => void };
 type HeadTTSApi = { connect: () => Promise<void>; setup: (options: object) => Promise<void>; synthesize: (options: { input: string }) => Promise<unknown>; onmessage?: ((message: { type: string; data: unknown }) => void) | null; onerror?: ((error: unknown) => void) | null };
-type LocalGenerator = (messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, options: { max_new_tokens: number; do_sample: boolean; temperature: number }) => Promise<Array<{ generated_text?: string | Array<{ role: string; content: string }> }>>;
+type LocalGenerator = (messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, options: { max_new_tokens: number; do_sample: boolean; temperature: number; return_full_text: boolean }) => Promise<Array<{ generated_text?: string | Array<{ role: string; content: string }> }>>;
 
 export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
@@ -294,7 +294,7 @@ export function OpenSourceAvatarPanel() {
           { role: "system" as const, content: "You are NKAI Studio's practical, friendly AI avatar. Give useful, direct answers. Reply in " + (LANGUAGES.find((item) => item.code === speechLanguage)?.label || speechLanguage) + " unless the user explicitly asks for another language." },
           ...history.slice(-10).map((turn) => ({ role: turn.role, content: turn.text })),
         ];
-        const generated = await localGeneratorRef.current(messages, { max_new_tokens: 180, do_sample: true, temperature: 0.7 });
+        const generated = await localGeneratorRef.current(messages, { max_new_tokens: 180, do_sample: true, temperature: 0.7, return_full_text: false });
         const value = generated[0]?.generated_text;
         if (typeof value === "string") reply = value;
         else if (Array.isArray(value)) reply = value.filter((item) => item.role === "assistant").map((item) => item.content).filter(Boolean).at(-1) || "";
