@@ -29,7 +29,7 @@ export function OpenSourceAvatarPanel() {
   const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
   const [selectedVoice, setSelectedVoice] = useState("");
   const [rotationPlan, setRotationPlan] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation-v2") || "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } catch { return "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } });
-  const [rotationEnabled, setRotationEnabled] = useState(true);
+  const [rotationEnabled, setRotationEnabled] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation-enabled-v2") !== "false"; } catch { return true; } });
   const [rotationNow, setRotationNow] = useState(Date.now());
   const [rotationStartedAt, setRotationStartedAt] = useState(() => { try { const saved = Number(localStorage.getItem("nkai-platform-rotation-v2-start")); return saved > 0 ? saved : Date.now(); } catch { return Date.now(); } });
   const [workerUrl, setWorkerUrl] = useState(() => {
@@ -81,6 +81,10 @@ export function OpenSourceAvatarPanel() {
   useEffect(() => {
     try { localStorage.setItem("nkai-platform-rotation-v2", rotationPlan); localStorage.setItem("nkai-platform-rotation-v2-start", String(rotationStartedAt)); } catch { /* storage may be blocked */ }
   }, [rotationPlan, rotationStartedAt]);
+
+  useEffect(() => {
+    try { localStorage.setItem("nkai-platform-rotation-enabled-v2", String(rotationEnabled)); } catch { /* storage may be blocked */ }
+  }, [rotationEnabled]);
 
   useEffect(() => { const timer = window.setInterval(() => setRotationNow(Date.now()), 30000); return () => window.clearInterval(timer); }, []);
 
