@@ -1,0 +1,54 @@
+name: Deploy NKAI Studio to Hugging Face Spaces
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout NKAI Studio
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Hugging Face Hub client
+        run: python -m pip install --upgrade huggingface_hub
+      - name: Upload app to the configured Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE_ID" ]; then
+            echo "::error::Configure repository secrets HF_TOKEN and HF_SPACE_ID first."
+            exit 1
+          fi
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+          token = os.environ["HF_TOKEN"]
+          repo_id = os.environ["HF_SPACE_ID"]
+          if "/" not in repo_id or len(repo_id.split("/")) != 2:
+              raise SystemExit("HF_SPACE_ID must be the owner/space-name of an existing Space.")
+          api = HfApi(token=token)
+          info = api.repo_info(repo_id=repo_id, repo_type="space")
+          if info is None:
+              raise SystemExit("Hugging Face Space was not found or token lacks access.")
+          api.upload_folder(
+              repo_id=repo_id,
+              repo_type="space",
+              folder_path=".",
+              ignore_patterns=[
+                  ".git/**", ".github/**", "node_modules/**", ".output/**",
+                  "downloads/**", "openvoice-checkpoints/**", "voice-secrets/**",
+                  ".env", ".env.*", "!.env.example", "*.log", "coverage/**",
+              ],
+              commit_message="Deploy NKAI Studio from GitHub Actions",
+              token=token,
+          )
+          print(f"Uploaded source to Hugging Face Space {repo_id}. Check the Space build logs for deployment status.")
+          PY
