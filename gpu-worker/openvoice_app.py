@@ -5,6 +5,7 @@ OPENVOICE_SETUP.md. Use only a reference recording you own or have explicit
 permission to use for voice conversion.
 """
 import base64
+import gc
 import hmac
 import io
 import os
@@ -49,6 +50,9 @@ app.add_middleware(
 converter = None
 target_speaker_embedding = None
 startup_error = None
+melo_tts_model = None
+melo_tts_language = None
+source_embedding_cache = {}
 converter_lock = Lock()
 generation_lock = Lock()
 
@@ -154,11 +158,24 @@ def synthesize(request: TTSRequest, authorization: str | None = Header(default=N
         raise HTTPException(status_code=400, detail="Text is required.")
     try:
         from melo.api import TTS
+        global melo_tts_model, melo_tts_language
         with generation_lock, tempfile.TemporaryDirectory(prefix="nkai-openvoice-") as temp:
             temp_dir = Path(temp)
             source_path = temp_dir / "source.wav"
             output_path = temp_dir / "output.wav"
-            tts_model = TTS(language=language, device=DEVICE)
+            # Keep only the active language's MeloTTS model resident. Reusing it
+            # avoids reloading model weights for every message without filling a
+            # small free GPU with six language models at once.
+            if melo_tts_model is None or melo_tts_language != language:
+                if melo_tts_model is not None:
+                    del melo_tts_model
+                    melo_tts_model = None
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                melo_tts_model = TTS(language=language, device=DEVICE)
+                melo_tts_language = language
+            tts_model = melo_tts_model
             speaker_ids = tts_model.hps.data.spk2id
             if not speaker_ids:
                 raise HTTPException(status_code=500, detail=f"No base speaker found for {language}.")
@@ -167,7 +184,11 @@ def synthesize(request: TTSRequest, authorization: str | None = Header(default=N
             source_embedding_path = CHECKPOINT_ROOT / "base_speakers" / "ses" / f"{speaker_key}.pth"
             if not source_embedding_path.is_file():
                 raise HTTPException(status_code=503, detail=f"Missing source speaker embedding: {source_embedding_path.name}")
-            source_embedding = torch.load(source_embedding_path, map_location=DEVICE, weights_only=False)
+            embedding_key = str(source_embedding_path)
+            source_embedding = source_embedding_cache.get(embedding_key)
+            if source_embedding is None:
+                source_embedding = torch.load(source_embedding_path, map_location=DEVICE, weights_only=False)
+                source_embedding_cache[embedding_key] = source_embedding
             tts_model.tts_to_file(text, speaker_id, str(source_path), speed=1.0)
             converter.convert(
                 audio_src_path=str(source_path),
