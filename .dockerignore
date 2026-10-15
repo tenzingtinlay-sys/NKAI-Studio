@@ -1,0 +1,15 @@
+# Keep local secrets, private voice recordings, and large model/assets out of Docker build contexts.
+.git
+node_modules
+dist
+.env
+.env.*
+!.env.example
+voice-secrets/
+openvoice-checkpoints/
+OpenVoice/
+downloads/third-party/
+public/assets/avatars/*.glb
+**/__pycache__/
+**/*.pyc
+.vercel/
