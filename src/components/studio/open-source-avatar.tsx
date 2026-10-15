@@ -292,7 +292,7 @@ export function OpenSourceAvatarPanel() {
       try {
         setStatus("Generating with local open-source model in this browser…");
         const messages = [
-          { role: "system" as const, content: "You are NKAI Studio's practical, friendly AI avatar. Give useful, direct answers." },
+          { role: "system" as const, content: "You are NKAI Studio's practical, friendly AI avatar. Give useful, direct answers. Reply in " + (LANGUAGES.find((item) => item.code === speechLanguage)?.label || speechLanguage) + " unless the user explicitly asks for another language." },
           ...history.slice(-10).map((turn) => ({ role: turn.role, content: turn.text })),
         ];
         const generated = await localGeneratorRef.current(messages, { max_new_tokens: 180, do_sample: true, temperature: 0.7 });
@@ -325,7 +325,7 @@ export function OpenSourceAvatarPanel() {
     if (recognitionRef.current) { recognitionRef.current.stop(); recognitionRef.current = null; return; }
     if (!Ctor) { flash("Voice input is not supported here. Type your message instead."); return; }
     const mic = new Ctor();
-    mic.lang = useStudio.getState().settings.lang || "en-US";
+    mic.lang = speechLanguage;
     mic.interimResults = false;
     mic.onresult = (event) => { const text = event.results[0]?.[0]?.transcript || ""; recognitionRef.current = null; if (text) void send(text); };
     mic.onerror = () => { recognitionRef.current = null; flash("Microphone failed. Check permission and try again."); };
