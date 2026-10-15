@@ -126,7 +126,7 @@ def capabilities():
     return {
         "tts": {
             "provider": "Indic Parler-TTS",
-            "ready": model is not None,
+            "ready": model is not None and tokenizer is not None and description_tokenizer is not None and (bool(WORKER_API_TOKEN) or ALLOW_UNAUTHENTICATED_LOCAL),
             "languages": [{"code": key, "label": value[0], "defaultVoice": value[1]} for key, value in LANGUAGES.items()],
             "voiceCloning": False,
             "license": "Apache-2.0 model card; gated access requires accepting the model conditions. Audit dependencies and model terms.",
