@@ -1,10 +1,11 @@
 import os
 from threading import Lock
+import hmac
 
 import torch
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen2.5-1.5B-Instruct")
@@ -21,7 +22,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 tokenizer = None
@@ -31,7 +32,7 @@ generation_lock = Lock()
 
 class ChatRequest(BaseModel):
     message: str
-    history: list[dict[str, str]] = []
+    history: list[dict[str, str]] = Field(default_factory=list)
 
 
 def load_model():
@@ -61,7 +62,12 @@ def health():
 
 
 @app.post("/chat")
-def chat(request: ChatRequest):
+def chat(request: ChatRequest, authorization: str | None = Header(default=None)):
+    expected_token = os.getenv("WORKER_API_TOKEN", "").strip()
+    if expected_token:
+        supplied_token = authorization.removeprefix("Bearer ").strip() if authorization else ""
+        if not hmac.compare_digest(supplied_token, expected_token):
+            raise HTTPException(status_code=401, detail="Invalid or missing worker token")
     if not request.message.strip():
         return {"reply": "Please enter a message so I can help."}
 
