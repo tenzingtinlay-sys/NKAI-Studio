@@ -161,7 +161,7 @@ export function OpenSourceAvatarPanel() {
 
   async function speak(text: string) {
     const tts = headTtsRef.current;
-    if (!speechLanguage.toLowerCase().startsWith("en") || !(talkingReady && tts)) {
+    if (speechLanguage.toLowerCase() !== "en-us" || !(talkingReady && tts)) {
       for (const candidate of orderedEndpoints) {
         try {
           const endpoint = new URL(candidate);
@@ -193,7 +193,7 @@ export function OpenSourceAvatarPanel() {
       }
       setStatus("Multilingual worker TTS unavailable · using installed browser voice");
     }
-    const isEnglish = speechLanguage.toLowerCase().startsWith("en");
+    const isEnglish = speechLanguage.toLowerCase() === "en-us";
     if (talkingReady && tts && isEnglish) {
       try {
         setStatus("Generating local neural speech with lip-sync…");
