@@ -1,14 +1,16 @@
 import os
-from threading import Lock
+from threading import Lock, Thread
 import hmac
 import base64
 import io
+import json
 
 import torch
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from transformers import AutoModelForCausalLM, AutoTokenizer, VitsModel
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer, VitsModel
 
 MODEL_ID = os.getenv("MODEL_ID", "Qwen/Qwen2.5-1.5B-Instruct")
 MAX_NEW_TOKENS = int(os.getenv("MAX_NEW_TOKENS", "240"))
@@ -142,6 +144,76 @@ def chat(request: ChatRequest, authorization: str | None = Header(default=None))
         )
         answer = tokenizer.decode(output[0][inputs.shape[-1]:], skip_special_tokens=True).strip()
     return {"reply": answer or "I couldn't form a response. Please try asking another way."}
+
+
+@app.post("/chat/stream")
+def chat_stream(request: ChatRequest, authorization: str | None = Header(default=None)):
+    """Stream generated text as server-sent events (SSE), one token chunk at a time."""
+    expected_token = os.getenv("WORKER_API_TOKEN", "").strip()
+    if expected_token:
+        supplied_token = authorization.removeprefix("Bearer ").strip() if authorization else ""
+        if not hmac.compare_digest(supplied_token, expected_token):
+            raise HTTPException(status_code=401, detail="Invalid or missing worker token")
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message is required")
+
+    language_names = {
+        "en": "English", "hi": "Hindi", "ta": "Tamil", "te": "Telugu",
+        "bn": "Bengali", "mr": "Marathi", "pa": "Punjabi", "kn": "Kannada",
+        "ml": "Malayalam", "fr": "French", "de": "German", "es": "Spanish",
+        "zh": "Chinese", "ja": "Japanese", "ko": "Korean", "as": "Assamese",
+        "gu": "Gujarati", "or": "Odia", "ur": "Urdu", "ne": "Nepali",
+        "sa": "Sanskrit", "brx": "Bodo", "doi": "Dogri", "kok": "Konkani",
+        "mai": "Maithili", "mni": "Manipuri", "sat": "Santali", "sd": "Sindhi",
+    }
+    language = request.language.lower()
+    language_name = language_names.get(language) or language_names.get(language.split("-")[0], "the user's language")
+    messages = [{"role": "system", "content": SYSTEM_PROMPT + f" Reply in {language_name} unless the user explicitly asks for another language."}]
+    for item in request.history[-10:]:
+        role = item.get("role")
+        content = item.get("text") or item.get("content") or ""
+        if role in ("user", "assistant") and content.strip():
+            messages.append({"role": role, "content": content[:2500]})
+    messages.append({"role": "user", "content": request.message[:2500]})
+
+    inputs = tokenizer.apply_chat_template(
+        messages, tokenize=True, add_generation_prompt=True, return_tensors="pt"
+    )
+    if hasattr(inputs, "to"):
+        inputs = inputs.to(model.device)
+    streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
+    generation_errors: list[str] = []
+
+    def generate():
+        try:
+            with generation_lock, torch.inference_mode():
+                model.generate(
+                    inputs, streamer=streamer, max_new_tokens=MAX_NEW_TOKENS,
+                    do_sample=True, temperature=0.7, top_p=0.9,
+                    pad_token_id=tokenizer.eos_token_id,
+                )
+        except Exception as exc:
+            generation_errors.append(str(exc)[:300])
+            streamer.end()
+
+    def events():
+        thread = Thread(target=generate, daemon=True)
+        thread.start()
+        try:
+            for chunk in streamer:
+                if chunk:
+                    yield "data: " + json.dumps({"token": chunk}, ensure_ascii=False) + "\n\n"
+            if generation_errors:
+                yield "data: " + json.dumps({"error": "Generation failed: " + generation_errors[0]}) + "\n\n"
+            yield "data: [DONE]\n\n"
+        finally:
+            if thread.is_alive():
+                thread.join(timeout=0.1)
+
+    return StreamingResponse(
+        events(), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/tts")
