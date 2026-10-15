@@ -365,7 +365,7 @@ export function OpenSourceAvatarPanel() {
             </select>
           </label>
           <label style={{ display: "block", marginTop: 16 }}><b>Rigged 3D model URL (GLB/GLTF)</b>
-            <input value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); }} placeholder="https://…/avatar.glb" style={{ width: "100%", marginTop: 8 }} />
+            <input value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} placeholder="https://…/avatar.glb" style={{ width: "100%", marginTop: 8 }} />
           </label>
           <small style={{ opacity: .72, display: "block", marginTop: 8 }}>Choose a sample rigged avatar or enter your own compatible GLB. English can use local neural HeadTTS with lip-sync; other languages use a selected browser voice, depending on installed language packs.</small>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
