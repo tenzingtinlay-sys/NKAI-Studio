@@ -34,9 +34,16 @@ docker run --rm --gpus all -p 7860:7860 \
 
 Use your host's secret manager rather than putting the real token into shell history or a committed file. The first startup downloads model weights. A compatible NVIDIA driver and container toolkit are required for GPU mode; otherwise use a host with a supported GPU runtime.
 
+
+## Multilingual neural voice
+
+The worker exposes `POST /tts` with JSON `{"text":"नमस्ते","language":"hi-IN"}` and returns base64 WAV audio. The bundled language map includes English, Hindi, Tamil, Telugu, Bengali, Marathi, Punjabi, Kannada, Malayalam, French, German, and Spanish. The avatar UI can use this route for neural speech in those languages when a worker endpoint is configured.
+
+**Model licence warning:** the `facebook/mms-tts-*` checkpoints currently use CC-BY-NC 4.0. Treat this integration as non-commercial testing unless you have confirmed a separate licence that permits your intended use. Review the model card and licence for every language model before deployment. Models download on first use; changing languages may require loading a different model.
+
 ## Connect the UI
 
-In NKAI Studio's **Open-source AI Avatar** panel, set the worker URL to the HTTPS URL ending in `/chat`. The UI sends JSON shaped like `{ "message": "...", "history": [...] }` and expects `{ "reply": "..." }`. A `GET /health` endpoint reports model readiness and is used by the connection-check button. Configure CORS to include the Studio origin and the `Authorization` header when using a token.
+In NKAI Studio's **Open-source AI Avatar** panel, set the worker URL to the HTTPS URL ending in `/chat`. The UI sends JSON shaped like `{ "message": "...", "language": "hi-IN", "history": [...] }` and expects `{ "reply": "..." }`. The optional `/tts` endpoint accepts `{ "text": "...", "language": "hi-IN" }` and returns `audio_base64` plus `mime_type`. A `GET /health` endpoint reports model readiness and is used by the connection-check button. Configure CORS to include the Studio origin and the `Authorization` header when using a token.
 
 ## About free GPU notebooks
 
