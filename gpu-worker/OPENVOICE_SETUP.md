@@ -2,6 +2,10 @@
 
 This worker provides an optional multilingual voice-conversion backend separate from the default MMS worker. OpenVoice V2 natively supports English, Spanish, French, Chinese, Japanese and Korean when paired with MeloTTS. It uses a user-provided reference recording to produce a consistent voice tone; it is not bundled with anyone's real-person voice. Only use audio you own or have explicit permission to use.
 
+## Container option
+
+For a reproducible Docker image and startup command, see [OPENVOICE_DOCKER.md](OPENVOICE_DOCKER.md). The manual steps below remain useful for notebook and managed-host environments.
+
 ## Install
 
 Use a Linux GPU runtime with a compatible PyTorch/CUDA stack. OpenVoice's upstream instructions recommend Python 3.9; use a dedicated environment to avoid conflicts with the main worker.
