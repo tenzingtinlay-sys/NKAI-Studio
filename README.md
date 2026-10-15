@@ -13,6 +13,10 @@ NKAI Studio includes an open-source avatar chat panel with local-first AI option
 - Same-origin private AI gateway routes for chat, TTS, health, and capability checks. Worker addresses and bearer tokens remain server-side.
 - An in-app deployment diagnostics page at `/deployment` that checks the live AI, voice, and streaming endpoints.
 
+## Deploy the AI worker
+
+See [Lightning AI worker deployment and end-to-end test guide](gpu-worker/LIGHTNING_AI_DEPLOYMENT.md) for the chat worker, optional natural-speech worker, and LiveTalking deployment boundaries.
+
 ## Run the Studio
 
 Install Node.js 22+, then:
