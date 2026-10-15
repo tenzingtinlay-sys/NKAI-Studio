@@ -68,7 +68,12 @@ export function parseWorkerPool(env = process.env) {
   }];
 }
 
-/** Time-window ordering is deterministic across stateless/serverless instances. */
+/**
+ * Time-window ordering is deterministic across stateless/serverless instances.
+ * @param {AIWorker[]} workers
+ * @param {number} [nowMs]
+ * @returns {AIWorker[]}
+ */
 export function orderWorkersForTimeSlot(workers, nowMs = Date.now()) {
   if (!workers.length) return [];
   const totalMs = workers.reduce((sum, worker) => sum + worker.leaseHours * 60 * 60 * 1000, 0);
