@@ -76,11 +76,17 @@ $env:AI_WORKER_SMOKE_URL = "https://YOUR-LIGHTNING-ENDPOINT"
 $env:AI_WORKER_SMOKE_TOKEN = "YOUR_PRIVATE_WORKER_TOKEN"
 npm run smoke:ai-worker
 
-# Optional TTS check (downloads/loads the configured model and can take longer):
+# Optional built-in MMS-TTS check on the chat worker:
 npm run smoke:ai-worker -- --tts
+
+# Dedicated OpenVoice TTS worker (only when you own or have permission to use its reference voice):
+$env:AI_WORKER_SMOKE_URL = "https://YOUR-OPENVOICE-ENDPOINT"
+$env:AI_WORKER_SMOKE_TOKEN = "YOUR_PRIVATE_TTS_WORKER_TOKEN"
+$env:AI_WORKER_SMOKE_VOICE_CONSENT = "true"
+npm run smoke:ai-worker -- --tts-only
 ```
 
-The smoke test checks that the worker is ready, verifies advertised capabilities, confirms an unauthenticated chat request is rejected, sends a real authenticated chat request, and consumes the SSE stream through its `[DONE]` event. The optional TTS test checks that the worker returns playable WAV payload bytes. It contacts only the endpoint you configure; it does not use paid inference APIs.
+The chat-worker smoke test checks readiness, token enforcement, generated chat, and SSE completion; `--tts` additionally checks the built-in MMS-TTS response. The dedicated `--tts-only` mode checks OpenVoice readiness, verifies that unauthenticated TTS is rejected, and requests a WAV response. It requires the explicit `AI_WORKER_SMOKE_VOICE_CONSENT=true` confirmation because it uses the configured reference voice. It contacts only the endpoint you configure and does not use paid inference APIs.
 
 For remote endpoints, the script requires HTTPS and a token. It deliberately fails if unauthenticated chat is accepted, because the worker must have `WORKER_API_TOKEN` configured. Do not run it against a service you do not control.
 
