@@ -37,7 +37,7 @@ function DeploymentPage() {
         if (response.ok) {
           let detail = "Endpoint responded successfully.";
           if (probe.url.endsWith("/health")) detail = `Worker status: ${String(body?.status || "reachable")}; model: ${String(body?.model || "not reported")}; GPU: ${String(body?.cuda ?? "not reported")}.`;
-          else if (probe.url.endsWith("/capabilities")) {
+          else if (probe.url.includes("capabilities")) {
             const tts = body?.tts as { provider?: string; readyLanguages?: string[]; languages?: unknown[] } | undefined;
             const chat = body?.chat as { model?: string; ready?: boolean } | undefined;
             const langs = tts?.readyLanguages || [];
