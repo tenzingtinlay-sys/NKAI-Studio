@@ -12,7 +12,14 @@ export default defineEventHandler(async (event) => {
   const requestUrl = getRequestURL(event);
   const prefix = "/api/livetalking";
   const suffix = requestUrl.pathname.startsWith(prefix) ? requestUrl.pathname.slice(prefix.length) : "/";
-  const target = new URL((suffix.startsWith("/") ? suffix : "/" + suffix) + requestUrl.search, base);
+  const relativePath = suffix.replace(/^\\/+/, "");
+  if (relativePath.split("/").some((segment) => segment === "..") || relativePath.includes("\\\\")) {
+    setResponseStatus(event, 400);
+    return { error: "Invalid proxy path." };
+  }
+  const target = new URL(base.href);
+  target.pathname = base.pathname.replace(/\\/$/, "") + "/" + relativePath;
+  target.search = requestUrl.search;
   const method = event.method.toUpperCase();
   if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(method)) { setResponseStatus(event, 405); return { error: "Method not allowed." }; }
   const headers = new Headers();
