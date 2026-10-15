@@ -32,6 +32,8 @@ export OPENVOICE_CHECKPOINT_ROOT=/app/OpenVoice/checkpoints_v2
 export OPENVOICE_REFERENCE_AUDIO=/secrets/voice-reference.wav
 export WORKER_API_TOKEN='replace-with-a-long-random-secret'
 export CORS_ORIGINS='https://YOUR-STUDIO-HOST'
+# For private localhost-only experiments only, you may explicitly set:
+# export ALLOW_UNAUTHENTICATED_LOCAL=true
 cd gpu-worker && uvicorn openvoice_app:app --host 0.0.0.0 --port 7861
 ```
 
