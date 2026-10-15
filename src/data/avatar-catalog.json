@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "policy": "Bundle assets only after verifying the exact asset's current licence. Library code licences do not automatically cover demo assets.",
+  "avatars": [
+    {
+      "id": "mpfb-sample",
+      "label": "MPFB sample human",
+      "sourceRepository": "https://github.com/met4citizen/TalkingHead",
+      "sourcePath": "avatars/mpfb.glb",
+      "sourceUrl": "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/mpfb.glb",
+      "license": "CC0 as described by upstream README; verify before redistribution",
+      "commercialUse": "allowed-subject-to-source-verification",
+      "redistribute": true,
+      "format": "glb",
+      "visemes": "verify-before-use"
+    },
+    {
+      "id": "brunette-sample",
+      "label": "Brunette sample",
+      "sourceRepository": "https://github.com/met4citizen/TalkingHead",
+      "sourcePath": "avatars/brunette.glb",
+      "sourceUrl": "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/brunette.glb",
+      "license": "CC-BY-NC-4.0",
+      "commercialUse": "not-permitted-without-separate-grant",
+      "redistribute": false,
+      "format": "glb",
+      "visemes": "TalkingHead-compatible"
+    },
+    {
+      "id": "avaturn-sample",
+      "label": "Avaturn sample",
+      "sourceRepository": "https://github.com/met4citizen/TalkingHead",
+      "sourcePath": "avatars/avaturn.glb",
+      "sourceUrl": "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/avaturn.glb",
+      "license": "Non-commercial terms stated upstream; check current Avaturn terms",
+      "commercialUse": "not-permitted-without-separate-grant",
+      "redistribute": false,
+      "format": "glb",
+      "visemes": "TalkingHead-compatible"
+    },
+    {
+      "id": "avatarsdk-sample",
+      "label": "AvatarSDK sample",
+      "sourceRepository": "https://github.com/met4citizen/TalkingHead",
+      "sourcePath": "avatars/avatarsdk.glb",
+      "sourceUrl": "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/avatarsdk.glb",
+      "license": "Non-commercial terms stated upstream; check current AvatarSDK terms",
+      "commercialUse": "not-permitted-without-separate-grant",
+      "redistribute": false,
+      "format": "glb",
+      "visemes": "TalkingHead-compatible"
+    }
+  ],
+  "voiceEngines": [
+    {
+      "id": "openvoice-v2",
+      "url": "https://github.com/myshell-ai/OpenVoice",
+      "license": "MIT according to project",
+      "commercialUse": "project permits commercial use; audit all model/dependency licences",
+      "languages": [
+        "en",
+        "es",
+        "fr",
+        "zh",
+        "ja",
+        "ko"
+      ],
+      "voiceCloning": true,
+      "deployment": "optional-self-hosted-adapter",
+      "defaultEnabled": false
+    },
+    {
+      "id": "xtts-v2",
+      "url": "https://huggingface.co/coqui/XTTS-v2",
+      "license": "Coqui Public Model License",
+      "commercialUse": "review licence; do not assume permissive commercial rights",
+      "languages": [
+        "en",
+        "es",
+        "fr",
+        "de",
+        "it",
+        "pt",
+        "pl",
+        "tr",
+        "ru",
+        "nl",
+        "cs",
+        "ar",
+        "zh-cn",
+        "ja",
+        "hu",
+        "ko",
+        "hi"
+      ],
+      "voiceCloning": true,
+      "deployment": "optional-self-hosted-adapter",
+      "defaultEnabled": false
+    },
+    {
+      "id": "mms-tts",
+      "url": "https://huggingface.co/models?search=facebook%2Fmms-tts",
+      "license": "CC-BY-NC-4.0 for referenced checkpoints; verify each checkpoint",
+      "commercialUse": "non-commercial unless separately licensed",
+      "languages": [
+        "en",
+        "hi",
+        "ta",
+        "te",
+        "bn",
+        "mr",
+        "pa",
+        "kn",
+        "ml",
+        "fr",
+        "de",
+        "es"
+      ],
+      "voiceCloning": false,
+      "deployment": "current-gpu-worker",
+      "defaultEnabled": true
+    },
+    {
+      "id": "piper",
+      "url": "https://github.com/rhasspy/piper",
+      "license": "MIT engine; voice models have individual licences",
+      "commercialUse": "check each voice checkpoint",
+      "languages": "depends-on-selected-voice-checkpoint",
+      "voiceCloning": false,
+      "deployment": "optional-self-hosted-adapter",
+      "defaultEnabled": false
+    }
+  ]
+}
