@@ -1,0 +1,30 @@
+# NKAI Studio open-source GPU worker
+
+This optional worker gives the NKAI Studio avatar generated answers using open model weights. It does not use a paid AI API or API key. The first launch downloads the model weights, so the host needs outbound access to Hugging Face.
+
+## Model
+
+Default: `Qwen/Qwen2.5-1.5B-Instruct`. Set `MODEL_ID` to another compatible Hugging Face Transformers causal language model if desired. Check each model's license and hosting terms before use.
+
+## Run on a GPU host that permits persistent inference services
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app:app --host 0.0.0.0 --port 7860
+```
+
+On Windows, activate with `.venv\\Scripts\\activate`. Set `CORS_ORIGINS` to the exact NKAI Studio origin in production. The default `*` is convenient for a temporary test, not ideal for a public deployment.
+
+## Connect the UI
+
+In NKAI Studio's **Open-source AI Avatar** panel, set the worker URL to the HTTPS URL ending in `/chat`. The UI sends JSON shaped like `{ "message": "...", "history": [...] }` and expects `{ "reply": "..." }`. A `GET /health` endpoint reports model readiness.
+
+## About free GPU notebooks
+
+This is worker code, not a promise that any notebook tier permits or will keep a public web service running. Colab, Kaggle, Hugging Face, and Lightning AI have different session, networking, and usage rules. Use only deployment modes explicitly allowed by the platform; the browser UI automatically falls back if the worker goes offline. A notebook restart or free-tier quota cannot be used to guarantee 24/7 GPU inference.
+
+## Hardware
+
+A T4-class GPU is a reasonable starting point for this 1.5B model in FP16. CPU fallback is supported for testing but can be slow. Initial model download and load take time.
