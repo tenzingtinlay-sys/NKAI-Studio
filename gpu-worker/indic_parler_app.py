@@ -34,8 +34,8 @@ LANGUAGES = {
     "hi-in": ("Hindi", "Rohit"),
     "kn": ("Kannada", "Suresh"),
     "kn-in": ("Kannada", "Suresh"),
-    "kok": ("Konkani", "Neha"),
-    "mai": ("Maithili", "Karan"),
+    "kok": ("Konkani", "A female speaker"),
+    "mai": ("Maithili", "A female speaker"),
     "ml": ("Malayalam", "Anjali"),
     "ml-in": ("Malayalam", "Anjali"),
     "mni": ("Manipuri", "Laishram"),
@@ -46,13 +46,13 @@ LANGUAGES = {
     "pa": ("Punjabi", "Divjot"),
     "pa-in": ("Punjabi", "Divjot"),
     "sa": ("Sanskrit", "Aryan"),
-    "sat": ("Santali", "Maya"),
-    "sd": ("Sindhi", "Rani"),
+    "sat": ("Santali", "A female speaker"),
+    "sd": ("Sindhi", "A female speaker"),
     "ta": ("Tamil", "Jaya"),
     "ta-in": ("Tamil", "Jaya"),
     "te": ("Telugu", "Prakash"),
     "te-in": ("Telugu", "Prakash"),
-    "ur": ("Urdu", "Rani"),
+    "ur": ("Urdu", "A female speaker"),
 }
 LANGUAGE_LABELS = sorted({value[0] for value in LANGUAGES.values()})
 
