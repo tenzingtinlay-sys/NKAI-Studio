@@ -30,6 +30,13 @@ npm test
 npm run build
 ```
 
+## Avatar assets and model licences
+
+- Run `npm run assets:download` to download the approved MPFB starter avatar into `public/assets/avatars/` and write its SHA-256 provenance record. CI runs this step before building.
+- Review the [AI avatar ecosystem and build blueprint](docs/AI_AVATAR_ECOSYSTEM.md) and [avatar/voice registry](src/data/avatar-catalog.json) before bundling or redistributing assets.
+- The TalkingHead library is MIT, but its sample avatars do not all share that licence. Some examples are non-commercial or CC BY-NC. Do not bundle them in a commercial app without permission.
+- The current MMS-TTS voice worker supports the languages listed in the registry, but those checkpoints are generally CC-BY-NC 4.0. Commercial deployments need an appropriately licensed TTS engine/checkpoint, such as a separately audited OpenVoice V2 setup for its supported languages.
+
 ## Connect an open-source GPU worker
 
 See [GPU worker setup](gpu-worker/README.md) and the [deployment / uptime guide](gpu-worker/DEPLOYMENT.md). The multilingual MMS-TTS checkpoints currently use CC-BY-NC 4.0; use them for non-commercial testing only unless you have a separate licence that permits your use. See the worker README before deploying them. Set `CORS_ORIGINS` to the Studio origin and configure `WORKER_API_TOKEN` as a host secret before exposing the worker publicly.
