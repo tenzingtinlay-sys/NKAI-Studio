@@ -10,3 +10,6 @@ public/assets/avatars/*.provenance.json
 voice-secrets/
 openvoice-checkpoints/
 OpenVoice/
+downloads/converted/
+public/assets/avatars/**/*.glb
+public/assets/avatars/**/*.conversion-report.json
