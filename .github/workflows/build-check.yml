@@ -38,7 +38,12 @@ jobs:
 
       - name: Validate combined AI worker Compose configuration
         run: |
-          WORKER_API_TOKEN=ci-placeholder CORS_ORIGINS=http://localhost:3000 docker compose -f docker-compose.ai-workers.yml config --quiet
+          WORKER_API_TOKEN=ci-placeholder CORS_ORIGINS=http://localhost:8080 docker compose -f docker-compose.ai-workers.yml config --quiet
+
+      - name: Validate JSON metadata and deployment config
+        run: |
+          node -e "JSON.parse(require('node:fs').readFileSync('src/data/avatar-catalog.json', 'utf8'))"
+          node -e "JSON.parse(require('node:fs').readFileSync('vercel.json', 'utf8'))"
 
       - name: TypeScript check
         run: npm run typecheck
