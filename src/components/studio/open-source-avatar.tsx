@@ -134,7 +134,7 @@ export function OpenSourceAvatarPanel() {
             {!modelError ? (
               <div ref={(node) => { viewerRef.current = node; }} style={{ width: "100%", height: 440 }}>
                 {/** model-viewer is loaded as a browser custom element */}
-                {createModelViewer(modelUrl)}
+                {createModelViewer(modelUrl, () => setModelError(true))}
               </div>
             ) : (
               <div style={{ padding: 32, textAlign: "center" }}>
@@ -182,7 +182,7 @@ export function OpenSourceAvatarPanel() {
   );
 }
 
-function createModelViewer(src: string) {
+function createModelViewer(src: string, onError: () => void) {
   return (
     // @ts-expect-error model-viewer is registered by its browser module at runtime
     <model-viewer
@@ -196,7 +196,7 @@ function createModelViewer(src: string) {
       exposure="1"
       environment-image="neutral"
       style={{ width: "100%", height: "100%", backgroundColor: "transparent" }}
-      onError={() => setModelError(true)}
+      onError={onError}
     />
   );
 }
