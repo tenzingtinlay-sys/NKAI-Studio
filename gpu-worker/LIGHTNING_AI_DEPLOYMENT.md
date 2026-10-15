@@ -66,7 +66,25 @@ Restart/redeploy the NKAI server after changing environment variables. The brows
 
 The dedicated `AI_TTS_INTERNAL_URL` route checks the TTS worker's `/health` before forwarding speech requests. It uses `AI_TTS_API_TOKEN` rather than falling back to the chat token. If the OpenVoice reference audio or checkpoints are missing, the TTS route should report unavailable rather than claim that a natural voice is ready.
 
-## 4. End-to-end acceptance tests
+## 4. Run the real worker acceptance smoke test
+
+After the Lightning endpoint is deployed, run this from the repository root in a trusted terminal. Do not put the token in browser code or commit it to Git:
+
+```bash
+# PowerShell:
+$env:AI_WORKER_SMOKE_URL = "https://YOUR-LIGHTNING-ENDPOINT"
+$env:AI_WORKER_SMOKE_TOKEN = "YOUR_PRIVATE_WORKER_TOKEN"
+npm run smoke:ai-worker
+
+# Optional TTS check (downloads/loads the configured model and can take longer):
+npm run smoke:ai-worker -- --tts
+```
+
+The smoke test checks that the worker is ready, verifies advertised capabilities, confirms an unauthenticated chat request is rejected, sends a real authenticated chat request, and consumes the SSE stream through its `[DONE]` event. The optional TTS test checks that the worker returns playable WAV payload bytes. It contacts only the endpoint you configure; it does not use paid inference APIs.
+
+For remote endpoints, the script requires HTTPS and a token. It deliberately fails if unauthenticated chat is accepted, because the worker must have `WORKER_API_TOKEN` configured. Do not run it against a service you do not control.
+
+## 5. End-to-end acceptance tests
 
 - [ ] Chat worker `/health` reports `status: ready`.
 - [ ] Chat worker `/chat` returns a model-generated reply with the correct token.
