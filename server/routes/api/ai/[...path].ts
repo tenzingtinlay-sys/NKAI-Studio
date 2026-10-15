@@ -1,4 +1,5 @@
 import { defineEventHandler, getRequestURL, readRawBody, setResponseStatus } from "h3";
+import { orderWorkersForTimeSlot, parseWorkerPool } from "../../../utils/ai-worker-pool.mjs";
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
 const ALLOWED = new Set(["chat", "tts", "health", "capabilities"]);
@@ -10,7 +11,11 @@ const ALLOWED = new Set(["chat", "tts", "health", "capabilities"]);
  * values in browser code. The browser only calls /api/ai/{chat,tts,health,capabilities}.
  */
 export default defineEventHandler(async (event) => {
-  const upstreamBase = process.env.AI_WORKER_INTERNAL_URL?.trim();
+  let workers;
+  try { workers = orderWorkersForTimeSlot(parseWorkerPool(), Date.now()); }
+  catch { setResponseStatus(event, 500); return { error: "The server-side AI worker pool configuration is invalid.", code: "AI_WORKER_POOL_INVALID" }; }
+  const worker = workers[0];
+  const upstreamBase = worker?.baseUrl || process.env.AI_WORKER_INTERNAL_URL?.trim();
   if (!upstreamBase) {
     setResponseStatus(event, 503);
     return { error: "The private NKAI inference worker is not configured.", code: "AI_WORKER_NOT_CONFIGURED" };
@@ -48,7 +53,7 @@ export default defineEventHandler(async (event) => {
     if (HOP_BY_HOP.has(lower) || lower === "authorization" || value == null) continue;
     headers.set(name, Array.isArray(value) ? value.join(", ") : String(value));
   }
-  const token = process.env.AI_WORKER_API_TOKEN?.trim();
+  const token = worker?.token?.trim() || process.env.AI_WORKER_API_TOKEN?.trim();
   if (token) headers.set("authorization", "Bearer " + token);
 
   let body: string | undefined;
