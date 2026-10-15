@@ -3,7 +3,7 @@ import { orderWorkersForTimeSlot, parseWorkerPool } from "../../../utils/ai-work
 import type { AIWorker } from "../../../utils/ai-worker-types";
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
-const ALLOWED = new Set(["chat", "tts", "health", "capabilities", "tts-capabilities"]);
+const ALLOWED = new Set(["chat", "stream", "tts", "health", "capabilities", "tts-capabilities"]);
 
 async function workerIsReady(worker: AIWorker): Promise<boolean> {
   try {
@@ -92,7 +92,7 @@ export default defineEventHandler(async (event) => {
     return { error: "The private AI worker URL is invalid." };
   }
   const target = new URL(base.href);
-  target.pathname = (base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname) + "/" + (suffix[0] === "tts-capabilities" ? "capabilities" : suffix[0]);
+  target.pathname = (base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname) + "/" + (suffix[0] === "tts-capabilities" ? "capabilities" : suffix[0] === "stream" ? "chat/stream" : suffix[0]);
   target.search = requestUrl.search;
 
   const headers = new Headers();
