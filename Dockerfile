@@ -1,7 +1,7 @@
 # Full-stack NKAI Studio app image for Hugging Face Spaces (Docker SDK)
 FROM node:22-bookworm-slim AS build
 # Production deployments must show real sign-in controls; never ship the template's dev-user mode.
-ENV VITE_AUTH_ENABLED=true
+ENV VITE_AUTH_ENABLED=true NITRO_PRESET=node-server
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
