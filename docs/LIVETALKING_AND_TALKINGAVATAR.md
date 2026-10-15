@@ -17,15 +17,15 @@ NKAI Studio must run its avatar workflows inside the product. The previous outbo
 3. Download model checkpoints and avatar assets from upstream instructions, then audit their individual licences. Do not assume the Apache-2.0 code licence applies to model weights or sample media.
 4. Start the server with a selected model and avatar ID, following the upstream README. The documented example is `python app.py --transport webrtc --model wav2lip --avatar_id wav2lip256_avatar1`.
 5. Configure networking for the selected transport. The upstream README warns that WebRTC requires TCP 8010 and a broad UDP port range in its default setup; do not expose a GPU server to the public internet without a firewall, authentication/reverse proxy strategy and TLS.
-6. Set `LIVETALKING_INTERNAL_URL` in the app server environment (for example `http://127.0.0.1:8010` locally or a private service hostname in a shared deployment). NKAI Studio embeds `/api/livetalking/` in its own panel and proxies HTTP requests through the backend; the upstream hostname is not exposed in the UI.
+6. Set `LIVETALKING_INTERNAL_URL` in the app server environment (for example `http://127.0.0.1:8010` locally or a private service hostname in a shared deployment). The native NKAI panel negotiates WebRTC at `/api/livetalking/offer`, sends speech commands to `/api/livetalking/human`, and can interrupt with `/api/livetalking/interrupt_talk`. The app server proxies only these allowlisted endpoints; it does not expose the upstream hostname in browser code.
 
 ### What is integrated today vs. next
 
-- **Implemented:** in-app streaming panel, same-origin backend HTTP proxy, private server-side upstream configuration, and documentation.
+- **Implemented:** native in-app WebRTC offer/answer client, remote audio/video playback, text-to-avatar (`echo`) command, interrupt control, a same-origin backend adapter with a strict endpoint allowlist, and private server-side upstream configuration. The bridge adapts LiveTalking's documented API contract; it does not copy the upstream application UI or use a paid inference API.
 - **Not yet verified:** a deployed GPU host, model checkpoint installation, full WebRTC/ICE behavior through the deployment network, authenticated streaming session lifecycle, and end-to-end browser/audio tests. The HTTP proxy does not tunnel UDP; WebRTC media ports must be reachable under the deployment firewall. LiveTalking's session protocol is not the same as NKAI's existing `/chat` and `/tts` worker contract.
 - **Operational requirement:** the GPU process and model weights must actually be running. A passing frontend build does not establish that the stream is live.
 
-For API integration, read the upstream API documentation before implementing a bridge:
+For the upstream API contract used by the adapter, consult:
 https://github.com/lipku/LiveTalking/blob/main/docs/api.md
 https://github.com/lipku/LiveTalking/blob/main/docs/avatar_api.md
 
