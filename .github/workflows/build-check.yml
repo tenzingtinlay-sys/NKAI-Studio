@@ -54,3 +54,6 @@ jobs:
 
       - name: Build application
         run: npm run build
+
+      - name: Build the production Hugging Face Docker image
+        run: docker build --pull --tag nkai-studio:ci .
