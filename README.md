@@ -24,6 +24,10 @@ NKAI Studio includes an open-source avatar chat panel with local-first AI option
 - Same-origin private AI gateway routes for chat, TTS, health, and capability checks. Worker addresses and bearer tokens remain server-side.
 - An in-app deployment diagnostics page at `/deployment` that checks the live AI, voice, and streaming endpoints.
 
+## Cost and API policy
+
+The core studio must not depend on paid inference APIs, prepaid API credits, or a paid API billing balance. Use browser-local inference or open-weight models on the selected permitted compute platform. Do not add a paid API as a silent fallback. If all eligible free workers are unavailable or over quota, explain that service is temporarily unavailable and allow retry/provider failover. Free platforms can still impose compute, session, queue, storage and usage limits; this project does not claim unlimited free GPU uptime. Hosting tokens such as `HF_TOKEN` are deployment credentials, not paid inference credits, and must remain private.
+
 ## Deploy the AI worker
 
 See [Lightning AI worker deployment and end-to-end test guide](gpu-worker/LIGHTNING_AI_DEPLOYMENT.md) for the chat worker, optional natural-speech worker, and LiveTalking deployment boundaries.
