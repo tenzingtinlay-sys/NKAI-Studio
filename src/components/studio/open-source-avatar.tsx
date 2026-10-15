@@ -11,7 +11,7 @@ type Turn = { role: "user" | "assistant"; text: string };
 export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
   const [workerUrl, setWorkerUrl] = useState(() => {
-    try { return localStorage.getItem("nkai-avatar-worker") || ""; } catch { return ""; }
+    try { return localStorage.getItem("nkai-avatar-workers") || ""; } catch { return ""; }
   });
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,7 +32,7 @@ export function OpenSourceAvatarPanel() {
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem("nkai-avatar-worker", workerUrl.trim()); } catch { /* storage may be blocked */ }
+    try { localStorage.setItem("nkai-avatar-workers", workerUrl.trim()); } catch { /* storage may be blocked */ }
   }, [workerUrl]);
 
   function speak(text: string) {
@@ -59,33 +59,37 @@ export function OpenSourceAvatarPanel() {
     setBusy(true);
     setStatus(workerUrl.trim() ? "Connecting to configured GPU worker…" : "No GPU worker configured · local fallback");
     let reply = "";
-    if (workerUrl.trim()) {
-      try {
-        const endpoint = new URL(workerUrl.trim());
-        if (endpoint.protocol !== "https:" && endpoint.hostname !== "localhost" && endpoint.hostname !== "127.0.0.1") {
-          throw new Error("Use HTTPS for a remote worker URL.");
-        }
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 45000);
+    const endpoints = workerUrl.split(/[\\n,]+/).map((url) => url.trim()).filter(Boolean);
+    if (endpoints.length) {
+      const failures: string[] = [];
+      for (let index = 0; index < endpoints.length && !reply; index++) {
         try {
-          const response = await fetch(endpoint.toString(), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: prompt, history: history.slice(-12), app: "NKAI-Studio" }),
-            signal: controller.signal,
-          });
-          if (!response.ok) throw new Error(`Worker returned HTTP ${response.status}`);
-          const data = await response.json() as { reply?: string; response?: string; text?: string };
-          reply = data.reply || data.response || data.text || "";
-          if (!reply) throw new Error("Worker response must contain reply, response, or text.");
-          setStatus("Connected · open-source GPU worker");
-        } finally {
-          window.clearTimeout(timeout);
+          const endpoint = new URL(endpoints[index]);
+          if (endpoint.protocol !== "https:" && endpoint.hostname !== "localhost" && endpoint.hostname !== "127.0.0.1") {
+            throw new Error("Remote worker URLs must use HTTPS.");
+          }
+          const controller = new AbortController();
+          const timeout = window.setTimeout(() => controller.abort(), 45000);
+          try {
+            const response = await fetch(endpoint.toString(), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: prompt, history: history.slice(-12), app: "NKAI-Studio" }),
+              signal: controller.signal,
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json() as { reply?: string; response?: string; text?: string };
+            reply = data.reply || data.response || data.text || "";
+            if (!reply) throw new Error("Missing reply field");
+            setStatus(`Connected · GPU worker ${index + 1}/${endpoints.length}`);
+          } finally {
+            window.clearTimeout(timeout);
+          }
+        } catch (error) {
+          failures.push(`${index + 1}: ${error instanceof Error ? error.message : "offline"}`);
         }
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : "Worker unavailable";
-        setStatus(`Worker offline · fallback active (${reason})`);
       }
+      if (!reply) setStatus(`All GPU workers offline · fallback active (${failures.join("; ")})`);
     }
     if (!reply) {
       reply = localReply(prompt);
@@ -151,11 +155,11 @@ export function OpenSourceAvatarPanel() {
         </section>
         <section className="mf-card" style={{ minHeight: 600, display: "flex", flexDirection: "column" }}>
           <h3 style={{ marginTop: 0 }}>GPU worker connection</h3>
-          <p style={{ opacity: .75 }}>Paste the HTTPS endpoint of your own open-source inference worker. The worker should accept POST JSON with <code>message</code> and <code>history</code>, then return JSON containing <code>reply</code>. No provider API key is used by this UI.</p>
-          <label><b>Worker endpoint URL</b><input value={workerUrl} onChange={(e) => setWorkerUrl(e.target.value)} placeholder="https://your-worker.example/ chat" style={{ width: "100%", marginTop: 8 }} /></label>
+          <p style={{ opacity: .75 }}>Paste one or more HTTPS endpoints of your own open-source inference workers, one per line in failover priority order. Each worker should accept POST JSON with <code>message</code> and <code>history</code>, then return JSON containing <code>reply</code>. No provider API key is used by this UI.</p>
+          <label><b>Worker endpoint URLs (priority order)</b><textarea value={workerUrl} onChange={(e) => setWorkerUrl(e.target.value)} placeholder={"https://primary-worker.example/chat\\nhttps://backup-worker.example/chat"} style={{ width: "100%", marginTop: 8, minHeight: 84 }} /></label><small style={{ opacity: .72 }}>Enter one HTTPS /chat endpoint per line, in priority order. The app tries each live worker before switching to the local fallback.</small>
           <div className="mf-bar" style={{ marginTop: 10 }}>
             <button className="mf-ghost" type="button" onClick={() => { setWorkerUrl(""); setStatus("Local fallback selected"); }}>Use local fallback</button>
-            <button className="mf-ghost" type="button" onClick={async () => { if (!workerUrl.trim()) { flash("Enter a worker URL first."); return; } setStatus("Checking worker…"); try { const u = new URL(workerUrl.trim()); const res = await fetch(u, { method: "OPTIONS" }); setStatus(res.ok ? "Worker URL responded · send a test message" : `Worker replied with HTTP ${res.status}`); } catch { setStatus("Worker could not be reached from this browser. Check HTTPS, CORS, and the endpoint."); } }}>Check connection</button>
+            <button className="mf-ghost" type="button" onClick={async () => { const urls = workerUrl.split(/[\\n,]+/).map((url) => url.trim()).filter(Boolean); if (!urls.length) { flash("Enter at least one worker URL first."); return; } setStatus("Checking workers in priority order…"); let found = false; for (let i = 0; i < urls.length; i++) { try { const u = new URL(urls[i]); const res = await fetch(u, { method: "OPTIONS" }); if (res.ok) { setStatus(`Worker ${i + 1}/${urls.length} responded · ready for a test message`); found = true; break; } } catch { /* try the next configured worker */ } } if (!found) setStatus("No worker responded. Check HTTPS, CORS, and each endpoint URL."); }}>Check connection</button>
           </div>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
             {turns.map((turn, i) => <div key={i} style={{ alignSelf: turn.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%", padding: "10px 12px", borderRadius: 12, background: turn.role === "user" ? "rgba(88,166,255,.18)" : "rgba(127,127,127,.12)" }}><small style={{ display: "block", opacity: .7, marginBottom: 4 }}>{turn.role === "user" ? "You" : "NKAI Avatar"}</small><span>{turn.text}</span></div>)}
