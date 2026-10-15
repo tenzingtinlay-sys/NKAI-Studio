@@ -58,3 +58,7 @@ The local browser model can provide AI responses without an inference API key, b
 - [HeadTTS](https://github.com/met4citizen/HeadTTS) — browser neural speech and viseme timestamps.
 - [Transformers.js](https://github.com/huggingface/transformers.js) — in-browser open model inference.
 - [Qwen2.5-0.5B-Instruct ONNX](https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct) — optional local browser language model.
+
+
+## Unified runtime
+See `docs/UNIFIED_AI_RUNTIME.md` for the server-side timed worker-pool design.
