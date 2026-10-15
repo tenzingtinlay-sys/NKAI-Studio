@@ -1,0 +1,82 @@
+import { defineEventHandler, getRequestURL, readRawBody, setResponseStatus } from "h3";
+
+const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
+const ALLOWED = new Set(["chat", "tts", "health", "capabilities"]);
+
+/**
+ * Same-origin gateway to the private open-source inference worker.
+ * Set AI_WORKER_INTERNAL_URL to the worker's private base URL and
+ * AI_WORKER_API_TOKEN to its optional WORKER_API_TOKEN. Never expose these
+ * values in browser code. The browser only calls /api/ai/{chat,tts,health,capabilities}.
+ */
+export default defineEventHandler(async (event) => {
+  const upstreamBase = process.env.AI_WORKER_INTERNAL_URL?.trim();
+  if (!upstreamBase) {
+    setResponseStatus(event, 503);
+    return { error: "The private NKAI inference worker is not configured.", code: "AI_WORKER_NOT_CONFIGURED" };
+  }
+
+  let base: URL;
+  try {
+    base = new URL(upstreamBase);
+    if (!["http:", "https:"].includes(base.protocol) || base.username || base.password) throw new Error("Invalid URL");
+  } catch {
+    setResponseStatus(event, 500);
+    return { error: "The private AI worker URL is invalid." };
+  }
+
+  const requestUrl = getRequestURL(event);
+  const suffix = requestUrl.pathname.slice("/api/ai/".length).split("/").filter(Boolean);
+  if (suffix.length !== 1 || !ALLOWED.has(suffix[0])) {
+    setResponseStatus(event, 404);
+    return { error: "Unknown private AI endpoint." };
+  }
+
+  const target = new URL(base.href);
+  target.pathname = (base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname) + "/" + suffix[0];
+  target.search = requestUrl.search;
+
+  const method = event.method.toUpperCase();
+  if (!["GET", "HEAD", "POST", "OPTIONS"].includes(method)) {
+    setResponseStatus(event, 405);
+    return { error: "Method not allowed." };
+  }
+
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(event.node?.req?.headers ?? {})) {
+    const lower = name.toLowerCase();
+    if (HOP_BY_HOP.has(lower) || lower === "authorization" || value == null) continue;
+    headers.set(name, Array.isArray(value) ? value.join(", ") : String(value));
+  }
+  const token = process.env.AI_WORKER_API_TOKEN?.trim();
+  if (token) headers.set("authorization", "Bearer " + token);
+
+  let body: string | undefined;
+  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const raw = await readRawBody(event, false);
+    if (raw) body = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
+  }
+
+  try {
+    const upstream = await fetch(target, {
+      method,
+      headers,
+      body,
+      redirect: "manual",
+      signal: AbortSignal.timeout(suffix[0] === "chat" || suffix[0] === "tts" ? 120000 : 15000),
+    });
+    const responseHeaders = new Headers();
+    upstream.headers.forEach((value, name) => {
+      if (!HOP_BY_HOP.has(name.toLowerCase())) responseHeaders.set(name, value);
+    });
+    responseHeaders.set("cache-control", "no-store");
+    return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
+  } catch (error) {
+    setResponseStatus(event, 502);
+    return {
+      error: "Unable to reach the private NKAI inference worker.",
+      code: "AI_WORKER_UNREACHABLE",
+      detail: error instanceof Error ? error.message : "Upstream connection failed",
+    };
+  }
+});
