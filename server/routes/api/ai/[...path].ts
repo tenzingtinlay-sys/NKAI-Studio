@@ -4,7 +4,16 @@ import { orderWorkersForTimeSlot, parseWorkerPool } from "../../../utils/ai-work
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
 const ALLOWED = new Set(["chat", "tts", "health", "capabilities"]);
 
-/** @param {{ id: string, platform: string, baseUrl: string, token: string, leaseHours: number, priority: number }} worker */
+/**
+ * @typedef {Object} AIWorker
+ * @property {string} id
+ * @property {string} platform
+ * @property {string} baseUrl
+ * @property {string} token
+ * @property {number} leaseHours
+ * @property {number} priority
+ */
+/** @param {AIWorker} worker @returns {Promise<boolean>} */
 async function workerIsReady(worker) {
   try {
     const headers = new Headers();
