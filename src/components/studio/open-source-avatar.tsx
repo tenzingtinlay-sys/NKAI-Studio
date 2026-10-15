@@ -9,6 +9,7 @@ const DEFAULT_GREETING =
 type Turn = { role: "user" | "assistant"; text: string };
 type TalkingHeadApi = { showAvatar: (avatar: { url: string; body?: string; lipsyncLang?: string; avatarMood?: string }) => Promise<void>; speakAudio: (audio: unknown, options?: object, onSubtitles?: (word: string) => void) => void };
 type HeadTTSApi = { connect: () => Promise<void>; setup: (options: object) => Promise<void>; synthesize: (options: { input: string }) => Promise<unknown>; onmessage?: ((message: { type: string; data: unknown }) => void) | null; onerror?: ((error: unknown) => void) | null };
+type LocalGenerator = (messages: Array<{ role: "system" | "user" | "assistant"; content: string }>, options: { max_new_tokens: number; do_sample: boolean; temperature: number }) => Promise<Array<{ generated_text?: string | Array<{ role: string; content: string }> }>>;
 
 export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
@@ -23,6 +24,9 @@ export function OpenSourceAvatarPanel() {
   const [modelError, setModelError] = useState(false);
   const [talkingEnabled, setTalkingEnabled] = useState(false);
   const [talkingReady, setTalkingReady] = useState(false);
+  const [localModelLoading, setLocalModelLoading] = useState(false);
+  const [localModelReady, setLocalModelReady] = useState(false);
+  const localGeneratorRef = useRef<LocalGenerator | null>(null);
   const talkingContainerRef = useRef<HTMLDivElement | null>(null);
   const talkingHeadRef = useRef<TalkingHeadApi | null>(null);
   const headTtsRef = useRef<HeadTTSApi | null>(null);
@@ -125,6 +129,30 @@ export function OpenSourceAvatarPanel() {
     window.speechSynthesis.speak(utterance);
   }
 
+  async function loadLocalModel() {
+    if (localGeneratorRef.current || localModelLoading) return;
+    setLocalModelLoading(true);
+    setStatus("Loading local open-source Qwen model… first load downloads model weights");
+    try {
+      const transformersUrl = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.0.0/+esm";
+      const { pipeline } = await import(/* @vite-ignore */ transformersUrl);
+      let generator: LocalGenerator;
+      try {
+        generator = await pipeline("text-generation", "onnx-community/Qwen2.5-0.5B-Instruct", { device: "webgpu", dtype: "q4f16" }) as LocalGenerator;
+      } catch {
+        setStatus("WebGPU unavailable · loading slower WASM model");
+        generator = await pipeline("text-generation", "onnx-community/Qwen2.5-0.5B-Instruct", { device: "wasm", dtype: "q4" }) as LocalGenerator;
+      }
+      localGeneratorRef.current = generator;
+      setLocalModelReady(true);
+      setStatus("Local AI ready · Qwen 0.5B runs in this browser without an API");
+    } catch {
+      setStatus("Local AI model could not load. Check browser WebGPU/WASM support and network access.");
+    } finally {
+      setLocalModelLoading(false);
+    }
+  }
+
   async function send(message: string) {
     const prompt = message.trim();
     if (!prompt || busy) return;
@@ -166,9 +194,25 @@ export function OpenSourceAvatarPanel() {
       }
       if (!reply) setStatus(`All GPU workers offline · fallback active (${failures.join("; ")})`);
     }
+    if (!reply && localGeneratorRef.current) {
+      try {
+        setStatus("Generating with local open-source model in this browser…");
+        const messages = [
+          { role: "system" as const, content: "You are NKAI Studio's practical, friendly AI avatar. Give useful, direct answers." },
+          ...history.slice(-10).map((turn) => ({ role: turn.role, content: turn.text })),
+        ];
+        const generated = await localGeneratorRef.current(messages, { max_new_tokens: 180, do_sample: true, temperature: 0.7 });
+        const value = generated[0]?.generated_text;
+        if (typeof value === "string") reply = value;
+        else if (Array.isArray(value)) reply = value.filter((item) => item.role === "assistant").map((item) => item.content).filter(Boolean).at(-1) || "";
+        if (reply) setStatus("Answered by local open-source model · browser inference");
+      } catch {
+        setStatus("Local model failed · switching to offline scripted fallback");
+      }
+    }
     if (!reply) {
       reply = localReply(prompt);
-      if (workerUrl.trim()) reply = "The GPU worker is unavailable, so I switched to the built-in offline conversation fallback. " + reply;
+      if (workerUrl.trim()) reply = "GPU workers are unavailable and the local AI model is not ready, so I switched to the built-in offline conversation fallback. " + reply;
     }
     setTurns([...history, { role: "assistant", text: reply }]);
     setBusy(false);
@@ -238,7 +282,8 @@ export function OpenSourceAvatarPanel() {
           <label><b>Worker endpoint URLs (priority order)</b><textarea value={workerUrl} onChange={(e) => setWorkerUrl(e.target.value)} placeholder={"https://primary-worker.example/chat\nhttps://backup-worker.example/chat"} style={{ width: "100%", marginTop: 8, minHeight: 84 }} /></label><small style={{ opacity: .72 }}>Enter one HTTPS /chat endpoint per line, in priority order. The app tries each live worker before switching to the local fallback.</small>
           <label style={{ display: "block", marginTop: 10 }}><b>Optional worker access token</b><input type="password" autoComplete="off" value={workerToken} onChange={(e) => setWorkerToken(e.target.value)} placeholder="Only if WORKER_API_TOKEN is configured" style={{ width: "100%", marginTop: 8 }} /><small style={{ opacity: .72 }}>Kept in this page memory only; it is not saved to local storage.</small></label>
           <div className="mf-bar" style={{ marginTop: 10 }}>
-            <button className="mf-ghost" type="button" onClick={() => { setWorkerUrl(""); setWorkerToken(""); setStatus("Local fallback selected"); }}>Use local fallback</button>
+            <button className="mf-ghost" type="button" onClick={() => { setWorkerUrl(""); setWorkerToken(""); setStatus(localModelReady ? "Local open-source AI selected" : "Local fallback selected"); }}>Use local fallback</button>
+            <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
             <button className="mf-ghost" type="button" onClick={async () => { const urls = workerUrl.split(/[\n,]+/).map((url) => url.trim()).filter(Boolean); if (!urls.length) { flash("Enter at least one worker URL first."); return; } setStatus("Checking workers in priority order…"); let found = false; for (let i = 0; i < urls.length; i++) { try { const u = new URL(urls[i]); const health = new URL(u.toString()); health.pathname = health.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/health"; health.search = ""; const controller = new AbortController(); const timeout = window.setTimeout(() => controller.abort(), 8000); try { const res = await fetch(health, { method: "GET", signal: controller.signal }); if (res.ok) { const data = await res.json() as { status?: string; model?: string }; if (data.status === "ready" || data.status === "loading") { setStatus(`Worker ${i + 1}/${urls.length} reachable · ${data.status}${data.model ? ` · ${data.model}` : ""}`); found = true; break; } } } finally { window.clearTimeout(timeout); } } catch { /* try the next configured worker */ } } if (!found) setStatus("No health endpoint responded. Check the worker URL, HTTPS, and CORS."); }}>Check connection</button>
           </div>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
@@ -253,7 +298,7 @@ export function OpenSourceAvatarPanel() {
             <button className="mf-ghost" type="button" onClick={() => { if ("speechSynthesis" in window) window.speechSynthesis.cancel(); setStatus("Voice stopped"); }}>Stop voice</button>
             <button className="mf-ghost" type="button" onClick={() => setTurns([{ role: "assistant", text: DEFAULT_GREETING }])}>Clear chat</button>
           </div>
-          <small style={{ opacity: .7, marginTop: 12 }}>GPU sessions are optional and may expire. This panel falls back automatically if a configured worker is unreachable; uninterrupted cloud GPU time is not guaranteed by free notebook tiers.</small>
+          <small style={{ opacity: .7, marginTop: 12 }}>For AI without any server/API, select “Load local AI (no API)”. It downloads a quantized Qwen model into browser runtime (first load is large and needs a capable desktop). The optional GPU worker remains the higher-capacity route. Free cloud GPU sessions may expire.</small>
         </section>
       </div>
     </div>
