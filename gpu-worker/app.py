@@ -84,6 +84,21 @@ def health():
         "cuda": torch.cuda.is_available(),
     }
 
+@app.get("/capabilities")
+def capabilities():
+    return {
+        "chat": {"provider": "self-hosted-transformers", "model": MODEL_ID, "ready": model is not None},
+        "tts": {
+            "provider": "facebook-mms-tts",
+            "readyLanguages": sorted(TTS_MODELS.keys()),
+            "models": sorted(set(TTS_MODELS.values())),
+            "voiceCloning": False,
+            "licenseNotice": "Referenced MMS-TTS checkpoints are generally CC-BY-NC 4.0; verify each checkpoint and do not use commercially without suitable rights.",
+        },
+        "speechToText": {"available": False, "reason": "No STT model configured in this worker."},
+        "gpu": {"cudaAvailable": torch.cuda.is_available()},
+    }
+
 
 @app.post("/chat")
 def chat(request: ChatRequest, authorization: str | None = Header(default=None)):
