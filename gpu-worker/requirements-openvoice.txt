@@ -1,0 +1,8 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+torch>=2.1
+soundfile>=0.12,<1
+# Install the official repositories/checkpoints following OPENVOICE_SETUP.md:
+# pip install -e ./OpenVoice
+# pip install git+https://github.com/myshell-ai/MeloTTS.git
+# python -m unidic download
