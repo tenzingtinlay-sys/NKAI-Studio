@@ -5,7 +5,7 @@ This matrix compares the types of features visible in public product description
 | Capability | Open-source reference | Commercial benchmark | NKAI current state | Work required |
 |---|---|---|---|---|
 | Interactive 3D avatar viewer | TalkingHead | HeyGen/Synthesia presenter UI | Basic GLB viewer + optional TalkingHead | Asset catalogue, rig validation, offline cache |
-| Avatar library | TalkingHead sample assets; Microsoft Rocketbox | HeyGen stock avatars | A few sample options + catalogue | Bundle verified assets, Rocketbox FBX-to-GLB conversion, licensing UI |
+| Avatar library | TalkingHead sample assets; Microsoft Rocketbox | HeyGen stock avatars | Sample presets + catalogue + local GLB import (100 MB limit) | Bundle verified assets, Rocketbox FBX-to-GLB conversion, licensing UI |
 | Text-to-speech | MMS-TTS, Piper, OpenVoice, Indic Parler-TTS, XTTS | HeyGen/D-ID voice libraries | MMS worker + browser speech + optional OpenVoice and Indic Parler workers | Deploy gated Indic worker if desired; test audio in each language and expose voice selection |
 | Voice cloning | OpenVoice, XTTS | Paid voice-cloning tools | Optional OpenVoice V2 route requiring reference audio and consent | Install checkpoints, test authorized reference, add consent records/retention |
 | Accurate lip-sync | TalkingHead; LiveTalking/Wav2Lip/MuseTalk | Premium talking avatars | TalkingHead + approximate text viseme helper | Use actual phoneme/viseme timings; verify model has blendshapes |
