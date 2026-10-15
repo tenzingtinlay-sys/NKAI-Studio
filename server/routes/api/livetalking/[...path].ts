@@ -24,13 +24,13 @@ export default defineEventHandler(async (event) => {
   const method = event.method.toUpperCase();
   if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(method)) { setResponseStatus(event, 405); return { error: "Method not allowed." }; }
   const headers = new Headers();
-  for (const [name, value] of Object.entries(event.node.req.headers)) {
+  for (const [name, value] of Object.entries(event.node?.req?.headers ?? {})) {
     if (HOP_BY_HOP.has(name.toLowerCase()) || name.toLowerCase() === "content-length" || value == null) continue;
     headers.set(name, Array.isArray(value) ? value.join(", ") : String(value));
   }
   headers.set("x-forwarded-prefix", prefix);
-  let body: Buffer | undefined;
-  if (!["GET", "HEAD"].includes(method)) { const raw = await readRawBody(event, false); if (raw) body = Buffer.from(raw); }
+  let body: Uint8Array | undefined;
+  if (!["GET", "HEAD"].includes(method)) { const raw = await readRawBody(event, false); if (raw) body = typeof raw === "string" ? new TextEncoder().encode(raw) : new Uint8Array(raw); }
   try {
     const upstream = await fetch(target, { method, headers, body, redirect: "manual", signal: AbortSignal.timeout(120000) });
     const responseHeaders = new Headers();
