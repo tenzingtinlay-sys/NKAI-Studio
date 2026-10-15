@@ -179,7 +179,7 @@ export function OpenSourceAvatarPanel() {
               for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
               const audioContext = new AudioContext();
               const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
-              if (talkingHeadRef.current) talkingHeadRef.current.speakAudio({ audio: audioBuffer });
+              if (talkingHeadRef.current) talkingHeadRef.current.speakAudio({ audio: audioBuffer, ...estimateVisemes(text, audioBuffer.duration) });
               else {
                 const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" })));
                 await audio.play();
@@ -453,4 +453,28 @@ function localReply(message: string) {
   if (lower.includes("help") || lower.includes("what can you do")) return "I can guide your work in short steps, help structure a presentation, practise an introduction, and read responses aloud. For fully generated answers, connect a compatible self-hosted model worker.";
   if (lower.includes("thank")) return "You’re welcome. What should we work on next?";
   return `I heard: “${message.slice(0, 180)}”. This is the offline fallback, not a large language model. Connect an open-source inference worker for generated conversation.`;
+}
+
+
+function estimateVisemes(text: string, durationSeconds: number) {
+  // Coarse text-timed visemes keep the mouth moving for external TTS audio.
+  // For phoneme-accurate sync, use a TTS model that emits word/viseme timestamps.
+  const visemes = Array.from(text.toLowerCase()).filter((char) => /[a-z]/.test(char)).map((char) => {
+    if ("a".includes(char)) return "aa";
+    if ("e".includes(char)) return "E";
+    if ("i".includes(char)) return "I";
+    if ("o".includes(char)) return "O";
+    if ("u".includes(char)) return "U";
+    if ("bmp".includes(char)) return "PP";
+    if ("fv".includes(char)) return "FF";
+    if ("sz".includes(char)) return "SS";
+    if ("td".includes(char)) return "DD";
+    if ("kg".includes(char)) return "kk";
+    if ("n".includes(char)) return "nn";
+    if ("r".includes(char)) return "RR";
+    if ("cjqx".includes(char)) return "CH";
+    return "sil";
+  });
+  const step = visemes.length ? (durationSeconds * 1000) / visemes.length : 100;
+  return { visemes, vtimes: visemes.map((_, index) => Math.round(index * step)), vdurations: visemes.map(() => Math.max(35, Math.round(step))) };
 }
