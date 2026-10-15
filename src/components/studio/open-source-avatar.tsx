@@ -65,14 +65,6 @@ export function OpenSourceAvatarPanel() {
   const [voiceConsent, setVoiceConsent] = useState(false);
   const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
   const [selectedVoice, setSelectedVoice] = useState("");
-  const [rotationPlan, setRotationPlan] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation-v2") || "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } catch { return "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } });
-  const [rotationEnabled, setRotationEnabled] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation-enabled-v2") !== "false"; } catch { return true; } });
-  const [rotationNow, setRotationNow] = useState(Date.now());
-  const [rotationStartedAt, setRotationStartedAt] = useState(() => { try { const saved = Number(localStorage.getItem("nkai-platform-rotation-v2-start")); return saved > 0 ? saved : Date.now(); } catch { return Date.now(); } });
-  const [workerUrl, setWorkerUrl] = useState(() => {
-    try { return localStorage.getItem("nkai-avatar-workers") || ""; } catch { return ""; }
-  });
-  const [workerToken, setWorkerToken] = useState("");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("3D viewer · browser-rendered");
@@ -105,10 +97,6 @@ export function OpenSourceAvatarPanel() {
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem("nkai-avatar-workers", workerUrl.trim()); } catch { /* storage may be blocked */ }
-  }, [workerUrl]);
-
-  useEffect(() => {
     const updateVoices = () => {
       if (!("speechSynthesis" in window)) return;
       const voices = window.speechSynthesis.getVoices();
@@ -120,30 +108,7 @@ export function OpenSourceAvatarPanel() {
     return () => { if ("speechSynthesis" in window) window.speechSynthesis.removeEventListener("voiceschanged", updateVoices); };
   }, [speechLanguage]);
 
-  useEffect(() => {
-    try { localStorage.setItem("nkai-platform-rotation-v2", rotationPlan); localStorage.setItem("nkai-platform-rotation-v2-start", String(rotationStartedAt)); } catch { /* storage may be blocked */ }
-  }, [rotationPlan, rotationStartedAt]);
-
-  useEffect(() => {
-    try { localStorage.setItem("nkai-platform-rotation-enabled-v2", String(rotationEnabled)); } catch { /* storage may be blocked */ }
-  }, [rotationEnabled]);
-
-  useEffect(() => { const timer = window.setInterval(() => setRotationNow(Date.now()), 30000); return () => window.clearInterval(timer); }, []);
-
-  const rotationEntries = rotationPlan.split(/\n+/).map((line) => {
-    const [platform, hoursText, url] = line.split("|").map((part) => part.trim());
-    return { platform, hours: Number(hoursText), url: url || "", valid: Boolean(platform && Number(hoursText) > 0) };
-  }).filter((entry) => entry.valid);
-  const totalRotationMs = rotationEntries.reduce((sum, entry) => sum + entry.hours * 3600000, 0);
-  const rotationPosition = totalRotationMs ? Math.max(0, rotationNow - rotationStartedAt) % totalRotationMs : 0;
-  let rotationCursor = 0;
-  let activeRotationIndex = -1;
-  for (let i = 0; i < rotationEntries.length; i++) { rotationCursor += rotationEntries[i].hours * 3600000; if (rotationPosition < rotationCursor) { activeRotationIndex = i; break; } }
-  const activeRotation = rotationEntries[activeRotationIndex];
-  const rotationElapsedInSlot = activeRotationIndex < 0 ? 0 : rotationPosition - (rotationCursor - rotationEntries[activeRotationIndex].hours * 3600000);
-  const rotationRemainingMs = activeRotationIndex < 0 ? 0 : rotationEntries[activeRotationIndex].hours * 3600000 - rotationElapsedInSlot;
-  // All inference calls stay on the NKAI Studio origin. The server selects the
-  // private worker using AI_WORKER_INTERNAL_URL; no public worker URL/token is exposed.
+  // Inference always uses same-origin server routes; worker secrets remain server-side.
   const orderedEndpoints = ["/api/ai/chat"];
 
   useEffect(() => {
