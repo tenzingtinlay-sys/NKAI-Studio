@@ -2,7 +2,7 @@ import { defineEventHandler, getRequestURL, readRawBody, setResponseStatus } fro
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host"]);
 
-/** Same-origin HTTP proxy for a private LiveTalking service. Set LIVETALKING_INTERNAL_URL on the server. WebRTC media still needs UDP/ICE networking. */
+/** Same-origin HTTP proxy for a private LiveTalking service. WebRTC media still needs UDP/ICE networking. */
 export default defineEventHandler(async (event) => {
   const upstreamBase = process.env.LIVETALKING_INTERNAL_URL?.trim();
   if (!upstreamBase) { setResponseStatus(event, 503); return { error: "Live avatar streaming is not configured.", code: "LIVETALKING_NOT_CONFIGURED" }; }
@@ -12,13 +12,14 @@ export default defineEventHandler(async (event) => {
   const requestUrl = getRequestURL(event);
   const prefix = "/api/livetalking";
   const suffix = requestUrl.pathname.startsWith(prefix) ? requestUrl.pathname.slice(prefix.length) : "/";
-  const relativePath = suffix.replace(/^\\/+/, "");
-  if (relativePath.split("/").some((segment) => segment === "..") || relativePath.includes("\\")) {
+  const relativePath = suffix.split("/").filter(Boolean).join("/");
+  if (relativePath.split("/").some((segment) => segment === "..") || relativePath.includes(String.fromCharCode(92))) {
     setResponseStatus(event, 400);
     return { error: "Invalid proxy path." };
   }
   const target = new URL(base.href);
-  target.pathname = base.pathname.replace(/\\/$/, "") + "/" + relativePath;
+  const basePath = base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname;
+  target.pathname = basePath + "/" + relativePath;
   target.search = requestUrl.search;
   const method = event.method.toUpperCase();
   if (!["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(method)) { setResponseStatus(event, 405); return { error: "Method not allowed." }; }
