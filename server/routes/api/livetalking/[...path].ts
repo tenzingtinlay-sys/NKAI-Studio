@@ -42,6 +42,20 @@ export default defineEventHandler(async (event) => {
   }
 
   const requestUrl = getRequestURL(event);
+  // This endpoint is callable from a browser, so reject cross-origin requests
+  // before reading the body or spending a worker session. Require JSON to
+  // prevent cross-site HTML forms from reaching the upstream API.
+  const origin = event.node?.req?.headers?.origin;
+  if (typeof origin !== "string" || origin !== requestUrl.origin) {
+    setResponseStatus(event, 403);
+    return { error: "Cross-origin requests are not allowed.", code: "LIVETALKING_ORIGIN_REJECTED" };
+  }
+  const contentType = String(event.node?.req?.headers?.["content-type"] || "").split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") {
+    setResponseStatus(event, 415);
+    return { error: "Content-Type must be application/json." };
+  }
+
   const prefix = "/api/livetalking";
   const suffix = requestUrl.pathname.startsWith(prefix) ? requestUrl.pathname.slice(prefix.length) : "/";
   const relativePath = suffix.split("/").filter(Boolean).join("/");
@@ -100,14 +114,11 @@ export default defineEventHandler(async (event) => {
   const target = new URL(base.href);
   const basePath = base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname;
   target.pathname = basePath + "/" + relativePath;
-  target.search = requestUrl.search;
+  // Do not forward arbitrary query parameters or caller headers/cookies to the
+  // private GPU service. Only send the validated JSON payload and fixed metadata.
+  target.search = "";
 
   const headers = new Headers();
-  for (const [name, value] of Object.entries(event.node?.req?.headers ?? {})) {
-    const lower = name.toLowerCase();
-    if (HOP_BY_HOP.has(lower) || lower === "authorization" || value == null) continue;
-    headers.set(name, Array.isArray(value) ? value.join(", ") : String(value));
-  }
   headers.set("x-forwarded-prefix", prefix);
   headers.set("content-type", "application/json");
 
