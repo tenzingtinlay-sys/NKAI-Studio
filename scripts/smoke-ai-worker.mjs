@@ -8,7 +8,13 @@ import { validateWorkerBaseUrl } from "./smoke-ai-worker-utils.mjs";
 
 const baseUrl = process.env.AI_WORKER_SMOKE_URL || process.env.AI_WORKER_INTERNAL_URL;
 const token = process.env.AI_WORKER_SMOKE_TOKEN || process.env.AI_WORKER_API_TOKEN;
-const includeTts = process.argv.includes("--tts");
+const ttsOnly = process.argv.includes("--tts-only");
+const includeTts = process.argv.includes("--tts") || ttsOnly;
+
+if (ttsOnly && process.env.AI_WORKER_SMOKE_VOICE_CONSENT !== "true") {
+  console.error("Set AI_WORKER_SMOKE_VOICE_CONSENT=true only if you own or have explicit permission to use the configured reference voice.");
+  process.exit(2);
+}
 
 if (!baseUrl || !token) {
   console.error("Set AI_WORKER_SMOKE_URL and AI_WORKER_SMOKE_TOKEN (or AI_WORKER_INTERNAL_URL and AI_WORKER_API_TOKEN).");
@@ -46,6 +52,34 @@ async function main() {
 
   const capabilities = await jsonRequest("/capabilities");
   assert(capabilities.response.ok && typeof capabilities.body === "object", "Capabilities endpoint failed.");
+
+  if (ttsOnly) {
+    assert(capabilities.body.tts?.ready === true, "TTS capability reports not ready: " + (capabilities.body.tts?.detail || health.body.detail || "unknown reason"));
+    console.log("PASS /capabilities: dedicated TTS worker is ready");
+
+    const unauthorizedTts = await fetch(new URL("tts", base.href.endsWith("/") ? base : base.href + "/"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: "NKAI voice smoke test.", language: "en-US", consent_confirmed: true }),
+      cache: "no-store",
+      redirect: "error",
+      signal: timeout(15000),
+    });
+    assert(unauthorizedTts.status === 401, "Unauthenticated /tts must return HTTP 401; got " + unauthorizedTts.status + ". Ensure WORKER_API_TOKEN is configured.");
+
+    const tts = await jsonRequest("/tts", {
+      method: "POST",
+      body: JSON.stringify({ text: "NKAI voice smoke test.", language: "en-US", consent_confirmed: true }),
+      signal: timeout(180000),
+    });
+    assert(tts.response.ok && typeof tts.body?.audio_base64 === "string" && tts.body.audio_base64.length > 100,
+      "TTS did not return encoded audio (HTTP " + tts.response.status + ").");
+    assert(tts.body.mime_type === "audio/wav", "TTS response is not WAV audio.");
+    console.log("PASS authenticated /tts returned WAV audio. The reference voice consent was explicitly confirmed.");
+    console.log("Dedicated TTS smoke checks passed.");
+    return;
+  }
+
   assert(capabilities.body.chat?.ready !== false, "Chat capability reports not ready.");
   console.log("PASS /capabilities: chat model", capabilities.body.chat?.model || "reported");
 
