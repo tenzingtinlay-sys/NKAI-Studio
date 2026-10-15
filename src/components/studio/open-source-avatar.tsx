@@ -28,7 +28,7 @@ export function OpenSourceAvatarPanel() {
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
   const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
   const [selectedVoice, setSelectedVoice] = useState("");
-  const [rotationPlan, setRotationPlan] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation-v2") || "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } catch { return "Lightning AI|4|\nKaggle|12|\nHugging Face ZeroGPU|0.083|"; } });
+  const [rotationPlan, setRotationPlan] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation-v2") || "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } catch { return "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } });
   const [rotationEnabled, setRotationEnabled] = useState(true);
   const [rotationNow, setRotationNow] = useState(Date.now());
   const [rotationStartedAt, setRotationStartedAt] = useState(() => { try { const saved = Number(localStorage.getItem("nkai-platform-rotation-v2-start")); return saved > 0 ? saved : Date.now(); } catch { return Date.now(); } });
