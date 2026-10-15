@@ -6,6 +6,13 @@ This blueprint maps open-source components and legal/licensing requirements for 
 
 There is no single complete, legally redistributable set of every open-source AI avatar. Assets include 3D GLB/VRM characters, talking-head video models, motion models, and creator/stock assets. Some example avatars in open-source repositories are explicitly non-commercial. NKAI should ship a curated registry, bundle only assets whose exact licences permit the intended use, and support import of user-owned GLB/GLTF/VRM files.
 
+## Additional options supplied by the project owner
+
+- **TalkingAvatar AI Creation Library** — https://www.talkingavatar.ai/create-avatar/ai-creation-library. Hosted third-party creation workflow. NKAI links out to the provider; no public API, asset download permission, or redistribution rights are assumed.
+- **LiveTalking** — https://github.com/lipku/LiveTalking and https://www.livetalking.ai/. Apache-2.0 codebase for real-time digital-human streaming with WebRTC/RTMP, Wav2Lip/MuseTalk/ER-NeRF options and TTS adapters. It is a separate GPU streaming engine, not a drop-in replacement for NKAI's existing /chat and /tts endpoints. Checkpoint, avatar, dataset and generated-media licences require their own review.
+
+See [LiveTalking and TalkingAvatar integration notes](LIVETALKING_AND_TALKINGAVATAR.md) for deployment steps and current integration boundaries.
+
 ## Component catalogue
 
 | Component | What it provides | Licence / caveat | Integration |
