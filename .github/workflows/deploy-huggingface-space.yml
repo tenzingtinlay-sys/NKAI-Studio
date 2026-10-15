@@ -58,5 +58,41 @@ jobs:
               commit_message="Deploy NKAI Studio from GitHub Actions",
               token=token,
           )
-          print(f"Uploaded source to Hugging Face Space {repo_id}. Check the Space build logs for deployment status.")
+          import time
+          import urllib.error
+          import urllib.request
+
+          print(f"Uploaded source to Hugging Face Space {repo_id}. Waiting for the Docker Space to start.")
+          deadline = time.time() + 900
+          last_stage = "unknown"
+          while time.time() < deadline:
+              info = api.repo_info(repo_id=repo_id, repo_type="space", token=token)
+              runtime = getattr(info, "runtime", None)
+              stage = getattr(runtime, "stage", "unknown") if runtime else "unknown"
+              if stage != last_stage:
+                  print(f"Space runtime stage: {stage}")
+                  last_stage = stage
+              if stage == "RUNNING":
+                  break
+              if stage in {"BUILD_ERROR", "RUNTIME_ERROR", "CONFIG_ERROR", "NO_APP_FILE"}:
+                  raise SystemExit(f"Hugging Face Space failed with runtime stage: {stage}")
+              time.sleep(15)
+          else:
+              raise SystemExit(f"Timed out waiting for Hugging Face Space to start; last stage was {last_stage}. Check the Space build/runtime logs.")
+
+          base_url = "https://" + repo_id.replace("/", "-").lower() + ".hf.space"
+          # Confirm the app serves its real diagnostic route after the container starts.
+          request = urllib.request.Request(base_url + "/deployment", headers={"User-Agent": "NKAI-Studio-deployment-check"})
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  if response.status != 200:
+                      raise SystemExit(f"Space started but /deployment returned HTTP {response.status}")
+                  page = response.read(1_000_000).decode("utf-8", errors="replace")
+                  if "NKAI STUDIO" not in page.upper() and "deployment" not in page.lower():
+                      raise SystemExit("Space returned HTTP 200 but the NKAI deployment diagnostic page marker was not found.")
+                  print(f"Deployment smoke test passed: {base_url}/deployment (HTTP {response.status}).")
+          except urllib.error.HTTPError as exc:
+              raise SystemExit(f"Space runtime is RUNNING but /deployment returned HTTP {exc.code}. Check app logs.") from exc
+          except Exception as exc:
+              raise SystemExit(f"Space runtime is RUNNING but the /deployment smoke test failed: {exc}") from exc
           PY
