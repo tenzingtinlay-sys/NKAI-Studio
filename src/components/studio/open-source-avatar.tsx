@@ -3,9 +3,6 @@ import { useStudio } from "@/lib/studio/store";
 
 const AVATARS = [
   { label: "MPFB sample · verify licence/rig", url: "/assets/avatars/mpfb.glb", body: "M" },
-  { label: "Avaturn sample · non-commercial terms", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avaturn.glb", body: "M" },
-  { label: "AvatarSDK sample · non-commercial terms", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avatarsdk.glb", body: "M" },
-  { label: "Brunette sample · CC BY-NC 4.0", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/brunette.glb", body: "F" },
 ];
 const DEFAULT_MODEL = AVATARS[0].url;
 const LANGUAGES = [
@@ -62,7 +59,6 @@ type LocalGenerator = (messages: Array<{ role: "system" | "user" | "assistant"; 
 export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
   const [localModelName, setLocalModelName] = useState("");
-  const [liveTalkingUrl, setLiveTalkingUrl] = useState("");
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
   const [neuralVoice, setNeuralVoice] = useState("am_fenrir");
   const [indicVoiceStyle, setIndicVoiceStyle] = useState("default");
@@ -285,25 +281,6 @@ export function OpenSourceAvatarPanel() {
     utterance.onend = () => setStatus("Ready · 3D viewer remains active");
     utterance.onerror = () => setStatus("Text response ready · speech could not play");
     window.speechSynthesis.speak(utterance);
-  }
-
-  function openLiveTalking() {
-    const raw = liveTalkingUrl.trim();
-    if (!raw) {
-      flash("Enter the URL of your running LiveTalking server first.");
-      return;
-    }
-    try {
-      const url = new URL(raw);
-      if (!["https:", "http:"].includes(url.protocol) || (url.protocol === "http:" && !["localhost", "127.0.0.1", "::1"].includes(url.hostname))) {
-        flash("Use an HTTPS LiveTalking URL. HTTP is allowed only for localhost testing.");
-        return;
-      }
-      window.open(url.toString(), "_blank", "noopener,noreferrer");
-      setStatus("Opened LiveTalking streaming server in a new tab");
-    } catch {
-      flash("Enter a valid LiveTalking server URL, including https://.");
-    }
   }
 
   async function checkWorkerCapabilities() {
@@ -548,15 +525,12 @@ export function OpenSourceAvatarPanel() {
             <label style={{ display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={rotationEnabled} onChange={(e) => setRotationEnabled(e.target.checked)} /> Enable timed rotation</label>
           </div>
           <small style={{ opacity: .75, display: "block", marginBottom: 12 }}>{activeRotation ? "Scheduled slot: " + activeRotation.platform + " · " + Math.ceil(rotationRemainingMs / 60000) + " min remaining · " + (activeRotation.url ? "endpoint configured" : "waiting for endpoint URL") : "Add platform schedule entries to enable rotation."} Colab is excluded as a web-service worker because its free-tier rules prohibit offering web services. ZeroGPU is limited to about 5 GPU minutes/day on free accounts. Kaggle session and weekly quotas may prevent a daily 12-hour slot; confirm your current quota and permitted networking. Lightning AI free Studios restart every 4 hours.</small>
-          <h3>LiveTalking · real-time streaming avatar</h3>
-          <p style={{ opacity: .75 }}>LiveTalking is a separate, self-hosted WebRTC/RTMP engine for generated talking-head video and lip-sync (Wav2Lip, MuseTalk, ER-NeRF and related pipelines). It is not the same as the GLB viewer or the JSON chat/TTS worker. Deploy LiveTalking with its own model weights and GPU, then connect to its browser UI below.</p>
-          <label><b>Your LiveTalking server URL</b><input type="url" value={liveTalkingUrl} onChange={(e) => setLiveTalkingUrl(e.target.value)} placeholder="https://your-livetalking-host.example" style={{ width: "100%", marginTop: 8 }} /></label>
-          <div className="mf-bar" style={{ marginTop: 8 }}>
-            <button className="mf-ghost" type="button" onClick={openLiveTalking}>Open streaming studio</button>
-            <button className="mf-ghost" type="button" onClick={() => window.open("https://github.com/lipku/LiveTalking", "_blank", "noopener,noreferrer")}>LiveTalking source</button>
-            <button className="mf-ghost" type="button" onClick={() => window.open("https://www.talkingavatar.ai/create-avatar/ai-creation-library", "_blank", "noopener,noreferrer")}>TalkingAvatar creation library</button>
+          <h3>Real-time avatar streaming</h3>
+          <p style={{ opacity: .75 }}>The streaming workspace is embedded in NKAI Studio. It connects only through the app's same-origin backend route; the GPU streaming service must be configured by the deployment operator. No third-party launch links are shown here.</p>
+          <div style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, overflow: "hidden", background: "#101318", minHeight: 360 }}>
+            <iframe title="NKAI real-time avatar streaming workspace" src="/api/livetalking/" style={{ width: "100%", minHeight: 360, height: 520, border: 0, background: "#101318" }} allow="camera; microphone; autoplay; fullscreen; display-capture" />
           </div>
-          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>External services open in a new tab; NKAI does not copy their private backend or paid assets. LiveTalking's open-source repo is Apache-2.0, but its checkpoints, sample avatars and data need separate licence checks. Its own README notes WebRTC needs networking/UDP configuration. The TalkingAvatar library is a hosted third-party option; its content and commercial terms remain subject to that service's terms.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>If the stream workspace is unavailable, configure LIVETALKING_INTERNAL_URL on the backend and deploy the LiveTalking GPU service with its model checkpoints and permitted WebRTC network ports. Browser build success alone does not mean a GPU stream is online.</small>
           <h3>GPU worker connection</h3>
           <p style={{ opacity: .75 }}>Paste one or more HTTPS endpoints of your own open-source inference workers, one per line in failover priority order. Each worker should accept POST JSON with <code>message</code> and <code>history</code>, then return JSON containing <code>reply</code>. No provider API key is used by this UI.</p>
           <label><b>Worker endpoint URLs (priority order)</b><textarea value={workerUrl} onChange={(e) => setWorkerUrl(e.target.value)} placeholder={"https://primary-worker.example/chat\nhttps://backup-worker.example/chat"} style={{ width: "100%", marginTop: 8, minHeight: 84 }} /></label><small style={{ opacity: .72 }}>Enter one HTTPS /chat endpoint per line, in priority order. The app tries each live worker before switching to the local fallback.</small>
