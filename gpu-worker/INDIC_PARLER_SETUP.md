@@ -1,6 +1,6 @@
 # Optional Indic Parler-TTS worker
 
-This optional worker provides neural speech for 20 Indian languages plus English, using the Apache-2.0 `ai4bharat/indic-parler-tts` model. The model is gated on Hugging Face: the operator must accept the model conditions and configure a Hugging Face token as the server-side `HF_TOKEN` secret. It does not clone voices; it uses model-provided voice styles. Model weights are large and require a suitable GPU for practical latency.
+This optional worker provides neural speech for 20 Indian languages plus English, using the Apache-2.0 `ai4bharat/indic-parler-tts` model. The model is gated on Hugging Face: the operator must accept the model conditions and configure a Hugging Face token as the server-side `HF_TOKEN` secret. It does not clone voices; it uses model-provided voice styles. Model weights are large and require a suitable GPU for practical latency. After deployment, verify actual audio with `python gpu-worker/smoke_test_openvoice.py https://YOUR-HOST --test-tts --consent-confirmed --language hi-IN --voice "A female speaker" --output hindi-test.wav`. The smoke-test script works with any compatible NKAI `/health`, `/capabilities`, and `/tts` worker despite its filename.
 
 ## Install
 
