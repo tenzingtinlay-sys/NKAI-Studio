@@ -126,7 +126,7 @@ def capabilities():
     return {
         "tts": {
             "provider": "OpenVoice V2 + MeloTTS",
-            "ready": converter is not None and target_speaker_embedding is not None,
+            "ready": converter is not None and target_speaker_embedding is not None and (bool(WORKER_API_TOKEN) or ALLOW_UNAUTHENTICATED),
             "languages": [{"code": key, "label": LANGUAGE_NAMES[value]} for key, value in LANGUAGES.items()],
             "voiceCloning": True,
             "requiresConsentedReferenceAudio": True,
