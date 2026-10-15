@@ -462,7 +462,7 @@ export function OpenSourceAvatarPanel() {
                 <option value="af_bella">Bella · feminine</option>
               </select>
             </label>}
-            <label style={{ flex: 1, minWidth: 150 }}>AI voice style
+            <label style={{ flex: 1, minWidth: 150 }}>AI voice style · Indic Parler
               <select value={indicVoiceStyle} onChange={(e) => setIndicVoiceStyle(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
                 <option value="default">Language default</option>
                 <option value="A female speaker">Female</option>
