@@ -31,6 +31,7 @@ jobs:
         run: |
           python -m compileall -q gpu-worker
           python -m py_compile scripts/blender/convert_rocketbox_to_glb.py
+          bash -n gpu-worker/download_openvoice_checkpoints.sh
 
       - name: TypeScript check
         run: npm run typecheck
