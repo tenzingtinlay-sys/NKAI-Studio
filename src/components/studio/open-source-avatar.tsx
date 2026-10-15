@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useStudio } from "@/lib/studio/store";
 
 const DEFAULT_MODEL =
-  "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/CesiumMan/glTF-Binary/CesiumMan.glb";
+  "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avaturn.glb";
 const DEFAULT_GREETING =
   "Hi, I’m your NKAI avatar. Connect an open-source model worker to enable generated conversations, or use browser voice with the local demo.";
 
 type Turn = { role: "user" | "assistant"; text: string };
+type TalkingHeadApi = { showAvatar: (avatar: { url: string; body?: string; lipsyncLang?: string; avatarMood?: string }) => Promise<void>; speakAudio: (audio: unknown, options?: object, onSubtitles?: (word: string) => void) => void };
+type HeadTTSApi = { connect: () => Promise<void>; setup: (options: object) => Promise<void>; synthesize: (options: { input: string }) => Promise<unknown>; onmessage?: ((message: { type: string; data: unknown }) => void) | null; onerror?: ((error: unknown) => void) | null };
 
 export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
@@ -19,6 +21,11 @@ export function OpenSourceAvatarPanel() {
   const [status, setStatus] = useState("3D viewer · browser-rendered");
   const [turns, setTurns] = useState<Turn[]>([{ role: "assistant", text: DEFAULT_GREETING }]);
   const [modelError, setModelError] = useState(false);
+  const [talkingEnabled, setTalkingEnabled] = useState(false);
+  const [talkingReady, setTalkingReady] = useState(false);
+  const talkingContainerRef = useRef<HTMLDivElement | null>(null);
+  const talkingHeadRef = useRef<TalkingHeadApi | null>(null);
+  const headTtsRef = useRef<HeadTTSApi | null>(null);
   const viewerRef = useRef<HTMLElement | null>(null);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const flash = useStudio((s) => s.flash);
@@ -36,7 +43,76 @@ export function OpenSourceAvatarPanel() {
     try { localStorage.setItem("nkai-avatar-workers", workerUrl.trim()); } catch { /* storage may be blocked */ }
   }, [workerUrl]);
 
-  function speak(text: string) {
+  useEffect(() => {
+    if (!talkingEnabled || !talkingContainerRef.current || talkingHeadRef.current) return;
+    let cancelled = false;
+    let head: TalkingHeadApi | null = null;
+    (async () => {
+      try {
+        setStatus("Loading open-source 3D lip-sync engine…");
+        const talkingHeadUrl = "https://cdn.jsdelivr.net/npm/@met4citizen/talkinghead@1.7/+esm";
+        const headTtsUrl = "https://cdn.jsdelivr.net/npm/@met4citizen/headtts@1.3/+esm";
+        const [talkingModule, ttsModule] = await Promise.all([
+          import(/* @vite-ignore */ talkingHeadUrl),
+          import(/* @vite-ignore */ headTtsUrl),
+        ]);
+        if (cancelled || !talkingContainerRef.current) return;
+        head = new talkingModule.TalkingHead(talkingContainerRef.current, {
+          cameraView: "full",
+          cameraRotateEnable: true,
+          cameraZoomEnable: true,
+          lipsyncModules: ["en"],
+          avatarMood: "neutral",
+          avatarMute: true,
+        }) as TalkingHeadApi;
+        talkingHeadRef.current = head;
+        await head.showAvatar({ url: modelUrl, body: "M", lipsyncLang: "en", avatarMood: "neutral" });
+        if (cancelled) return;
+        const tts = new ttsModule.HeadTTS({
+          endpoints: ["webgpu", "wasm"],
+          languages: ["en-us"],
+          voices: ["am_fenrir"],
+          workerModule: "https://cdn.jsdelivr.net/npm/@met4citizen/headtts@1.3/modules/worker-tts.mjs",
+          dictionaryURL: "https://cdn.jsdelivr.net/npm/@met4citizen/headtts@1.3/dictionaries/",
+          dtypeWebgpu: "q4f16",
+          dtypeWasm: "q4",
+        }) as HeadTTSApi;
+        tts.onmessage = (message) => {
+          if (message.type === "audio") {
+            try { head?.speakAudio(message.data); } catch { setStatus("Neural audio arrived but lip-sync playback failed"); }
+          } else if (message.type === "error") {
+            setStatus("Local neural voice failed · browser voice remains available");
+          }
+        };
+        tts.onerror = () => setStatus("Local neural voice failed · browser voice remains available");
+        await tts.connect();
+        await tts.setup({ voice: "am_fenrir", language: "en-us", speed: 1, audioEncoding: "wav" });
+        if (cancelled) return;
+        headTtsRef.current = tts;
+        setTalkingReady(true);
+        setStatus("Talking avatar ready · local neural voice + viseme lip-sync");
+      } catch {
+        if (!cancelled) {
+          setStatus("Lip-sync engine could not load · browser voice remains available");
+          setTalkingEnabled(false);
+          setModelError(true);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [talkingEnabled]);
+
+  async function speak(text: string) {
+    const tts = headTtsRef.current;
+    if (talkingReady && tts) {
+      try {
+        setStatus("Generating local neural speech with lip-sync…");
+        await tts.synthesize({ input: text.slice(0, 500) });
+        return;
+      } catch {
+        setStatus("Local neural voice unavailable · using browser voice");
+      }
+    }
     if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
       setStatus("Text response ready · browser speech unavailable");
       return;
@@ -132,10 +208,13 @@ export function OpenSourceAvatarPanel() {
         <section className="mf-card" style={{ minWidth: 0 }}>
           <div style={{ position: "relative", minHeight: 420, borderRadius: 16, overflow: "hidden", background: "radial-gradient(ellipse at 50% 35%, rgba(88,166,255,.22), rgba(7,12,25,.96) 72%)" }}>
             {!modelError ? (
-              <div ref={(node) => { viewerRef.current = node; }} style={{ width: "100%", height: 440 }}>
-                {/** model-viewer is loaded as a browser custom element */}
-                {createModelViewer(modelUrl, () => setModelError(true))}
-              </div>
+              <>
+                <div ref={(node) => { viewerRef.current = node; }} style={{ width: "100%", height: 440, display: talkingEnabled ? "none" : "block" }}>
+                  {/** model-viewer is loaded as a browser custom element */}
+                  {createModelViewer(modelUrl, () => setModelError(true))}
+                </div>
+                {talkingEnabled && <div ref={talkingContainerRef} style={{ width: "100%", height: 440 }} />}
+              </>
             ) : (
               <div style={{ padding: 32, textAlign: "center" }}>
                 <h3>3D model could not load</h3><p>Check the model URL and that the host allows cross-origin access.</p>
@@ -148,10 +227,11 @@ export function OpenSourceAvatarPanel() {
           <label style={{ display: "block", marginTop: 16 }}><b>Rigged 3D model URL (GLB/GLTF)</b>
             <input value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); }} placeholder="https://…/avatar.glb" style={{ width: "100%", marginTop: 8 }} />
           </label>
-          <small style={{ opacity: .72, display: "block", marginTop: 8 }}>The included sample proves 3D rendering. For human-like lip sync, supply a licensed rigged avatar with facial morph targets/visemes; a generic GLB does not automatically provide them.</small>
+          <small style={{ opacity: .72, display: "block", marginTop: 8 }}>The sample uses the TalkingHead project avatar. Select Enable real lip-sync to load the open-source TalkingHead engine and HeadTTS neural voice locally in your browser (English; first load can be large and needs a modern desktop browser). Use a licensed compatible GLB for a custom identity; a generic model cannot lip-sync.</small>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
             <button className="mf-ghost" type="button" onClick={() => { const el = viewerRef.current as (HTMLElement & { cameraOrbit?: string; jumpCameraToGoal?: () => void }) | null; if (el) { el.cameraOrbit = "0deg 75deg 2.5m"; el.jumpCameraToGoal?.(); } }}>Reset view</button>
-            <button className="mf-ghost" type="button" onClick={() => { setModelUrl(DEFAULT_MODEL); setModelError(false); }}>Load sample model</button>
+            <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; setModelUrl(DEFAULT_MODEL); setModelError(false); }}>Load sample model</button>
+            <button className="mf-ghost" type="button" disabled={talkingEnabled} onClick={() => { setModelError(false); setTalkingEnabled(true); }}>Enable real lip-sync</button>
           </div>
         </section>
         <section className="mf-card" style={{ minHeight: 600, display: "flex", flexDirection: "column" }}>
