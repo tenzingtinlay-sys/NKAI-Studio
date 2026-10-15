@@ -256,6 +256,7 @@ export function OpenSourceAvatarPanel() {
         // Continue to the next worker, then try local neural speech and browser voices.
       }
     }
+    if (orderedEndpoints.length) setStatus("Neural TTS unavailable for this language · trying local/browser voice");
     const isEnglish = speechLanguage.toLowerCase().startsWith("en");
     if (talkingReady && tts && isEnglish) {
       try {
