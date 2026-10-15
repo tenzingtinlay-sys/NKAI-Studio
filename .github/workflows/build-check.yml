@@ -30,6 +30,7 @@ jobs:
       - name: Validate GPU worker and Blender script Python syntax
         run: |
           python -m compileall -q gpu-worker
+          python -m py_compile gpu-worker/indic_parler_app.py
           python -m py_compile scripts/blender/convert_rocketbox_to_glb.py
           python -m py_compile gpu-worker/smoke_test_openvoice.py
           bash -n gpu-worker/download_openvoice_checkpoints.sh
