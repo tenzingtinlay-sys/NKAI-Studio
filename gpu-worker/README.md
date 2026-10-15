@@ -17,7 +17,7 @@ uvicorn app:app --host 0.0.0.0 --port 7860
 
 On Windows, activate with `.venv\\Scripts\\activate`. Set `CORS_ORIGINS` to the exact NKAI Studio origin in production. The default `*` is convenient for a temporary test, not ideal for a public deployment.
 
-For a public endpoint, set a long random `WORKER_API_TOKEN` environment secret on the worker host. Paste the same token into the avatar panel's **Optional worker access token** field. The token is sent only as an HTTPS Bearer header and is not saved by the browser UI. If `WORKER_API_TOKEN` is unset, `/chat` remains unauthenticated, which is suitable only for a private test.
+For a public endpoint, set a long random `WORKER_API_TOKEN` environment secret on the worker host and configure the matching `AI_WORKER_API_TOKEN` only in NKAI Studio's server-side environment. The browser must call the same-origin `/api/ai/*` gateway; never expose the worker token in browser fields or client-side environment variables. The worker rejects missing or incorrect tokens when `WORKER_API_TOKEN` is set. Keep the worker private or behind an authenticated gateway.
 
 ## Build a GPU Docker image
 
