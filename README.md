@@ -5,10 +5,12 @@ NKAI Studio includes an open-source avatar chat panel with local-first AI option
 ## Avatar features
 
 - Interactive 3D model preview.
+- Multiple sample rigged avatar presets plus custom GLB URL support.
 - Optional TalkingHead + HeadTTS mode for rigged-avatar lip-sync and English neural speech, running in the browser without a paid TTS API.
+- Language selector for English, Hindi, Tamil, Telugu, Bengali, Marathi, Punjabi, Kannada, Malayalam, French, German, and Spanish. Non-English neural speech uses the optional `/tts` endpoint in the GPU worker; installed browser voices are the fallback.
 - Optional browser-local Qwen2.5-0.5B-Instruct model through Transformers.js (WebGPU first, WASM fallback). The first use downloads model files and may require substantial memory and bandwidth.
 - Optional self-hosted Transformers/FastAPI GPU worker using open model weights.
-- Ordered worker failover and an explicitly labeled scripted fallback.
+- Persistent timed platform rotation (configured hours and endpoint per slot), ordered worker failover, and an explicitly labeled scripted fallback.
 - Optional bearer-token protection for the GPU worker.
 
 ## Run the Studio
@@ -30,7 +32,7 @@ npm run build
 
 ## Connect an open-source GPU worker
 
-See [GPU worker setup](gpu-worker/README.md) and the [deployment / uptime guide](gpu-worker/DEPLOYMENT.md). Set `CORS_ORIGINS` to the Studio origin and configure `WORKER_API_TOKEN` as a host secret before exposing the worker publicly.
+See [GPU worker setup](gpu-worker/README.md) and the [deployment / uptime guide](gpu-worker/DEPLOYMENT.md). The multilingual MMS-TTS checkpoints currently use CC-BY-NC 4.0; use them for non-commercial testing only unless you have a separate licence that permits your use. See the worker README before deploying them. Set `CORS_ORIGINS` to the Studio origin and configure `WORKER_API_TOKEN` as a host secret before exposing the worker publicly.
 
 ## Important deployment note
 
