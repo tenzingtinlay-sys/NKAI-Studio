@@ -49,6 +49,18 @@
       "redistribute": false,
       "format": "glb",
       "visemes": "TalkingHead-compatible"
+    },
+    {
+      "id": "microsoft-rocketbox-library",
+      "label": "Microsoft Rocketbox avatar library (115 characters)",
+      "sourceRepository": "https://github.com/microsoft/Microsoft-Rocketbox",
+      "sourceUrl": "https://github.com/microsoft/Microsoft-Rocketbox",
+      "license": "MIT according to Microsoft repository",
+      "commercialUse": "allowed-with-MIT-notice",
+      "redistribute": true,
+      "format": "FBX with textures and animation assets",
+      "visemes": "some assets include facial blendshapes; verify each selected character",
+      "integration": "download separately and convert selected FBX assets to GLB with Blender; not included in current automatic downloader"
     }
   ],
   "voiceEngines": [
