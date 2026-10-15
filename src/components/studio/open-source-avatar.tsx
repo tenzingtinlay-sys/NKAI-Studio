@@ -167,37 +167,42 @@ export function OpenSourceAvatarPanel() {
 
   async function speak(text: string) {
     const tts = headTtsRef.current;
-    if (!speechLanguage.toLowerCase().startsWith("en") || !(talkingReady && tts)) {
-      for (const candidate of orderedEndpoints) {
-        try {
-          const endpoint = new URL(candidate);
-          endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/tts";
-          endpoint.search = "";
-          const response = await fetch(endpoint.toString(), {
-            method: "POST",
-            headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
-            body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage, consent_confirmed: voiceConsent }),
-          });
-          if (!response.ok) continue;
-          const data = await response.json() as { audio_base64?: string; mime_type?: string };
-          if (!data.audio_base64) continue;
-          const binary = window.atob(data.audio_base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    // Try configured neural TTS workers for every language, including English.
+    // This allows OpenVoice voice conversion and the default multilingual MMS worker
+    // to be used instead of silently bypassing them when local English TTS is ready.
+    for (const candidate of orderedEndpoints) {
+      try {
+        const endpoint = new URL(candidate);
+        endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/tts";
+        endpoint.search = "";
+        const response = await fetch(endpoint.toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
+          body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage, consent_confirmed: voiceConsent }),
+        });
+        if (!response.ok) continue;
+        const data = await response.json() as { audio_base64?: string; mime_type?: string; provider?: string; language?: string };
+        if (!data.audio_base64) continue;
+        const binary = window.atob(data.audio_base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        if (talkingHeadRef.current) {
           const audioContext = new AudioContext();
-          const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
-          if (talkingHeadRef.current) talkingHeadRef.current.speakAudio({ audio: audioBuffer, ...estimateVisemes(text, audioBuffer.duration) });
-          else {
-            const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" })));
-            await audio.play();
+          try {
+            const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
+            talkingHeadRef.current.speakAudio({ audio: audioBuffer, ...estimateVisemes(text, audioBuffer.duration) });
+          } finally {
+            void audioContext.close();
           }
-          setStatus("Multilingual neural speech · worker endpoint " + candidate);
-          return;
-        } catch {
-          // Try the next platform endpoint before using the browser voice.
+        } else {
+          const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" })));
+          await audio.play();
         }
+        setStatus("Neural speech · " + (data.provider || "worker") + " · " + candidate);
+        return;
+      } catch {
+        // Continue to the next worker, then try local neural speech and browser voices.
       }
-      setStatus("Multilingual worker TTS unavailable · using installed browser voice");
     }
     const isEnglish = speechLanguage.toLowerCase().startsWith("en");
     if (talkingReady && tts && isEnglish) {
