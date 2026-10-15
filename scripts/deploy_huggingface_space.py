@@ -7,6 +7,7 @@ chat worker has not been configured.
 """
 from __future__ import annotations
 
+import json
 import os
 import time
 import urllib.error
@@ -45,6 +46,52 @@ def require_https_url(value: str, source_name: str) -> None:
         raise ValueError(f"{source_name} must be an HTTPS URL without embedded credentials.")
     if parsed.query or parsed.fragment:
         raise ValueError(f"{source_name} must not include a query string or fragment.")
+
+
+def fetch_worker_json(url: str, token: str, label: str) -> dict:
+    """Fetch a worker's JSON diagnostic endpoint without logging credentials."""
+    request = urllib.request.Request(
+        url,
+        headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            if response.status != 200:
+                raise RuntimeError(f"{label} returned HTTP {response.status}.")
+            payload = json.loads(response.read(1_000_000).decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"{label} returned HTTP {exc.code}; check endpoint reachability and token configuration.") from exc
+    except Exception as exc:
+        if isinstance(exc, RuntimeError):
+            raise
+        raise RuntimeError(f"{label} could not be reached or did not return valid JSON.") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"{label} returned an invalid JSON object.")
+    return payload
+
+
+def check_chat_worker(base_url: str, token: str) -> None:
+    base = base_url.rstrip("/")
+    health = fetch_worker_json(base + "/health", token, "Chat worker /health")
+    status = str(health.get("status", "")).lower()
+    if status not in {"ready", "healthy", "ok", "running"}:
+        raise RuntimeError("Chat worker is not ready: " + (status or "unknown status"))
+    capabilities = fetch_worker_json(base + "/capabilities", token, "Chat worker /capabilities")
+    if capabilities.get("chat", {}).get("ready") is False:
+        raise RuntimeError("Chat worker capabilities report that chat is not ready.")
+    print("PASS: configured chat worker is reachable and reports ready.")
+
+
+def check_tts_worker(base_url: str, token: str) -> None:
+    base = base_url.rstrip("/")
+    health = fetch_worker_json(base + "/health", token, "TTS worker /health")
+    status = str(health.get("status", "")).lower()
+    if status not in {"ready", "healthy", "ok", "running"}:
+        raise RuntimeError("Dedicated TTS worker is not ready: " + (status or "unknown status"))
+    capabilities = fetch_worker_json(base + "/capabilities", token, "TTS worker /capabilities")
+    if capabilities.get("tts", {}).get("ready") is not True:
+        raise RuntimeError("Dedicated TTS worker is reachable but does not report ready speech generation.")
+    print("PASS: configured dedicated TTS worker is reachable and reports ready.")
 
 
 def build_space_secrets(env: Mapping[str, str], repo_id: str) -> dict[str, str]:
@@ -98,6 +145,16 @@ def deploy() -> None:
         raise ValueError("Configure GitHub repository secret HF_TOKEN.")
     space_url = derive_space_url(repo_id)
     secrets_to_set = build_space_secrets(os.environ, repo_id)
+
+    # Fail before changing the Space if the configured worker cannot actually
+    # serve inference. A page deployment must never hide an unavailable worker.
+    check_chat_worker(
+        os.environ["NKAI_AI_WORKER_INTERNAL_URL"].strip(),
+        os.environ["NKAI_AI_WORKER_API_TOKEN"].strip(),
+    )
+    tts_url = os.environ.get("NKAI_TTS_INTERNAL_URL", "").strip()
+    if tts_url:
+        check_tts_worker(tts_url, os.environ["NKAI_TTS_API_TOKEN"].strip())
 
     # Import only in deploy mode so validation helpers remain unit-testable
     # without the Hugging Face SDK installed.
