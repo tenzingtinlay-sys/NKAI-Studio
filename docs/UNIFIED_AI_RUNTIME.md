@@ -51,10 +51,16 @@ This is a **routing and failover framework**, not a connector that can automatic
 - Conversation state remains the browser/app's responsibility; a provider switch cannot preserve an in-progress GPU process or an active WebRTC media session.
 - LiveTalking media and WebRTC ICE/TURN remain separate from this chat/TTS worker pool.
 
+## Dedicated natural-speech worker
+
+For a separate TTS service such as the optional OpenVoice V2 worker, configure the server-only environment variables `AI_TTS_INTERNAL_URL` and `AI_TTS_API_TOKEN`. The URL is the TTS service base URL, without `/tts`; the token must match that service's `WORKER_API_TOKEN`. Requests to `/api/ai/tts` are health-checked and sent to this service instead of the chat worker. Chat continues to use the configured AI worker pool. If the TTS worker is not ready, the gateway reports it as unavailable rather than silently claiming the requested neural voice succeeded.
+
+OpenVoice requires its checkpoints and a private reference recording the operator is authorized to use. Voice cloning must not be used to impersonate someone without permission.
+
 ## Deployment checklist
 
 1. Deploy NKAI Studio to a server runtime that supports its Nitro routes.
-2. Deploy one or more compatible workers on hosts that explicitly permit the intended inference service.
+2. Deploy the chat worker and, if desired, a separate natural-speech worker on hosts that explicitly permit the intended inference service. See [Lightning AI deployment guide](../gpu-worker/LIGHTNING_AI_DEPLOYMENT.md).
 3. Configure `AI_WORKER_POOL_JSON` as a server-only secret. Do not add it to `VITE_*` variables or client code.
 4. Open `/deployment` and run the live checks.
 5. Test real chat, generated WAV audio, language selection, and avatar lip-sync separately.
