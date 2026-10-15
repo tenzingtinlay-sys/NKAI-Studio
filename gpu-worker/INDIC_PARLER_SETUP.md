@@ -32,7 +32,7 @@ docker build -f gpu-worker/Dockerfile.indic-parler -t nkai-indic-parler-worker .
 Create a private env file (do not commit it) with `HF_TOKEN`, `WORKER_API_TOKEN`, and `CORS_ORIGINS`, then run:
 
 ```bash
-docker run --rm --gpus all --env-file gpu-worker/.env -p 7862:7862 nkai-indic-parler-worker
+docker run --rm --gpus all --env-file gpu-worker/.env -v nkai-indic-parler-cache:/root/.cache/huggingface -p 7862:7862 nkai-indic-parler-worker
 ```
 
 The container downloads the gated model at startup. Use a persistent model cache/volume on the target host if you need to avoid downloading the model again after a restart. Never bake the Hugging Face token into the image.
