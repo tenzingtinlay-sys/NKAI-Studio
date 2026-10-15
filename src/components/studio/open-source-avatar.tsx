@@ -27,6 +27,7 @@ export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
   const [neuralVoice, setNeuralVoice] = useState("am_fenrir");
+  const [voiceConsent, setVoiceConsent] = useState(false);
   const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
   const [selectedVoice, setSelectedVoice] = useState("");
   const [rotationPlan, setRotationPlan] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation-v2") || "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } catch { return "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } });
@@ -175,7 +176,7 @@ export function OpenSourceAvatarPanel() {
           const response = await fetch(endpoint.toString(), {
             method: "POST",
             headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
-            body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage }),
+            body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage, consent_confirmed: voiceConsent }),
           });
           if (!response.ok) continue;
           const data = await response.json() as { audio_base64?: string; mime_type?: string };
@@ -401,6 +402,10 @@ export function OpenSourceAvatarPanel() {
             </label>}
           </div>
           <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. Other languages use an installed device/browser voice unless a multilingual worker is configured. The included MMS-TTS checkpoints are CC-BY-NC 4.0; use them for non-commercial testing only unless separately licensed.</small>
+          <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, marginBottom: 12 }}>
+            <input type="checkbox" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} style={{ marginTop: 2 }} />
+            <span>I own or have permission to use the configured reference voice for voice cloning. Required only for OpenVoice voice-cloning workers.</span>
+          </label>
           <h3>GPU platform rotation</h3>
           <p style={{ opacity: .75 }}>The scheduler selects a configured platform slot by elapsed time and tries that endpoint first, then other configured workers. It cannot start or wake a notebook session.</p>
           <label><b>Platform schedule (one line: platform | hours | HTTPS /chat URL)</b>
