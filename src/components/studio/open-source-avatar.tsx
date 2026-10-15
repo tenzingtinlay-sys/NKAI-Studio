@@ -177,7 +177,7 @@ export function OpenSourceAvatarPanel() {
             const response = await fetch(endpoint.toString(), {
               method: "POST",
               headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
-              body: JSON.stringify({ message: prompt, history: history.slice(-12), app: "NKAI-Studio" }),
+              body: JSON.stringify({ message: prompt, history: history.slice(0, -1).slice(-10), app: "NKAI-Studio" }),
               signal: controller.signal,
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
