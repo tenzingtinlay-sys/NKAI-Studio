@@ -21,6 +21,8 @@
     "format": "prettier --write .",
     "assets:download": "node scripts/download-approved-avatar-assets.mjs",
     "assets:rocketbox": "node scripts/download-rocketbox-library.mjs",
+    "assets:rocketbox:convert": "bash scripts/blender/convert_rocketbox_library.sh",
+    "assets:rocketbox:all": "npm run assets:rocketbox && npm run assets:rocketbox:convert",
     "predev": "npm run assets:download",
     "prebuild": "npm run assets:download",
     "prebuild:dev": "npm run assets:download"
