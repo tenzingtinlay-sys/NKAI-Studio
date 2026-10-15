@@ -25,6 +25,10 @@ Use a host that explicitly permits a persistent HTTP inference service and has e
 Do not commit tokens, passwords, or provider credentials to GitHub.
 
 
+## Lightning AI setup
+
+Lightning AI documents public app hosting through its [Host web apps guide](https://lightning.ai/docs/platform/build/host-web-apps) and production deployments through [Deploy a Studio](https://lightning.ai/docs/platform/build/ai-studio/deploy-a-studio). Deploy the `gpu-worker` service with port `7860` exposed and health check path `/health`. Keep `WORKER_API_TOKEN` in the platform's secret manager, then copy the resulting HTTPS `/chat` URL into the Lightning AI schedule slots in NKAI Studio. The endpoint must also expose `/tts` on the same origin for multilingual neural speech.
+
 ## Timed platform rotation
 
 In the Studio UI, each schedule line uses `platform name | hours | HTTPS /chat URL`. The default cycle is four hours on Lightning AI, twelve hours on Kaggle, then two four-hour Lightning AI windows. Add a real endpoint URL to each slot. The scheduler saves its clock in this browser, chooses the current slot first, and tries other configured endpoints if needed. It does not create, start, or restart provider sessions.
