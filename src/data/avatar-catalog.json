@@ -114,7 +114,30 @@
       "url": "https://huggingface.co/ai4bharat/indic-parler-tts",
       "license": "Apache-2.0 model card; gated access conditions apply",
       "commercialUse": "review gated access terms and all upstream dependencies",
-      "languages": ["as", "bn", "brx", "doi", "en", "gu", "hi", "kn", "kok", "mai", "ml", "mni", "mr", "ne", "or", "pa", "sa", "sat", "sd", "ta", "te", "ur"],
+      "languages": [
+        "as",
+        "bn",
+        "brx",
+        "doi",
+        "en",
+        "gu",
+        "hi",
+        "kn",
+        "kok",
+        "mai",
+        "ml",
+        "mni",
+        "mr",
+        "ne",
+        "or",
+        "pa",
+        "sa",
+        "sat",
+        "sd",
+        "ta",
+        "te",
+        "ur"
+      ],
       "voiceCloning": false,
       "deployment": "optional-gated-self-hosted-adapter",
       "defaultEnabled": false
@@ -154,6 +177,44 @@
       "voiceCloning": false,
       "deployment": "optional-self-hosted-adapter",
       "defaultEnabled": false
+    }
+  ],
+  "integrations": [
+    {
+      "id": "livetalking",
+      "label": "LiveTalking real-time streaming digital human",
+      "kind": "self-hosted-streaming-engine",
+      "sourceUrl": "https://github.com/lipku/LiveTalking",
+      "websiteUrl": "https://www.livetalking.ai/",
+      "license": "Apache-2.0 for the repository code; model weights, datasets, sample avatars and generated media require separate review",
+      "features": [
+        "WebRTC",
+        "RTMP",
+        "Wav2Lip",
+        "MuseTalk",
+        "ER-NeRF",
+        "voice cloning integrations",
+        "interruptible speech",
+        "custom avatars",
+        "API"
+      ],
+      "integrationStatus": "launch-link-added; deployment-and-API-bridge-pending",
+      "requires": [
+        "GPU host",
+        "model checkpoints",
+        "networking for WebRTC/UDP",
+        "TTS configuration"
+      ],
+      "notes": "Use as a separate streaming backend. Do not treat it as a drop-in replacement for the existing /chat and /tts worker contract."
+    },
+    {
+      "id": "talkingavatar-ai-creation-library",
+      "label": "TalkingAvatar AI Creation Library",
+      "kind": "hosted-third-party-avatar-creator",
+      "url": "https://www.talkingavatar.ai/create-avatar/ai-creation-library",
+      "license": "Hosted service; avatar rights, download/export rights and commercial terms must be verified in the provider's current terms",
+      "integrationStatus": "external-launch-link-added; no public API or redistribution rights assumed",
+      "notes": "Use for exploration or creation through the provider UI. Do not scrape or copy its proprietary backend, paid assets or private APIs."
     }
   ]
 }
