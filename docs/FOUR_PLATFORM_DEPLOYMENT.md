@@ -21,7 +21,7 @@ The public studio is a full-stack app because it uses Nitro server routes for pr
 - The GPU worker can be deployed independently on Lightning AI.
 - Secrets stay in the Space's server environment, never in `VITE_*` variables or committed files.
 - The included GitHub Actions workflow can upload the repository to an existing HF Space when manually dispatched, once repository secrets `HF_TOKEN` and `HF_SPACE_ID` are configured.
-- The Space must be created in the Hugging Face account first. Deployment cannot succeed until valid Space credentials and any required secrets are configured.
+- The deployment workflow can create the Docker Space automatically if it does not exist and the token has write permission. Add GitHub repository secrets under **Settings → Secrets and variables → Actions**: `HF_TOKEN` (a Hugging Face write token) and `HF_SPACE_ID` (`your-hf-username/nkai-studio`, or another Space ID you control). Then run **Actions → Deploy NKAI Studio to Hugging Face Spaces → Run workflow**. Deployment cannot proceed without a valid token and Space ID.
 - The default PGLite database may be ephemeral on hosted containers. Configure a supported persistent database/storage before relying on durable user accounts or long-lived user data.
 
 ## First live worker: Lightning AI
