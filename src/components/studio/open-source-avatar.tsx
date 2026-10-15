@@ -26,6 +26,7 @@ type LocalGenerator = (messages: Array<{ role: "system" | "user" | "assistant"; 
 export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
+  const [neuralVoice, setNeuralVoice] = useState("am_fenrir");
   const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
   const [selectedVoice, setSelectedVoice] = useState("");
   const [rotationPlan, setRotationPlan] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation-v2") || "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } catch { return "Lightning AI|4|\nKaggle|12|\nLightning AI|4|\nLightning AI|4|"; } });
@@ -197,6 +198,7 @@ export function OpenSourceAvatarPanel() {
     if (talkingReady && tts && isEnglish) {
       try {
         setStatus("Generating local neural speech with lip-sync…");
+        await tts.setup({ voice: neuralVoice, language: "en-us", speed: 1, audioEncoding: "wav" });
         await tts.synthesize({ input: text.slice(0, 500) });
         return;
       } catch {
