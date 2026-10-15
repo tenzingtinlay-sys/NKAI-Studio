@@ -13,6 +13,7 @@ export function OpenSourceAvatarPanel() {
   const [workerUrl, setWorkerUrl] = useState(() => {
     try { return localStorage.getItem("nkai-avatar-workers") || ""; } catch { return ""; }
   });
+  const [workerToken, setWorkerToken] = useState("");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("3D viewer · browser-rendered");
@@ -73,7 +74,7 @@ export function OpenSourceAvatarPanel() {
           try {
             const response = await fetch(endpoint.toString(), {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
               body: JSON.stringify({ message: prompt, history: history.slice(-12), app: "NKAI-Studio" }),
               signal: controller.signal,
             });
@@ -157,8 +158,9 @@ export function OpenSourceAvatarPanel() {
           <h3 style={{ marginTop: 0 }}>GPU worker connection</h3>
           <p style={{ opacity: .75 }}>Paste one or more HTTPS endpoints of your own open-source inference workers, one per line in failover priority order. Each worker should accept POST JSON with <code>message</code> and <code>history</code>, then return JSON containing <code>reply</code>. No provider API key is used by this UI.</p>
           <label><b>Worker endpoint URLs (priority order)</b><textarea value={workerUrl} onChange={(e) => setWorkerUrl(e.target.value)} placeholder={"https://primary-worker.example/chat\nhttps://backup-worker.example/chat"} style={{ width: "100%", marginTop: 8, minHeight: 84 }} /></label><small style={{ opacity: .72 }}>Enter one HTTPS /chat endpoint per line, in priority order. The app tries each live worker before switching to the local fallback.</small>
+          <label style={{ display: "block", marginTop: 10 }}><b>Optional worker access token</b><input type="password" autoComplete="off" value={workerToken} onChange={(e) => setWorkerToken(e.target.value)} placeholder="Only if WORKER_API_TOKEN is configured" style={{ width: "100%", marginTop: 8 }} /><small style={{ opacity: .72 }}>Kept in this page memory only; it is not saved to local storage.</small></label>
           <div className="mf-bar" style={{ marginTop: 10 }}>
-            <button className="mf-ghost" type="button" onClick={() => { setWorkerUrl(""); setStatus("Local fallback selected"); }}>Use local fallback</button>
+            <button className="mf-ghost" type="button" onClick={() => { setWorkerUrl(""); setWorkerToken(""); setStatus("Local fallback selected"); }}>Use local fallback</button>
             <button className="mf-ghost" type="button" onClick={async () => { const urls = workerUrl.split(/[\n,]+/).map((url) => url.trim()).filter(Boolean); if (!urls.length) { flash("Enter at least one worker URL first."); return; } setStatus("Checking workers in priority order…"); let found = false; for (let i = 0; i < urls.length; i++) { try { const u = new URL(urls[i]); const health = new URL(u.toString()); health.pathname = health.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/health"; health.search = ""; const controller = new AbortController(); const timeout = window.setTimeout(() => controller.abort(), 8000); try { const res = await fetch(health, { method: "GET", signal: controller.signal }); if (res.ok) { const data = await res.json() as { status?: string; model?: string }; if (data.status === "ready" || data.status === "loading") { setStatus(`Worker ${i + 1}/${urls.length} reachable · ${data.status}${data.model ? ` · ${data.model}` : ""}`); found = true; break; } } } finally { window.clearTimeout(timeout); } } catch { /* try the next configured worker */ } } if (!found) setStatus("No health endpoint responded. Check the worker URL, HTTPS, and CORS."); }}>Check connection</button>
           </div>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
