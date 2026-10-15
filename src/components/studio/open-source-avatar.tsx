@@ -14,6 +14,7 @@ const LANGUAGES = [
   { label: "Bengali", code: "bn-IN" }, { label: "Marathi", code: "mr-IN" }, { label: "Punjabi", code: "pa-IN" },
   { label: "Kannada", code: "kn-IN" }, { label: "Malayalam", code: "ml-IN" },
   { label: "French", code: "fr-FR" }, { label: "German", code: "de-DE" }, { label: "Spanish", code: "es-ES" },
+  { label: "Chinese (Mandarin)", code: "zh-CN" }, { label: "Japanese", code: "ja-JP" }, { label: "Korean", code: "ko-KR" },
 ];
 const DEFAULT_GREETING =
   "Hi, I’m your NKAI avatar. Load the local Qwen model or connect an open-source GPU worker for generated conversations.";
@@ -30,6 +31,9 @@ const VOICE_TEST_PHRASES: Record<string, string> = {
   fr: "Bonjour ! Ceci est un test vocal de NKAI Studio.",
   de: "Hallo! Dies ist ein Sprachtest für NKAI Studio.",
   es: "¡Hola! Esta es una prueba de voz de NKAI Studio.",
+  zh: "你好！这是 NKAI Studio 的语音测试。",
+  ja: "こんにちは！これは NKAI Studio の音声テストです。",
+  ko: "안녕하세요! NKAI Studio 음성 테스트입니다.",
 };
 
 type Turn = { role: "user" | "assistant"; text: string };
