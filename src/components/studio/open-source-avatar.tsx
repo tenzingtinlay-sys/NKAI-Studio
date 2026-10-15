@@ -25,6 +25,13 @@ type LocalGenerator = (messages: Array<{ role: "system" | "user" | "assistant"; 
 
 export function OpenSourceAvatarPanel() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL);
+  const [speechLanguage, setSpeechLanguage] = useState("en-IN");
+  const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
+  const [selectedVoice, setSelectedVoice] = useState("");
+  const [rotationPlan, setRotationPlan] = useState(() => { try { return localStorage.getItem("nkai-platform-rotation") || "Lightning AI|4|\nKaggle|12|\nHugging Face ZeroGPU|0.083|"; } catch { return "Lightning AI|4|\nKaggle|12|\nHugging Face ZeroGPU|0.083|"; } });
+  const [rotationEnabled, setRotationEnabled] = useState(true);
+  const [rotationNow, setRotationNow] = useState(Date.now());
+  const [rotationStartedAt, setRotationStartedAt] = useState(() => { try { const saved = Number(localStorage.getItem("nkai-platform-rotation-start")); return saved > 0 ? saved : Date.now(); } catch { return Date.now(); } });
   const [workerUrl, setWorkerUrl] = useState(() => {
     try { return localStorage.getItem("nkai-avatar-workers") || ""; } catch { return ""; }
   });
@@ -58,6 +65,39 @@ export function OpenSourceAvatarPanel() {
   useEffect(() => {
     try { localStorage.setItem("nkai-avatar-workers", workerUrl.trim()); } catch { /* storage may be blocked */ }
   }, [workerUrl]);
+
+  useEffect(() => {
+    const updateVoices = () => {
+      if (!("speechSynthesis" in window)) return;
+      const voices = window.speechSynthesis.getVoices();
+      setVoiceOptions(voices.map((voice) => ({ name: voice.name, lang: voice.lang })));
+      setSelectedVoice((current) => current || voices.find((voice) => voice.lang.toLowerCase() === speechLanguage.toLowerCase())?.name || "");
+    };
+    updateVoices();
+    if ("speechSynthesis" in window) window.speechSynthesis.addEventListener("voiceschanged", updateVoices);
+    return () => { if ("speechSynthesis" in window) window.speechSynthesis.removeEventListener("voiceschanged", updateVoices); };
+  }, [speechLanguage]);
+
+  useEffect(() => {
+    try { localStorage.setItem("nkai-platform-rotation", rotationPlan); localStorage.setItem("nkai-platform-rotation-start", String(rotationStartedAt)); } catch { /* storage may be blocked */ }
+  }, [rotationPlan, rotationStartedAt]);
+
+  useEffect(() => { const timer = window.setInterval(() => setRotationNow(Date.now()), 30000); return () => window.clearInterval(timer); }, []);
+
+  const rotationEntries = rotationPlan.split(/\\n+/).map((line) => {
+    const [platform, hoursText, url] = line.split("|").map((part) => part.trim());
+    return { platform, hours: Number(hoursText), url: url || "", valid: Boolean(platform && Number(hoursText) > 0) };
+  }).filter((entry) => entry.valid);
+  const totalRotationMs = rotationEntries.reduce((sum, entry) => sum + entry.hours * 3600000, 0);
+  const rotationPosition = totalRotationMs ? Math.max(0, rotationNow - rotationStartedAt) % totalRotationMs : 0;
+  let rotationCursor = 0;
+  let activeRotationIndex = -1;
+  for (let i = 0; i < rotationEntries.length; i++) { rotationCursor += rotationEntries[i].hours * 3600000; if (rotationPosition < rotationCursor) { activeRotationIndex = i; break; } }
+  const activeRotation = rotationEntries[activeRotationIndex];
+  const rotationElapsedInSlot = activeRotationIndex < 0 ? 0 : rotationPosition - (rotationCursor - rotationEntries[activeRotationIndex].hours * 3600000);
+  const rotationRemainingMs = activeRotationIndex < 0 ? 0 : rotationEntries[activeRotationIndex].hours * 3600000 - rotationElapsedInSlot;
+  const configuredRotationUrls = rotationEntries.filter((entry) => entry.url).map((entry) => entry.url);
+  const orderedEndpoints = rotationEnabled && activeRotation?.url ? [activeRotation.url, ...configuredRotationUrls.filter((url) => url !== activeRotation.url), ...workerUrl.split(/[\\n,]+/).map((url) => url.trim()).filter((url) => url && url !== activeRotation.url)] : workerUrl.split(/[\\n,]+/).map((url) => url.trim()).filter(Boolean);
 
   useEffect(() => {
     if (!talkingEnabled || !talkingContainerRef.current || talkingHeadRef.current) return;
