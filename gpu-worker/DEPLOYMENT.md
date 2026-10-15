@@ -24,6 +24,13 @@ Use a host that explicitly permits a persistent HTTP inference service and has e
 
 Do not commit tokens, passwords, or provider credentials to GitHub.
 
+
+## Timed platform rotation
+
+In the Studio UI, each schedule line uses `platform name | hours | HTTPS /chat URL`. The default cycle is four hours on Lightning AI, twelve hours on Kaggle, then two four-hour Lightning AI windows. Add a real endpoint URL to each slot. The scheduler saves its clock in this browser, chooses the current slot first, and tries other configured endpoints if needed. It does not create, start, or restart provider sessions.
+
+Provider limits still apply: Colab free tier must not be used to offer a web service; ZeroGPU's free quota is too short for continuous serving; and Kaggle session/weekly quotas may prevent a daily twelve-hour slot. Lightning free Studios restart every four hours. Use only hosting modes permitted by each provider.
+
 ## Free GPU services: practical limits
 
 - **Google Colab:** useful for experiments, but notebook sessions and inbound/public networking are not a guaranteed always-on production service. Use only a deployment mode allowed by Colab's current terms.
