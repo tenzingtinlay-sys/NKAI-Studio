@@ -159,6 +159,40 @@ export function OpenSourceAvatarPanel() {
 
   async function speak(text: string) {
     const tts = headTtsRef.current;
+    if (!speechLanguage.toLowerCase().startsWith("en")) {
+      const candidate = (activeRotation?.url || workerUrl.split(/[\n,]+/).map((url) => url.trim()).find(Boolean) || "").trim();
+      if (candidate) {
+        try {
+          const endpoint = new URL(candidate);
+          endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/tts";
+          endpoint.search = "";
+          const response = await fetch(endpoint.toString(), {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
+            body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage }),
+          });
+          if (response.ok) {
+            const data = await response.json() as { audio_base64?: string; mime_type?: string };
+            if (data.audio_base64) {
+              const binary = window.atob(data.audio_base64);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              const audioContext = new AudioContext();
+              const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
+              if (talkingHeadRef.current) talkingHeadRef.current.speakAudio({ audio: audioBuffer });
+              else {
+                const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" })));
+                await audio.play();
+              }
+              setStatus("Multilingual neural speech · open-source MMS-TTS worker");
+              return;
+            }
+          }
+        } catch {
+          setStatus("Multilingual worker TTS unavailable · using installed browser voice");
+        }
+      }
+    }
     const isEnglish = speechLanguage.toLowerCase().startsWith("en");
     if (talkingReady && tts && isEnglish) {
       try {
@@ -235,7 +269,7 @@ export function OpenSourceAvatarPanel() {
             const response = await fetch(endpoint.toString(), {
               method: "POST",
               headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
-              body: JSON.stringify({ message: prompt, history: history.slice(0, -1).slice(-10), app: "NKAI-Studio" }),
+              body: JSON.stringify({ message: prompt, language: speechLanguage, history: history.slice(0, -1).slice(-10), app: "NKAI-Studio" }),
               signal: controller.signal,
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
