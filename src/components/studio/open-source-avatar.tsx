@@ -17,6 +17,20 @@ const LANGUAGES = [
 ];
 const DEFAULT_GREETING =
   "Hi, I’m your NKAI avatar. Load the local Qwen model or connect an open-source GPU worker for generated conversations.";
+const VOICE_TEST_PHRASES: Record<string, string> = {
+  en: "Hello! This is a voice test for NKAI Studio.",
+  hi: "नमस्ते! यह NKAI Studio की आवाज़ का परीक्षण है।",
+  ta: "வணக்கம்! இது NKAI Studio குரல் சோதனை.",
+  te: "నమస్కారం! ఇది NKAI Studio వాయిస్ పరీక్ష.",
+  bn: "নমস্কার! এটি NKAI Studio কণ্ঠস্বর পরীক্ষা।",
+  mr: "नमस्कार! ही NKAI Studio च्या आवाजाची चाचणी आहे.",
+  pa: "ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਇਹ NKAI Studio ਦੀ ਆਵਾਜ਼ ਦੀ ਜਾਂਚ ਹੈ।",
+  kn: "ನಮಸ್ಕಾರ! ಇದು NKAI Studio ಧ್ವನಿ ಪರೀಕ್ಷೆ.",
+  ml: "നമസ്കാരം! ഇത് NKAI Studio ശബ്ദ പരിശോധനയാണ്.",
+  fr: "Bonjour ! Ceci est un test vocal de NKAI Studio.",
+  de: "Hallo! Dies ist ein Sprachtest für NKAI Studio.",
+  es: "¡Hola! Esta es una prueba de voz de NKAI Studio.",
+};
 
 type Turn = { role: "user" | "assistant"; text: string };
 type TalkingHeadApi = { showAvatar: (avatar: { url: string; body?: string; lipsyncLang?: string; avatarMood?: string }) => Promise<void>; speakAudio: (audio: unknown, options?: object, onSubtitles?: (word: string) => void) => void };
@@ -407,6 +421,10 @@ export function OpenSourceAvatarPanel() {
             </label>}
           </div>
           <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. For generated multilingual audio, connect a running worker that implements POST /tts (for example, the optional OpenVoice V2 worker for English, Spanish, French, Chinese, Japanese and Korean). Hindi and other Indian languages need a matching installed browser voice or a separately configured TTS checkpoint. The included MMS-TTS checkpoints are CC-BY-NC 4.0; use them for non-commercial testing only unless separately licensed.</small>
+          <div className="mf-bar" style={{ marginBottom: 12 }}>
+            <button className="mf-ghost" type="button" onClick={() => { const code = speechLanguage.toLowerCase().split("-")[0]; void speak(VOICE_TEST_PHRASES[code] || VOICE_TEST_PHRASES.en); }}>Test selected voice</button>
+            <small style={{ opacity: .72 }}>Tests neural worker first, then local neural or installed browser voice.</small>
+          </div>
           <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, marginBottom: 12 }}>
             <input type="checkbox" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} style={{ marginTop: 2 }} />
             <span>I own or have permission to use the configured reference voice for voice cloning. Required only for OpenVoice voice-cloning workers.</span>
