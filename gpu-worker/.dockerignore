@@ -1,0 +1,12 @@
+# Never send local worker secrets, recordings, environments, or downloaded weights to Docker.
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+*.wav
+checkpoints_v2/
+OpenVoice/
+downloads/
+.cache/
