@@ -14,7 +14,9 @@ async function workerIsReady(worker: AIWorker): Promise<boolean> {
     const type = response.headers.get("content-type") || "";
     if (!type.includes("json")) return true;
     const body = await response.json();
-    return body.status !== "loading" && body.status !== "offline" && body.status !== "error" && body.ready !== false;
+    const status = typeof body.status === "string" ? body.status.toLowerCase() : "";
+    if (status && !["ready", "healthy", "ok", "running"].includes(status)) return false;
+    return body.ready !== false;
   } catch { return false; }
 }
 
@@ -57,7 +59,7 @@ export default defineEventHandler(async (event) => {
     worker = {
       id: "dedicated-tts",
       platform: "lightning-ai",
-      baseUrl: ttsUrl.href.replace(/\\/$/, ""),
+      baseUrl: ttsUrl.href.replace(/\/$/, ""),
       token: process.env.AI_TTS_API_TOKEN?.trim() || "",
       leaseHours: 24,
       priority: 0,
@@ -99,7 +101,7 @@ export default defineEventHandler(async (event) => {
     if (HOP_BY_HOP.has(lower) || lower === "authorization" || value == null) continue;
     headers.set(name, Array.isArray(value) ? value.join(", ") : String(value));
   }
-  const token = worker?.token?.trim() || process.env.AI_WORKER_API_TOKEN?.trim();
+  const token = dedicatedTtsUrl ? worker?.token?.trim() : worker?.token?.trim() || process.env.AI_WORKER_API_TOKEN?.trim();
   if (token) headers.set("authorization", "Bearer " + token);
 
   let body: string | undefined;
