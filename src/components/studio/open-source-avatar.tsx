@@ -253,7 +253,7 @@ export function OpenSourceAvatarPanel() {
 
   async function checkWorkerCapabilities() {
     if (!orderedEndpoints.length) {
-      flash("Private inference route is unavailable.");
+      setStatus("Browser-local mode active · no hosted voice worker is configured or required.");
       return;
     }
     setStatus("Checking neural voice worker capabilities…");
@@ -445,7 +445,7 @@ export function OpenSourceAvatarPanel() {
         <div className="mf-bar" style={{ flexWrap: "wrap" }}>
           <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); setStatus("3D avatar viewer active"); }}>Launch 3D Avatar</button>
           <button className="mf-ghost" type="button" onClick={() => { setModelError(false); setTalkingEnabled(true); setStatus("Starting TalkingHead lip-sync engine…"); }}>Launch TalkingHead Lip-Sync</button>
-          <button className="mf-ghost" type="button" onClick={() => { streamingContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); setStatus("Opening embedded LiveTalking workspace…"); }}>Launch LiveTalking Workspace</button>
+          <button className="mf-ghost" type="button" onClick={() => { streamingContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); setStatus("Remote LiveTalking is optional; local avatar mode does not need it."); }}>Remote Streaming (Optional)</button>
           <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI Ready" : "Launch Local AI"}</button>
         </div>
       </section>
@@ -531,7 +531,7 @@ export function OpenSourceAvatarPanel() {
           <h3>Optional hosted worker (not required)</h3>
           <p style={{ opacity: .75 }}>The default chat and speech path runs in your browser/device. These diagnostics are only for optional self-hosted workers; you do not need to configure them to use the local avatar.</p>
           <div className="mf-bar" style={{ marginTop: 10, marginBottom: 14 }}>
-            <button className="mf-ghost" type="button" onClick={async () => { setStatus("Checking NKAI private inference worker…"); try { const response = await fetch("/api/ai/health", { cache: "no-store" }); const data = await response.json() as { status?: string; model?: string; error?: string }; if (!response.ok) throw new Error(data.error || "HTTP " + response.status); setStatus("Private worker " + (data.status || "reachable") + (data.model ? " · " + data.model : "")); } catch (error) { setStatus("Private AI worker unavailable · " + (error instanceof Error ? error.message : "check server configuration")); } }}>Check connection</button>
+            <button className="mf-ghost" type="button" onClick={async () => { setStatus("Checking optional hosted worker…"); try { const response = await fetch("/api/ai/health", { cache: "no-store" }); const data = await response.json() as { status?: string; model?: string; error?: string }; if (!response.ok) throw new Error(data.error || "HTTP " + response.status); setStatus("Optional hosted worker " + (data.status || "reachable") + (data.model ? " · " + data.model : "")); } catch (error) { setStatus("Optional hosted worker unavailable · local mode remains available"); } }}>Check connection</button>
             <button className="mf-ghost" type="button" onClick={() => void checkWorkerCapabilities()}>Check voice capabilities</button>
             <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
           </div>
@@ -542,7 +542,7 @@ export function OpenSourceAvatarPanel() {
             <LiveTalkingNativePanel />
           </div>
           <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Configure LIVETALKING_INTERNAL_URL on the backend and deploy the open-source LiveTalking GPU service with compatible model checkpoints and reachable WebRTC media ports. Browser build success alone does not mean a GPU stream is online.</small>
-          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>If the private worker is offline, browser-local Qwen can answer after you load it. Browser speech synthesis is a device fallback and does not guarantee a neural voice for every language.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Local mode does not depend on the hosted worker. Browser speech synthesis is provided by your device and does not guarantee a neural voice for every language. Remote LiveTalking streaming remains optional and needs its own running server.</small>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
             {turns.map((turn, i) => <div key={i} style={{ alignSelf: turn.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%", padding: "10px 12px", borderRadius: 12, background: turn.role === "user" ? "rgba(88,166,255,.18)" : "rgba(127,127,127,.12)" }}><small style={{ display: "block", opacity: .7, marginBottom: 4 }}>{turn.role === "user" ? "You" : "NKAI Avatar"}</small><span>{turn.text}</span></div>)}
           </div>
