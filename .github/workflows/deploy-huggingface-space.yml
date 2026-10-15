@@ -35,9 +35,17 @@ jobs:
           if "/" not in repo_id or len(repo_id.split("/")) != 2:
               raise SystemExit("HF_SPACE_ID must be the owner/space-name of an existing Space.")
           api = HfApi(token=token)
-          info = api.repo_info(repo_id=repo_id, repo_type="space")
-          if info is None:
-              raise SystemExit("Hugging Face Space was not found or token lacks access.")
+          try:
+              api.repo_info(repo_id=repo_id, repo_type="space")
+          except Exception:
+              print(f"Space {repo_id} was not found; attempting to create a Docker Space.")
+              api.create_repo(
+                  repo_id=repo_id,
+                  repo_type="space",
+                  space_sdk="docker",
+                  exist_ok=True,
+                  token=token,
+              )
           api.upload_folder(
               repo_id=repo_id,
               repo_type="space",
