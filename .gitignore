@@ -2,3 +2,11 @@
 downloads/third-party/Microsoft-Rocketbox/
 public/assets/avatars/*.glb
 public/assets/avatars/*.provenance.json
+
+# Local secrets, authorized reference recordings, and downloaded model weights
+.env
+.env.*
+!.env.example
+voice-secrets/
+openvoice-checkpoints/
+OpenVoice/
