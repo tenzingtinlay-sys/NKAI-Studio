@@ -1,0 +1,1865 @@
+import { useEffect, useRef, useState } from "react";
+import { REFERENCES } from "@/lib/studio/references";
+import { studioChat, studioDesign, studioHealth, studioImage, studioScript } from "@/lib/studio/ai";
+import { paintArt, pickFile, renderClip, renderScenes, shrinkFile } from "@/lib/studio/media";
+import { memoryBlock, useStudio } from "@/lib/studio/store";
+import { BG_LIBRARY, BG_MAP, BG_OFFICE, NEURAL_VOICES, uid, type Scene } from "@/lib/studio/types";
+import { browserVoices, canListen, listenOnce, playShifted, speakLine, stopSpeaking } from "@/lib/studio/voice";
+
+function Page({
+  title,
+  lede,
+  extra,
+  children,
+}: {
+  title: string;
+  lede: string;
+  extra?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mf-canvas">
+      <div className="mf-head">
+        <div>
+          <h1>{title}</h1>
+          <p>{lede}</p>
+        </div>
+        <div className="mf-bar">{extra}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+async function say(text: string) {
+  const s = useStudio.getState();
+  useStudio.setState({ speaking: true });
+  try {
+    await speakLine({
+      text,
+      lang: s.settings.lang,
+      rate: s.vp?.rate || 0.96,
+      pitch: s.vp?.pitch || 1,
+      voiceName: s.vp?.voice,
+      neural: s.settings.neural,
+      neuralId: s.vp?.neural || "eve",
+      onMouth: (mouth) => useStudio.setState({ mouth: s.perf.lipsync ? mouth : 0.05 }),
+    });
+  } finally {
+    useStudio.setState({ speaking: false, mouth: 0.04 });
+  }
+}
+
+export function AvatarsPanel() {
+  const avatars = useStudio((s) => s.avatars);
+  const avatar = useStudio((s) => s.avatar);
+  const flash = useStudio((s) => s.flash);
+  const [name, setName] = useState("");
+  return (
+    <Page title="Avatars" lede="Choose the presenter, or create one from a front-facing photo stored in this browser.">
+      <div className="mf-grid cards">
+        {avatars.map((p, i) => (
+          <div className={`mf-card ${i === avatar ? "sel" : ""}`} key={`${p.name}-${i}`}>
+            <button
+              className="mf-portrait"
+              style={{ aspectRatio: "0.8", width: "100%" }}
+              onClick={() => {
+                useStudio.getState().remember();
+                useStudio.setState({ avatar: i });
+                useStudio.getState().persist();
+                flash(`${p.name} is now the presenter`);
+              }}
+            >
+              <img className="av" src={p.src} alt="" />
+            </button>
+            <b>{p.name}</b>
+            {p.custom ? (
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  const next = avatars.filter((_, idx) => idx !== i);
+                  useStudio.setState({ avatars: next, avatar: 0 });
+                  useStudio.getState().persist();
+                }}
+              >
+                Delete
+              </button>
+            ) : (
+              <small>Library</small>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mf-card" style={{ marginTop: 14 }}>
+        <b>Create avatar from a photo</b>
+        <div className="mf-bar">
+          <input value={name} placeholder="Name" onChange={(e) => setName(e.target.value)} style={{ flex: 1 }} />
+          <button
+            className="mf-ghost"
+            onClick={async () => {
+              const file = await pickFile("image/*");
+              if (!file) return;
+              const src = await shrinkFile(file, 700);
+              const av = { name: name.trim() || file.name.replace(/\.\w+$/, ""), src, custom: true };
+              const list = [...useStudio.getState().avatars, av];
+              useStudio.setState({ avatars: list, avatar: list.length - 1 });
+              useStudio.getState().persist();
+              flash("Avatar created");
+            }}
+          >
+            Choose photo
+          </button>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+export function VideoPanel() {
+  const scenes = useStudio((s) => s.scenes);
+  const last = useStudio((s) => s.lastVideo);
+  const progress = useStudio((s) => s.progress);
+  const [prompt, setPrompt] = useState("");
+  const [count, setCount] = useState(4);
+  const [busy, setBusy] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [cap, setCap] = useState("");
+  const [start, setStart] = useState(0);
+  const [end, setEnd] = useState<number | "">("");
+  const [speed, setSpeed] = useState(1);
+  const [look, setLook] = useState("none");
+  const total = scenes.reduce((a, s) => a + s.dur, 0);
+
+  async function writeScript() {
+    if (!prompt.trim()) return useStudio.getState().flash("Describe the video first");
+    setBusy(true);
+    const s = useStudio.getState();
+    const r = await studioScript({
+      data: { topic: prompt + memoryBlock(s), scenes: count, kind: "avatar video" },
+    });
+    const av = s.avatars[s.avatar]?.src || BG_OFFICE;
+    s.setScenes(
+      r.scenes.map((sc, i) => ({
+        title: `Scene ${i + 1}`,
+        text: sc.text,
+        dur: 6,
+        img: i ? BG_OFFICE : av,
+      })),
+      prompt.slice(0, 40),
+    );
+    useStudio.getState().flash(`Script written (${r.engine})`);
+    setBusy(false);
+  }
+
+  async function render() {
+    const s = useStudio.getState();
+    setBusy(true);
+    try {
+      const out = await renderScenes(
+        s.scenes,
+        s.avatars[s.avatar].src,
+        s.settings.aspect,
+        Number(s.settings.res),
+        Number(s.settings.fps),
+        s.brand,
+        (p) => useStudio.setState({ progress: `Rendering ${Math.round(p * 100)}%` }),
+      );
+      useStudio.setState({ lastVideo: out, progress: "" });
+    } catch (e) {
+      useStudio.getState().flash(e instanceof Error ? e.message : "Render failed");
+    }
+    setBusy(false);
+  }
+
+  return (
+    <Page title="Video" lede="Write a presenter script, render a WebM, or trim a clip you already have.">
+      <div className="mf-grid two">
+        <div className="mf-card">
+          <b>Generate</b>
+          <textarea value={prompt} placeholder="Topic, audience, tone…" onChange={(e) => setPrompt(e.target.value)} />
+          <div className="mf-bar">
+            <select value={count} onChange={(e) => setCount(Number(e.target.value))} style={{ width: 88 }}>
+              {[3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <button className="mf-ghost" disabled={busy} onClick={() => void writeScript()}>
+              Write script
+            </button>
+            <button className="mf-primary" disabled={busy} onClick={() => void render()}>
+              Render video
+            </button>
+          </div>
+          <small>
+            {progress || `${scenes.length} scenes · ${total}s. Fine-tune them in Scenes.`}
+          </small>
+        </div>
+        <div className="mf-card">
+          {last ? (
+            <>
+              <video controls src={last.url} />
+              <div className="mf-bar">
+                <a className="mf-primary" href={last.url} download={`mediaforge-${Date.now()}.webm`}>
+                  Download .webm
+                </a>
+              </div>
+              <small>{last.note}</small>
+            </>
+          ) : (
+            <small>Your rendered video appears here.</small>
+          )}
+        </div>
+      </div>
+      <div className="mf-card" style={{ marginTop: 14 }}>
+        <b>Edit a clip</b>
+        <div className="mf-bar">
+          <button
+            className="mf-ghost"
+            onClick={async () => {
+              const f = await pickFile("video/*");
+              if (f) setFile(f);
+            }}
+          >
+            Choose video
+          </button>
+          <small>{file?.name || "No file"}</small>
+        </div>
+        <input value={cap} placeholder="Caption (optional)" onChange={(e) => setCap(e.target.value)} />
+        <div className="mf-grid two">
+          <div>
+            <label>Trim start (s)</label>
+            <input type="number" min={0} value={start} onChange={(e) => setStart(Number(e.target.value))} />
+          </div>
+          <div>
+            <label>Trim end (s, blank = end)</label>
+            <input
+              type="number"
+              min={0}
+              value={end}
+              onChange={(e) => setEnd(e.target.value === "" ? "" : Number(e.target.value))}
+            />
+          </div>
+          <div>
+            <label>Speed</label>
+            <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
+              {[0.5, 0.75, 1, 1.5, 2].map((n) => (
+                <option key={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Look</label>
+            <select value={look} onChange={(e) => setLook(e.target.value)}>
+              <option value="none">Original</option>
+              <option value="grayscale(1)">Black and white</option>
+              <option value="sepia(.8)">Warm</option>
+              <option value="contrast(1.3) saturate(1.3)">Vivid</option>
+            </select>
+          </div>
+        </div>
+        <button
+          className="mf-primary"
+          disabled={busy}
+          onClick={async () => {
+            if (!file) return useStudio.getState().flash("Choose a video file first");
+            setBusy(true);
+            try {
+              const out = await renderClip(file, {
+                start,
+                end: end === "" ? null : end,
+                speed,
+                filter: look,
+                caption: cap,
+                onProg: (p) => useStudio.setState({ progress: `Rendering ${Math.round(p * 100)}%` }),
+              });
+              useStudio.setState({ lastVideo: out, progress: "" });
+            } catch (e) {
+              useStudio.getState().flash(e instanceof Error ? e.message : "Edit failed");
+            }
+            setBusy(false);
+          }}
+        >
+          Render edit
+        </button>
+      </div>
+    </Page>
+  );
+}
+
+const STYLES = ["Aurora", "Sunset", "Ocean", "Forest", "Mono"];
+
+export function ImagesPanel() {
+  const imgs = useStudio((s) => s.imgs);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [prompt, setPrompt] = useState("Calm aurora over a dark studio stage");
+  const [style, setStyle] = useState("Aurora");
+  const [size, setSize] = useState("16:9");
+  const [text, setText] = useState("");
+  const [filters, setFilters] = useState({ b: 100, c: 100, s: 100, blur: 0 });
+  const [engine, setEngine] = useState("");
+  const [busy, setBusy] = useState(false);
+  const source = useRef<HTMLCanvasElement | null>(null);
+
+  function paintFilters() {
+    const cv = canvasRef.current;
+    const src = source.current;
+    if (!cv || !src) return;
+    const x = cv.getContext("2d");
+    if (!x) return;
+    cv.width = src.width;
+    cv.height = src.height;
+    x.filter = `brightness(${filters.b}%) contrast(${filters.c}%) saturate(${filters.s}%) blur(${filters.blur}px)`;
+    x.drawImage(src, 0, 0);
+    x.filter = "none";
+    if (text) {
+      x.fillStyle = "rgba(0,0,0,.45)";
+      x.fillRect(0, cv.height * 0.8, cv.width, cv.height * 0.2);
+      x.fillStyle = "#fff";
+      x.textAlign = "center";
+      x.textBaseline = "middle";
+      x.font = `700 ${Math.round(cv.height * 0.07)}px ${useStudio.getState().brand.font}, sans-serif`;
+      x.fillText(text, cv.width / 2, cv.height * 0.9);
+    }
+  }
+
+  async function generate(kind: "gpu" | "photo") {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    setBusy(true);
+    const [w, h] = size === "1:1" ? [768, 768] : size === "9:16" ? [540, 960] : [960, 540];
+    if (kind === "photo") {
+      const r = await studioImage({ data: { prompt: `${prompt}. ${size} composition, cinematic, no text.` } });
+      if (!r.ok) {
+        useStudio.getState().flash(r.error);
+        setBusy(false);
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        c.getContext("2d")?.drawImage(img, 0, 0, w, h);
+        source.current = c;
+        setEngine("grok imagine");
+        paintFilters();
+        setBusy(false);
+      };
+      img.src = r.dataUrl;
+      return;
+    }
+    const made = document.createElement("canvas");
+    const used = await paintArt(made, prompt, style, w, h);
+    source.current = made;
+    setEngine(used);
+    paintFilters();
+    setBusy(false);
+  }
+
+  useEffect(() => {
+    void generate("gpu");
+    // first paint only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    paintFilters();
+  }, [filters, text]);
+
+  return (
+    <Page
+      title="Images"
+      lede="WebGPU generative art renders instantly. Photoreal uses the studio image engine when you ask."
+    >
+      <div className="mf-grid two">
+        <div className="mf-card">
+          <label>Prompt</label>
+          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+          <div className="mf-grid two">
+            <div>
+              <label>Style</label>
+              <select value={style} onChange={(e) => setStyle(e.target.value)}>
+                {STYLES.map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Size</label>
+              <select value={size} onChange={(e) => setSize(e.target.value)}>
+                {["16:9", "1:1", "9:16"].map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="mf-bar">
+            <button className="mf-primary" disabled={busy} onClick={() => void generate("gpu")}>
+              Generate
+            </button>
+            <button className="mf-ghost" disabled={busy} onClick={() => void generate("photo")}>
+              Photoreal
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={async () => {
+                const f = await pickFile("image/*");
+                if (!f) return;
+                const url = await shrinkFile(f, 1400);
+                const img = new Image();
+                img.onload = () => {
+                  const c = document.createElement("canvas");
+                  c.width = img.width;
+                  c.height = img.height;
+                  c.getContext("2d")?.drawImage(img, 0, 0);
+                  source.current = c;
+                  setEngine("upload");
+                  paintFilters();
+                };
+                img.src = url;
+              }}
+            >
+              Edit my photo
+            </button>
+          </div>
+          <small>{engine ? `Engine: ${engine}` : "Rendering…"}</small>
+          <label>Overlay text</label>
+          <input value={text} onChange={(e) => setText(e.target.value)} />
+          {(
+            [
+              ["Brightness", "b", 40, 160],
+              ["Contrast", "c", 40, 160],
+              ["Saturation", "s", 0, 200],
+              ["Blur", "blur", 0, 10],
+            ] as const
+          ).map(([label, key, min, max]) => (
+            <div key={key}>
+              <label>
+                {label} {filters[key]}
+              </label>
+              <input
+                type="range"
+                min={min}
+                max={max}
+                value={filters[key]}
+                onChange={(e) => setFilters({ ...filters, [key]: Number(e.target.value) })}
+              />
+            </div>
+          ))}
+          <div className="mf-bar">
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                const cv = canvasRef.current;
+                if (!cv) return;
+                const a = document.createElement("a");
+                a.href = cv.toDataURL("image/png");
+                a.download = "mediaforge-image.png";
+                a.click();
+              }}
+            >
+              Download PNG
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                const cv = canvasRef.current;
+                if (!cv) return;
+                const full = cv.toDataURL("image/jpeg", 0.82);
+                const thumb = document.createElement("canvas");
+                thumb.width = 480;
+                thumb.height = Math.round((480 * cv.height) / cv.width);
+                thumb.getContext("2d")?.drawImage(cv, 0, 0, thumb.width, thumb.height);
+                const imgsNext = [{ u: thumb.toDataURL("image/jpeg", 0.7), full, prompt }, ...useStudio.getState().imgs].slice(0, 12);
+                useStudio.setState({ imgs: imgsNext });
+                useStudio.getState().persist();
+                useStudio.getState().flash("Saved to the library");
+              }}
+            >
+              Save to library
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                const cv = canvasRef.current;
+                if (!cv) return;
+                const s = useStudio.getState();
+                s.updateScene(s.scene, { img: cv.toDataURL("image/jpeg", 0.82) });
+                s.flash(`Scene ${s.scene + 1} background replaced`);
+              }}
+            >
+              Use as scene background
+            </button>
+          </div>
+        </div>
+        <div className="mf-card">
+          <canvas ref={canvasRef} width={960} height={540} />
+        </div>
+      </div>
+      <div className="mf-grid cards" style={{ marginTop: 14 }}>
+        {imgs.map((m, i) => (
+          <div className="mf-card" key={`${m.prompt}-${i}`}>
+            <img src={m.u} alt="" />
+            <div className="mf-bar">
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  const img = new Image();
+                  img.onload = () => {
+                    const c = document.createElement("canvas");
+                    c.width = img.width;
+                    c.height = img.height;
+                    c.getContext("2d")?.drawImage(img, 0, 0);
+                    source.current = c;
+                    paintFilters();
+                  };
+                  img.src = m.full;
+                }}
+              >
+                Edit
+              </button>
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  useStudio.setState({ imgs: imgs.filter((_, idx) => idx !== i) });
+                  useStudio.getState().persist();
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Page>
+  );
+}
+
+export function VoicePanel() {
+  const scene = useStudio((s) => s.scenes[s.scene]);
+  const voices = useStudio((s) => s.voices);
+  const vp = useStudio((s) => s.vp);
+  const [text, setText] = useState(scene?.text || "");
+  const [list, setList] = useState<SpeechSynthesisVoice[]>([]);
+  const [voice, setVoice] = useState(vp?.voice || "");
+  const [rate, setRate] = useState(Math.round((vp?.rate || 0.96) * 100));
+  const [pitch, setPitch] = useState(Math.round((vp?.pitch || 1) * 100));
+  const [neural, setNeural] = useState(vp?.neural || "eve");
+  const [label, setLabel] = useState("");
+  const [sample, setSample] = useState<string | null>(null);
+  const rec = useRef<MediaRecorder | null>(null);
+
+  useEffect(() => {
+    if (typeof speechSynthesis === "undefined") return;
+    const pull = () => setList(browserVoices());
+    pull();
+    speechSynthesis.onvoiceschanged = pull;
+  }, []);
+
+  function cfg() {
+    return { name: label || "Custom", voice, rate: rate / 100, pitch: pitch / 100, neural };
+  }
+
+  return (
+    <Page title="Voice" lede="Browser speech, a neural studio voice, saved presets, and a pitch transformer for your own take.">
+      <div className="mf-grid two">
+        <div className="mf-card">
+          <b>Text to speech</b>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} />
+          <label>Browser voice</label>
+          <select value={voice} onChange={(e) => setVoice(e.target.value)}>
+            <option value="">Default</option>
+            {list.map((v) => (
+              <option key={v.name} value={v.name}>
+                {v.name} ({v.lang})
+              </option>
+            ))}
+          </select>
+          <label>Neural voice</label>
+          <select value={neural} onChange={(e) => setNeural(e.target.value)}>
+            {NEURAL_VOICES.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+          <label>Speed {rate}%</label>
+          <input type="range" min={50} max={150} value={rate} onChange={(e) => setRate(Number(e.target.value))} />
+          <label>Pitch {pitch}%</label>
+          <input type="range" min={50} max={150} value={pitch} onChange={(e) => setPitch(Number(e.target.value))} />
+          <div className="mf-bar">
+            <button
+              className="mf-primary"
+              onClick={() => {
+                useStudio.setState({ vp: cfg() });
+                void say(text);
+              }}
+            >
+              Speak
+            </button>
+            <input value={label} placeholder="Name this voice" onChange={(e) => setLabel(e.target.value)} style={{ flex: 1 }} />
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (!label.trim()) return useStudio.getState().flash("Name the voice first");
+                useStudio.setState({ voices: [...voices, cfg()] });
+                useStudio.getState().persist();
+                useStudio.getState().flash("Voice saved");
+              }}
+            >
+              Save voice
+            </button>
+          </div>
+        </div>
+        <div className="mf-card">
+          <b>Saved voices</b>
+          {voices.length === 0 && <small>None yet.</small>}
+          {voices.map((v, i) => (
+            <div className="mf-bar" key={`${v.name}-${i}`}>
+              <span style={{ flex: 1 }}>
+                {v.name} <small>{v.neural}</small>
+              </span>
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  useStudio.setState({ vp: v });
+                  void say("Hello, this is my voice for your project.");
+                }}
+              >
+                Play
+              </button>
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  useStudio.setState({ vp: v });
+                  useStudio.getState().persist();
+                  useStudio.getState().flash(`Project voice: ${v.name}`);
+                }}
+              >
+                Use
+              </button>
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  useStudio.setState({ voices: voices.filter((_, idx) => idx !== i) });
+                  useStudio.getState().persist();
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          <b>Record and transform</b>
+          <div className="mf-bar">
+            <button
+              className="mf-ghost"
+              onClick={async () => {
+                if (rec.current) {
+                  rec.current.stop();
+                  return;
+                }
+                try {
+                  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                  const chunks: Blob[] = [];
+                  const media = new MediaRecorder(stream);
+                  rec.current = media;
+                  media.ondataavailable = (e) => chunks.push(e.data);
+                  media.onstop = () => {
+                    stream.getTracks().forEach((t) => t.stop());
+                    setSample(URL.createObjectURL(new Blob(chunks, { type: media.mimeType })));
+                    rec.current = null;
+                  };
+                  media.start();
+                  useStudio.getState().flash("Recording… click again to stop");
+                } catch {
+                  useStudio.getState().flash("Microphone access was denied");
+                }
+              }}
+            >
+              Record sample
+            </button>
+          </div>
+          {sample && (
+            <>
+              <audio controls src={sample} style={{ width: "100%" }} />
+              <div className="mf-chips">
+                {[
+                  ["Deep", 0.8],
+                  ["Natural", 1],
+                  ["Bright", 1.2],
+                  ["Chipmunk", 1.5],
+                ].map(([n, r]) => (
+                  <button key={String(n)} className="mf-chip" onClick={() => void playShifted(sample, Number(r))}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+export function AgentsPanel() {
+  const agents = useStudio((s) => s.agents);
+  const agent = useStudio((s) => s.agent);
+  const a = agents[agent];
+  const [draft, setDraft] = useState("");
+  const [engine, setEngine] = useState("");
+  const [busy, setBusy] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [a?.hist.length]);
+  if (!a) return null;
+
+  async function send(text: string) {
+    const clean = text.trim();
+    if (!clean || busy) return;
+    const s = useStudio.getState();
+    const current = s.agents[s.agent];
+    const hist = [...current.hist, { role: "user" as const, content: clean }];
+    const agentsNext = s.agents.map((ag, i) => (i === s.agent ? { ...ag, hist } : ag));
+    useStudio.setState({ agents: agentsNext });
+    setDraft("");
+    setBusy(true);
+    const r = await studioChat({
+      data: { system: current.prompt + memoryBlock(s), messages: hist },
+    });
+    const done = [...hist, { role: "assistant" as const, content: r.reply }].slice(-40);
+    useStudio.setState({
+      agents: useStudio.getState().agents.map((ag, i) => (i === s.agent ? { ...ag, hist: done } : ag)),
+    });
+    useStudio.getState().persist();
+    setEngine(r.engine);
+    setBusy(false);
+    if (useStudio.getState().settings.neural || true) void say(r.reply);
+  }
+
+  return (
+    <Page title="Agents" lede="Give an agent a role, then talk by text or microphone. Replies are spoken on the stage.">
+      <div className="mf-grid two">
+        <div className="mf-card">
+          <div className="mf-bar">
+            <b style={{ flex: 1 }}>Your agents</b>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                const next = [...agents, { name: "New agent", prompt: "You are a concise studio assistant.", hist: [] }];
+                useStudio.setState({ agents: next, agent: next.length - 1 });
+                useStudio.getState().persist();
+              }}
+            >
+              New
+            </button>
+          </div>
+          <div className="mf-chips">
+            {agents.map((ag, i) => (
+              <button key={ag.name + i} className={`mf-chip ${i === agent ? "active" : ""}`} onClick={() => useStudio.setState({ agent: i })}>
+                {ag.name}
+              </button>
+            ))}
+          </div>
+          <label>Name</label>
+          <input
+            value={a.name}
+            onChange={(e) => {
+              const name = e.target.value;
+              useStudio.setState({ agents: agents.map((ag, i) => (i === agent ? { ...ag, name } : ag)) });
+            }}
+            onBlur={() => useStudio.getState().persist()}
+          />
+          <label>Role and instructions</label>
+          <textarea
+            style={{ minHeight: 140 }}
+            value={a.prompt}
+            onChange={(e) => {
+              const prompt = e.target.value;
+              useStudio.setState({ agents: agents.map((ag, i) => (i === agent ? { ...ag, prompt } : ag)) });
+            }}
+            onBlur={() => useStudio.getState().persist()}
+          />
+          <div className="mf-bar">
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                useStudio.setState({ agents: agents.map((ag, i) => (i === agent ? { ...ag, hist: [] } : ag)) });
+                useStudio.getState().persist();
+              }}
+            >
+              Clear chat
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (agents.length < 2) return useStudio.getState().flash("Keep at least one agent");
+                useStudio.setState({ agents: agents.filter((_, i) => i !== agent), agent: 0 });
+                useStudio.getState().persist();
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+        <div className="mf-card">
+          <div className="mf-msgs" ref={box}>
+            {a.hist.map((m, i) => (
+              <div key={i} className={`mf-msg ${m.role === "user" ? "user" : ""}`}>
+                {m.content}
+              </div>
+            ))}
+            {busy && <div className="mf-msg">Thinking…</div>}
+          </div>
+          <div className="mf-bar">
+            <input
+              value={draft}
+              placeholder="Message…"
+              style={{ flex: 1 }}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void send(draft);
+              }}
+            />
+            <button
+              className="mf-ghost"
+              onClick={async () => {
+                try {
+                  const heard = await listenOnce(useStudio.getState().settings.lang);
+                  void send(heard);
+                } catch (e) {
+                  useStudio.getState().flash(e instanceof Error ? e.message : "Mic failed");
+                }
+              }}
+            >
+              Mic
+            </button>
+            <button className="mf-primary" onClick={() => void send(draft)}>
+              Send
+            </button>
+          </div>
+          <small>{engine ? `Engine: ${engine}` : canListen() ? "Mic ready" : "Type a message. This browser has no speech recognition."}</small>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+export function LivePanel() {
+  const avatars = useStudio((s) => s.avatars);
+  const avatar = useStudio((s) => s.avatar);
+  const agents = useStudio((s) => s.agents);
+  const liveOn = useStudio((s) => s.liveOn);
+  const speaking = useStudio((s) => s.speaking);
+  const mouth = useStudio((s) => s.mouth);
+  const [lines, setLines] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [status, setStatus] = useState("Idle");
+  const [which, setWhich] = useState(0);
+  const [draft, setDraft] = useState("");
+  const hist = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+  const gen = useRef(0);
+
+  useEffect(() => () => {
+    gen.current++;
+    stopSpeaking();
+    useStudio.setState({ liveOn: false, speaking: false });
+  }, []);
+
+  async function reply(text: string) {
+    const s = useStudio.getState();
+    hist.current = [...hist.current, { role: "user", content: text }];
+    setLines([...hist.current]);
+    setStatus("Thinking…");
+    const agent = s.agents[which] || s.agents[0];
+    const r = await studioChat({ data: { system: agent.prompt + memoryBlock(s), messages: hist.current } });
+    hist.current = [...hist.current, { role: "assistant", content: r.reply }];
+    setLines([...hist.current]);
+    setStatus("Speaking…");
+    await say(r.reply);
+    setStatus(useStudio.getState().liveOn ? "Listening…" : "Idle");
+  }
+
+  async function loop(token: number) {
+    while (token === gen.current && useStudio.getState().liveOn) {
+      if (!canListen()) {
+        setStatus("Type a message");
+        return;
+      }
+      setStatus("Listening…");
+      try {
+        const heard = await listenOnce(useStudio.getState().settings.lang);
+        if (token !== gen.current || !useStudio.getState().liveOn) return;
+        await reply(heard);
+      } catch {
+        if (token !== gen.current || !useStudio.getState().liveOn) return;
+        setStatus("Didn't catch that. Listening…");
+      }
+    }
+  }
+
+  return (
+    <Page title="Live Avatar" lede="Hands-free listen, think, speak. The mouth tracks visemes and the live audio level.">
+      <div className="mf-grid two">
+        <div className="mf-card" style={{ justifyItems: "center" }}>
+          <img
+            className="mf-round"
+            alt=""
+            src={avatars[avatar]?.src}
+            style={{ transform: `scale(${1 + mouth * 0.06})` }}
+          />
+          <b>{speaking ? "Speaking" : status}</b>
+          <div className="mf-bar">
+            <button
+              className="mf-primary"
+              onClick={() => {
+                gen.current++;
+                useStudio.setState({ liveOn: true });
+                setStatus("Listening…");
+                void loop(gen.current);
+              }}
+            >
+              Start live session
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                gen.current++;
+                useStudio.setState({ liveOn: false });
+                stopSpeaking();
+                setStatus("Idle");
+              }}
+            >
+              End
+            </button>
+          </div>
+          <label>Agent</label>
+          <select value={which} onChange={(e) => setWhich(Number(e.target.value))}>
+            {agents.map((ag, i) => (
+              <option key={ag.name + i} value={i}>
+                {ag.name}
+              </option>
+            ))}
+          </select>
+          <small>{liveOn ? "Session is live." : "Uses the microphone in Chrome or Edge, or type below."}</small>
+        </div>
+        <div className="mf-card">
+          <div className="mf-msgs">
+            {lines.map((m, i) => (
+              <div key={i} className={`mf-msg ${m.role === "user" ? "user" : ""}`}>
+                {m.content}
+              </div>
+            ))}
+          </div>
+          <div className="mf-bar">
+            <input
+              value={draft}
+              placeholder="Type to the avatar…"
+              style={{ flex: 1 }}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && draft.trim()) {
+                  const t = draft;
+                  setDraft("");
+                  void reply(t);
+                }
+              }}
+            />
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (!draft.trim()) return;
+                const t = draft;
+                setDraft("");
+                void reply(t);
+              }}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+export function ProjectsPanel() {
+  const projects = useStudio((s) => s.projects);
+  const pid = useStudio((s) => s.pid);
+  return (
+    <Page
+      title="Projects"
+      lede="Everything you make is saved in this browser."
+      extra={
+        <>
+          <button
+            className="mf-ghost"
+            onClick={async () => {
+              const f = await pickFile(".json,application/json");
+              if (!f) return;
+              try {
+                const p = JSON.parse(await f.text()) as { scenes?: Scene[]; name?: string };
+                if (!p.scenes) throw new Error("bad");
+                const item = {
+                  id: uid(),
+                  name: p.name || "Imported",
+                  t: Date.now(),
+                  scenes: p.scenes,
+                  avatar: 0,
+                  vp: null,
+                  scene: 0,
+                };
+                useStudio.setState({ projects: [item, ...useStudio.getState().projects] });
+                useStudio.getState().persist();
+              } catch {
+                useStudio.getState().flash("That file is not a MediaForge project");
+              }
+            }}
+          >
+            Import
+          </button>
+          <button
+            className="mf-primary"
+            onClick={() => {
+              const s = useStudio.getState();
+              s.remember();
+              const id = uid();
+              useStudio.setState({
+                pid: id,
+                name: "Untitled project",
+                scenes: [{ title: "Opening", text: "Start your story here.", dur: 6, img: s.avatars[s.avatar].src }],
+                scene: 0,
+              });
+              s.persist();
+              s.go("studio");
+            }}
+          >
+            New project
+          </button>
+        </>
+      }
+    >
+      <div className="mf-grid cards">
+        {projects.map((p) => (
+          <div className={`mf-card ${p.id === pid ? "sel" : ""}`} key={p.id}>
+            <div className="mf-thumb" style={{ height: 110, backgroundImage: `url(${p.scenes[0]?.img || ""})` }} />
+            <input
+              value={p.name}
+              onChange={(e) => {
+                const name = e.target.value;
+                useStudio.setState({
+                  projects: projects.map((x) => (x.id === p.id ? { ...x, name } : x)),
+                  ...(p.id === pid ? { name } : {}),
+                });
+              }}
+              onBlur={() => useStudio.getState().persist()}
+            />
+            <small>
+              {p.scenes.length} scenes · {new Date(p.t).toLocaleString()}
+              {p.id === pid ? " · open" : ""}
+            </small>
+            <div className="mf-bar">
+              <button
+                className="mf-primary"
+                onClick={() => {
+                  useStudio.setState({
+                    pid: p.id,
+                    name: p.name,
+                    scenes: p.scenes,
+                    avatar: p.avatar,
+                    vp: p.vp,
+                    scene: 0,
+                  });
+                  useStudio.getState().persist();
+                  useStudio.getState().go("studio");
+                }}
+              >
+                Open
+              </button>
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  const copy = { ...p, id: uid(), name: `${p.name} copy`, t: Date.now(), scenes: p.scenes.map((sc) => ({ ...sc })) };
+                  useStudio.setState({ projects: [copy, ...projects] });
+                  useStudio.getState().persist();
+                }}
+              >
+                Duplicate
+              </button>
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  const blob = URL.createObjectURL(new Blob([JSON.stringify(p)], { type: "application/json" }));
+                  const a = document.createElement("a");
+                  a.href = blob;
+                  a.download = `${p.name}.mediaforge.json`;
+                  a.click();
+                }}
+              >
+                Export
+              </button>
+              <button
+                className="mf-ghost"
+                onClick={() => {
+                  if (p.id === pid) return useStudio.getState().flash("Open another project before deleting this one");
+                  useStudio.setState({ projects: projects.filter((x) => x.id !== p.id) });
+                  useStudio.getState().persist();
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Page>
+  );
+}
+
+const TPL: [string, string, string[], string?][] = [
+  ["Product explainer", "Intro, problem, how it works, call to action", ["Meet {t}.", "Here is the problem it solves.", "It works in three simple steps.", "Try {t} today."]],
+  ["Welcome and onboarding", "Greet new people and point to a first step", ["Welcome to {t}.", "Here is what you can do first.", "We are here whenever you need us."]],
+  ["Course introduction", "Open a lesson with the outcome", ["Welcome to {t}.", "By the end, you will be able to apply it.", "Let us begin with the fundamentals."]],
+  ["Sales outreach", "A short personal pitch", ["I wanted to share how {t} can help.", "Teams usually see a result within weeks.", "Can we find fifteen minutes this week?"]],
+  ["Social short", "Vertical hook and payoff", ["Stop scrolling: {t} in twenty seconds.", "Here is the one thing that matters.", "Follow for the next one."], "9:16"],
+  ["Company update", "A leadership note", ["A quick update on {t}.", "What we finished, and what is next.", "Thank you for the work you do."]],
+];
+
+export function TemplatesPanel() {
+  const [topic, setTopic] = useState("");
+  return (
+    <Page title="Templates" lede="Start from a structure. Scenes are filled in and opened on the stage.">
+      <div className="mf-card" style={{ marginBottom: 14 }}>
+        <label>Topic, company, or product</label>
+        <input value={topic} placeholder="Acme hiring platform" onChange={(e) => setTopic(e.target.value)} />
+      </div>
+      <div className="mf-grid cards">
+        {TPL.map((t) => (
+          <div className="mf-card" key={t[0]}>
+            <b>{t[0]}</b>
+            <small>{t[1]}</small>
+            <small>
+              {t[2].length} scenes{t[3] ? ` · ${t[3]}` : ""}
+            </small>
+            <button
+              className="mf-primary"
+              onClick={() => {
+                const s = useStudio.getState();
+                const n = topic.trim() || "your topic";
+                if (t[3] === "9:16") useStudio.setState({ settings: { ...s.settings, aspect: "9:16" } });
+                const av = s.avatars[s.avatar].src;
+                s.setScenes(
+                  t[2].map((line, i) => ({
+                    title: ["Hook", "Body", "Detail", "Close"][i] || `Scene ${i + 1}`,
+                    text: line.replaceAll("{t}", n),
+                    dur: 6,
+                    img: i === 0 ? av : i % 2 ? BG_OFFICE : BG_LIBRARY,
+                  })),
+                  `${t[0]}: ${n}`,
+                );
+                s.go("studio");
+              }}
+            >
+              Use template
+            </button>
+          </div>
+        ))}
+      </div>
+    </Page>
+  );
+}
+
+export function ScenesPanel() {
+  const scenes = useStudio((s) => s.scenes);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Page
+      title="Scene editor"
+      lede="Edit every line. Changes show on the stage and in the next render."
+      extra={
+        <>
+          <button
+            className="mf-ghost"
+            onClick={() => {
+              const s = useStudio.getState();
+              s.remember();
+              useStudio.setState({
+                scenes: [...s.scenes, { title: "New scene", text: "Describe what should happen here.", dur: 6, img: BG_OFFICE }],
+              });
+              s.persist();
+            }}
+          >
+            Add scene
+          </button>
+          <button
+            className="mf-primary"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              const s = useStudio.getState();
+              try {
+                const out = await renderScenes(
+                  s.scenes,
+                  s.avatars[s.avatar].src,
+                  s.settings.aspect,
+                  Number(s.settings.res),
+                  Number(s.settings.fps),
+                  s.brand,
+                  (p) => useStudio.setState({ progress: `Rendering ${Math.round(p * 100)}%` }),
+                );
+                useStudio.setState({ lastVideo: out, progress: "" });
+                s.go("video");
+              } catch (e) {
+                s.flash(e instanceof Error ? e.message : "Render failed");
+              }
+              setBusy(false);
+            }}
+          >
+            Render video
+          </button>
+        </>
+      }
+    >
+      {scenes.map((sc, i) => (
+        <div className="mf-card" key={`${sc.title}-${i}`} style={{ marginBottom: 10 }}>
+          <div className="mf-thumb" style={{ backgroundImage: `url(${sc.img})` }} />
+          <div className="mf-grid two">
+            <input
+              value={sc.title}
+              onChange={(e) => useStudio.getState().updateScene(i, { title: e.target.value })}
+            />
+            <input
+              type="number"
+              min={2}
+              max={60}
+              value={sc.dur}
+              onChange={(e) => useStudio.getState().updateScene(i, { dur: Math.max(2, Number(e.target.value) || 6) })}
+            />
+          </div>
+          <textarea value={sc.text} onChange={(e) => useStudio.getState().updateScene(i, { text: e.target.value })} />
+          <div className="mf-bar">
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (i === 0) return;
+                const next = [...scenes];
+                [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                useStudio.getState().remember();
+                useStudio.setState({ scenes: next });
+                useStudio.getState().persist();
+              }}
+            >
+              Up
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (i >= scenes.length - 1) return;
+                const next = [...scenes];
+                [next[i + 1], next[i]] = [next[i], next[i + 1]];
+                useStudio.getState().remember();
+                useStudio.setState({ scenes: next });
+                useStudio.getState().persist();
+              }}
+            >
+              Down
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                const next = [...scenes];
+                next.splice(i + 1, 0, { ...sc, title: `${sc.title} copy` });
+                useStudio.getState().remember();
+                useStudio.setState({ scenes: next });
+                useStudio.getState().persist();
+              }}
+            >
+              Duplicate
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={async () => {
+                const f = await pickFile("image/*");
+                if (!f) return;
+                const img = await shrinkFile(f, 1400);
+                useStudio.getState().updateScene(i, { img });
+              }}
+            >
+              Background
+            </button>
+            <button className="mf-ghost" onClick={() => useStudio.getState().updateScene(i, { img: i ? BG_OFFICE : useStudio.getState().avatars[useStudio.getState().avatar].src })}>
+              Default background
+            </button>
+            <button className="mf-ghost" onClick={() => void say(sc.text)}>
+              Hear
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (scenes.length < 2) return useStudio.getState().flash("A project needs at least one scene");
+                useStudio.getState().remember();
+                useStudio.setState({ scenes: scenes.filter((_, idx) => idx !== i), scene: 0 });
+                useStudio.getState().persist();
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ))}
+    </Page>
+  );
+}
+
+export function BrandPanel() {
+  const brand = useStudio((s) => s.brand);
+  const name = useStudio((s) => s.name);
+  function setBrand(patch: Partial<typeof brand>) {
+    useStudio.setState({ brand: { ...useStudio.getState().brand, ...patch } });
+    useStudio.getState().persist();
+  }
+  return (
+    <Page title="Brand kit" lede="Colour, type, tagline, and logo land on the stage and inside every render.">
+      <div className="mf-grid two">
+        <div className="mf-card">
+          <div className="mf-grid two">
+            <div>
+              <label>Primary</label>
+              <input type="color" value={brand.c1} onChange={(e) => setBrand({ c1: e.target.value })} />
+            </div>
+            <div>
+              <label>Accent</label>
+              <input type="color" value={brand.c2} onChange={(e) => setBrand({ c2: e.target.value })} />
+            </div>
+          </div>
+          <label>Font</label>
+          <select value={brand.font} onChange={(e) => setBrand({ font: e.target.value })}>
+            {["Manrope", "DM Sans", "Georgia", "Trebuchet MS"].map((f) => (
+              <option key={f}>{f}</option>
+            ))}
+          </select>
+          <label>Tagline</label>
+          <input value={brand.tag} onChange={(e) => setBrand({ tag: e.target.value })} />
+          <div className="mf-bar">
+            <button
+              className="mf-ghost"
+              onClick={async () => {
+                const f = await pickFile("image/*");
+                if (!f) return;
+                if (f.size > 600000) return useStudio.getState().flash("Logo must be under 600 KB");
+                const reader = new FileReader();
+                reader.onload = () => setBrand({ logo: String(reader.result) });
+                reader.readAsDataURL(f);
+              }}
+            >
+              Upload logo
+            </button>
+            {brand.logo && (
+              <button className="mf-ghost" onClick={() => setBrand({ logo: "" })}>
+                Remove logo
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="mf-card">
+          <label>Preview</label>
+          <div className="mf-stage" style={{ backgroundImage: `url(${BG_OFFICE})`, backgroundSize: "cover" }}>
+            {brand.logo && <img className="mf-logo" alt="" src={brand.logo} />}
+            <div className="mf-caption" style={{ borderTop: `3px solid ${brand.c2}`, color: brand.c1, fontFamily: brand.font }}>
+              {brand.tag || name}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+export function DirectorPanel() {
+  const [prompt, setPrompt] = useState("");
+  const [tone, setTone] = useState("Professional");
+  const [count, setCount] = useState(4);
+  const [renderToo, setRenderToo] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const log = useStudio((s) => s.log);
+  const last = useStudio((s) => s.lastVideo);
+  const progress = useStudio((s) => s.progress);
+
+  return (
+    <Page title="AI Director" lede="One prompt writes the script, casts the presenter, applies the brand, and can render the cut.">
+      <div className="mf-grid two">
+        <div className="mf-card">
+          <textarea
+            style={{ minHeight: 130 }}
+            value={prompt}
+            placeholder="A 30-second welcome for new engineers. Warm, confident, no jargon."
+            onChange={(e) => setPrompt(e.target.value)}
+          />
+          <div className="mf-grid two">
+            <div>
+              <label>Tone</label>
+              <select value={tone} onChange={(e) => setTone(e.target.value)}>
+                {["Professional", "Friendly", "Energetic"].map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Scenes</label>
+              <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
+                {[3, 4, 5, 6].map((n) => (
+                  <option key={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <label className="mf-row">
+            <span>Render when the script is ready</span>
+            <input type="checkbox" checked={renderToo} onChange={(e) => setRenderToo(e.target.checked)} />
+          </label>
+          <button
+            className="mf-primary"
+            disabled={busy}
+            onClick={async () => {
+              if (!prompt.trim()) return useStudio.getState().flash("Describe the video first");
+              setBusy(true);
+              const s = useStudio.getState();
+              const push = (line: string) => useStudio.setState({ log: [...useStudio.getState().log, line] });
+              useStudio.setState({ log: [] });
+              try {
+                push("1. Reading the brief.");
+                const r = await studioScript({
+                  data: { topic: `${prompt}. Tone: ${tone}.${memoryBlock(s)}`, scenes: count, kind: "avatar video" },
+                });
+                push(`2. Script from the ${r.engine} engine, ${r.scenes.length} scenes.`);
+                const lower = prompt.toLowerCase();
+                let avatar = s.avatar;
+                if (/\b(he|him|his|man)\b/.test(lower)) avatar = 3;
+                if (/\b(she|her|woman)\b/.test(lower)) avatar = 0;
+                push(`3. Presenter: ${s.avatars[avatar]?.name || "Maya"}.`);
+                push(`4. Voice: ${s.vp?.neural || s.vp?.voice || "studio default"} (${s.settings.lang}).`);
+                push(`5. Brand: ${s.brand.c2}, ${s.brand.font}.`);
+                const av = s.avatars[avatar].src;
+                s.setScenes(
+                  r.scenes.map((sc, i) => ({
+                    title: ["Opening", "Context", "Insight", "Detail", "Proof", "Closing"][i] || `Scene ${i + 1}`,
+                    text: sc.text,
+                    dur: 6,
+                    img: i ? (i % 2 ? BG_OFFICE : BG_LIBRARY) : av,
+                  })),
+                  prompt.slice(0, 40),
+                );
+                useStudio.setState({ avatar });
+                push("6. Scenes saved to the project.");
+                if (renderToo) {
+                  push("7. Rendering the picture cut…");
+                  const now = useStudio.getState();
+                  const out = await renderScenes(
+                    now.scenes,
+                    now.avatars[now.avatar].src,
+                    now.settings.aspect,
+                    Number(now.settings.res),
+                    Number(now.settings.fps),
+                    now.brand,
+                    (p) => useStudio.setState({ progress: `Rendering ${Math.round(p * 100)}%` }),
+                  );
+                  useStudio.setState({ lastVideo: out, progress: "" });
+                  push("Done.");
+                }
+              } catch (e) {
+                push(e instanceof Error ? e.message : "Stopped");
+              }
+              setBusy(false);
+            }}
+          >
+            Direct
+          </button>
+          <small>{progress}</small>
+        </div>
+        <div className="mf-card">
+          <b>Production log</b>
+          <div className="mf-log">
+            {log.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>
+          {last && (
+            <>
+              <video controls src={last.url} />
+              <a className="mf-primary" href={last.url} download="mediaforge-director.webm">
+                Download .webm
+              </a>
+            </>
+          )}
+          <button className="mf-ghost" onClick={() => useStudio.getState().go("studio")}>
+            Open in Studio
+          </button>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+export function MemoryPanel() {
+  const mem = useStudio((s) => s.mem);
+  const on = useStudio((s) => s.settings.mem);
+  const [text, setText] = useState("");
+  const [q, setQ] = useState("");
+  const shown = mem.filter((m) => m.t.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <Page title="Project memory" lede="Facts here are added to agents, live sessions, scripts, and the Director.">
+      <div className="mf-card" style={{ marginBottom: 12 }}>
+        <div className="mf-bar">
+          <input value={text} placeholder="Our audience is senior operators. Keep the tone formal." style={{ flex: 1 }} onChange={(e) => setText(e.target.value)} />
+          <button
+            className="mf-primary"
+            onClick={() => {
+              if (!text.trim()) return;
+              useStudio.setState({ mem: [{ t: text.trim(), d: Date.now() }, ...mem] });
+              setText("");
+              useStudio.getState().persist();
+            }}
+          >
+            Remember
+          </button>
+        </div>
+        <label className="mf-row">
+          <span>Use memory in AI features</span>
+          <input
+            type="checkbox"
+            checked={on}
+            onChange={(e) => {
+              const settings = { ...useStudio.getState().settings, mem: e.target.checked };
+              useStudio.setState({ settings });
+              useStudio.getState().persist();
+            }}
+          />
+        </label>
+      </div>
+      <input value={q} placeholder="Search memory…" onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 12 }} />
+      {shown.length === 0 && <small>No memories yet.</small>}
+      {shown.map((m) => (
+        <div className="mf-card" key={m.d + m.t} style={{ marginBottom: 8 }}>
+          <textarea
+            style={{ minHeight: 54 }}
+            value={m.t}
+            onChange={(e) => {
+              useStudio.setState({ mem: mem.map((x) => (x === m ? { ...x, t: e.target.value } : x)) });
+            }}
+            onBlur={() => useStudio.getState().persist()}
+          />
+          <div className="mf-bar">
+            <small>{new Date(m.d).toLocaleDateString()}</small>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                useStudio.setState({ mem: mem.filter((x) => x !== m) });
+                useStudio.getState().persist();
+              }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ))}
+    </Page>
+  );
+}
+
+export function DesignPanel() {
+  const html = useStudio((s) => s.designHtml);
+  const [prompt, setPrompt] = useState("A calm landing page for an executive coaching practice");
+  const [kind, setKind] = useState("landing");
+  const [ref, setRef] = useState(REFERENCES[0]?.id || "");
+  const [change, setChange] = useState("");
+  const [mode, setMode] = useState<"preview" | "code">("preview");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const chosen = REFERENCES.find((r) => r.id === ref) || REFERENCES[0];
+
+  async function run(edit?: string) {
+    setBusy(true);
+    setNote("");
+    const r = await studioDesign({
+      data: {
+        prompt,
+        kind,
+        reference: ref,
+        previous: edit ? useStudio.getState().designHtml : "",
+        change: edit || "",
+      },
+    });
+    useStudio.setState({ designHtml: r.html });
+    setNote(`${r.engine} · ${chosen?.name || "reference"}`);
+    setMode("preview");
+    setBusy(false);
+  }
+
+  return (
+    <Page title="DesignForge" lede="Generate a full page in the visual language of a reference system. Preview, copy, or download the HTML.">
+      <div className="mf-grid two">
+        <div className="mf-card">
+          <label>Brief</label>
+          <textarea style={{ minHeight: 110 }} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+          <label>Type</label>
+          <select value={kind} onChange={(e) => setKind(e.target.value)}>
+            <option value="landing">Landing page</option>
+            <option value="dashboard">Dashboard</option>
+            <option value="poster">Poster</option>
+          </select>
+          <label>Reference style ({REFERENCES.length})</label>
+          <select value={ref} onChange={(e) => setRef(e.target.value)}>
+            {REFERENCES.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name.slice(0, 64)}
+              </option>
+            ))}
+          </select>
+          {chosen && (
+            <div className="mf-swatch" aria-hidden>
+              {chosen.palette.slice(0, 6).map((c) => (
+                <i key={c} style={{ background: c }} />
+              ))}
+            </div>
+          )}
+          <button className="mf-primary" disabled={busy} onClick={() => void run()}>
+            {busy ? "Designing…" : "Generate site"}
+          </button>
+          <label>Refine</label>
+          <input value={change} placeholder="Make the hero shorter…" onChange={(e) => setChange(e.target.value)} />
+          <button className="mf-ghost" disabled={busy || !html} onClick={() => void run(change || "Tighten the layout")}>
+            Apply change
+          </button>
+          <small>{note}</small>
+        </div>
+        <div className="mf-card">
+          <div className="mf-bar">
+            <button className={`mf-chip ${mode === "preview" ? "active" : ""}`} onClick={() => setMode("preview")}>
+              Preview
+            </button>
+            <button className={`mf-chip ${mode === "code" ? "active" : ""}`} onClick={() => setMode("code")}>
+              Code
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (!html) return;
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+                a.download = "mediaforge-site.html";
+                a.click();
+              }}
+            >
+              Download
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (!html) return;
+                void navigator.clipboard.writeText(html);
+                useStudio.getState().flash("Code copied");
+              }}
+            >
+              Copy
+            </button>
+          </div>
+          {!html && <small>Describe a site and generate it. A local template answers immediately if the model is quiet.</small>}
+          {html && mode === "preview" && <iframe className="mf-frame" sandbox="allow-scripts" title="Design preview" srcDoc={html} />}
+          {html && mode === "code" && (
+            <pre style={{ maxHeight: 520, overflow: "auto", whiteSpace: "pre-wrap", fontSize: 11 }}>{html}</pre>
+          )}
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+export function IntegrationsPanel() {
+  const engine = useStudio((s) => s.engine);
+  const gpu = useStudio((s) => s.gpu);
+  const [health, setHealth] = useState<string>(engine);
+  return (
+    <Page
+      title="Integrations"
+      lede="What is actually connected. Keys stay on the server. Nothing is typed into the browser."
+      extra={
+        <button
+          className="mf-ghost"
+          onClick={async () => {
+            const h = await studioHealth();
+            const label = h.engine === "grok" ? `grok · ${h.model}` : "local engine";
+            setHealth(label);
+            useStudio.setState({ engine: label });
+          }}
+        >
+          Re-check
+        </button>
+      }
+    >
+      <div className="mf-grid cards">
+        {[
+          ["Text, script, DesignForge", health, "User-initiated. Short replies. Local script if the model is unavailable."],
+          ["Photoreal images", health.includes("grok") ? "Ready when you press Photoreal" : "WebGPU art only", "Images tab. One image per click."],
+          ["Neural voice", health.includes("grok") ? "Eve, Ara, Leo, Rex, Sal" : "Browser speech only", "Voice and Live Avatar. Falls back to the system voice."],
+          ["WebGPU compositor", gpu, "Generative art shader. Canvas fallback if the GPU is blocked."],
+          ["Lip sync", "On device", "Visemes from the line plus live audio level. No cloud face model."],
+          ["Storyboard render", "MediaRecorder", "WebM picture track from the scenes, brand, and presenter."],
+        ].map(([name, state, note]) => (
+          <div className="mf-card" key={name}>
+            <b>{name}</b>
+            <span style={{ color: "var(--color-good)" }}>{state}</span>
+            <small>{note}</small>
+          </div>
+        ))}
+      </div>
+    </Page>
+  );
+}
+
+export function SettingsPanel() {
+  const settings = useStudio((s) => s.settings);
+  const [arm, setArm] = useState(false);
+  function patch(p: Partial<typeof settings>) {
+    useStudio.setState({ settings: { ...useStudio.getState().settings, ...p } });
+    useStudio.getState().persist();
+    useStudio.getState().flash("Saved");
+  }
+  return (
+    <Page title="Settings" lede="Aspect, quality, language, and a full backup of this browser's studio.">
+      <div className="mf-grid two">
+        <div className="mf-card">
+          <label>Aspect ratio</label>
+          <select value={settings.aspect} onChange={(e) => patch({ aspect: e.target.value as typeof settings.aspect })}>
+            {["16:9", "9:16", "1:1"].map((a) => (
+              <option key={a}>{a}</option>
+            ))}
+          </select>
+          <label>Render quality (short side)</label>
+          <select value={settings.res} onChange={(e) => patch({ res: e.target.value as typeof settings.res })}>
+            {["480", "720", "1080"].map((a) => (
+              <option key={a}>{a}</option>
+            ))}
+          </select>
+          <label>Frame rate</label>
+          <select value={settings.fps} onChange={(e) => patch({ fps: e.target.value as typeof settings.fps })}>
+            {["24", "30", "60"].map((a) => (
+              <option key={a}>{a}</option>
+            ))}
+          </select>
+          <label>Speech language</label>
+          <select value={settings.lang} onChange={(e) => patch({ lang: e.target.value })}>
+            {["en-US", "en-GB", "en-IN", "hi-IN", "tr-TR", "es-ES", "fr-FR", "de-DE"].map((a) => (
+              <option key={a}>{a}</option>
+            ))}
+          </select>
+          <label className="mf-row">
+            <span>Neural voice when speaking</span>
+            <input type="checkbox" checked={settings.neural} onChange={(e) => patch({ neural: e.target.checked })} />
+          </label>
+          <label className="mf-row">
+            <span>Include memory in prompts</span>
+            <input type="checkbox" checked={settings.mem} onChange={(e) => patch({ mem: e.target.checked })} />
+          </label>
+        </div>
+        <div className="mf-card">
+          <b>Your data</b>
+          <small>Projects, avatars, voices, agents, and memory stay in this browser.</small>
+          <div className="mf-bar">
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                useStudio.getState().persist();
+                const raw = localStorage.getItem("mediaforge-v5") || "{}";
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+                a.download = "mediaforge-backup.json";
+                a.click();
+              }}
+            >
+              Export everything
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={async () => {
+                const f = await pickFile(".json,application/json");
+                if (!f) return;
+                try {
+                  const d = JSON.parse(await f.text()) as { settings?: unknown };
+                  if (!d.settings) throw new Error("bad");
+                  localStorage.setItem("mediaforge-v5", await f.text());
+                  location.reload();
+                } catch {
+                  useStudio.getState().flash("Not a MediaForge backup");
+                }
+              }}
+            >
+              Import backup
+            </button>
+            <button
+              className="mf-ghost"
+              onClick={() => {
+                if (!arm) {
+                  setArm(true);
+                  return;
+                }
+                localStorage.removeItem("mediaforge-v5");
+                location.reload();
+              }}
+            >
+              {arm ? "Confirm reset" : "Reset all data"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Page>
+  );
+}
+
+export function SearchPanel() {
+  const q = useStudio((s) => s.query).toLowerCase();
+  const s = useStudio();
+  const rows: [string, string, "projects" | "scenes" | "memory" | "avatars" | "agents" | "voice"][] = [];
+  s.projects.forEach((p) => p.name.toLowerCase().includes(q) && rows.push(["Project", p.name, "projects"]));
+  s.scenes.forEach((sc) => `${sc.title} ${sc.text}`.toLowerCase().includes(q) && rows.push(["Scene", `${sc.title}: ${sc.text}`, "scenes"]));
+  s.mem.forEach((m) => m.t.toLowerCase().includes(q) && rows.push(["Memory", m.t, "memory"]));
+  s.avatars.forEach((a) => a.name.toLowerCase().includes(q) && rows.push(["Avatar", a.name, "avatars"]));
+  s.agents.forEach((a) => a.name.toLowerCase().includes(q) && rows.push(["Agent", a.name, "agents"]));
+  s.voices.forEach((v) => v.name.toLowerCase().includes(q) && rows.push(["Voice", v.name, "voice"]));
+  return (
+    <Page title="Search" lede={`${rows.length} result${rows.length === 1 ? "" : "s"} for “${s.query}”`}>
+      {rows.length === 0 && <small>Nothing matched.</small>}
+      {rows.map((r, i) => (
+        <div className="mf-card" key={i} style={{ marginBottom: 8 }}>
+          <div className="mf-bar">
+            <b style={{ width: 72 }}>{r[0]}</b>
+            <span style={{ flex: 1 }}>{r[1].slice(0, 140)}</span>
+            <button className="mf-ghost" onClick={() => s.go(r[2])}>
+              Open
+            </button>
+          </div>
+        </div>
+      ))}
+    </Page>
+  );
+}
+
+export const PANELS = {
+  avatars: AvatarsPanel,
+  video: VideoPanel,
+  images: ImagesPanel,
+  voice: VoicePanel,
+  agents: AgentsPanel,
+  live: LivePanel,
+  projects: ProjectsPanel,
+  templates: TemplatesPanel,
+  scenes: ScenesPanel,
+  brand: BrandPanel,
+  director: DirectorPanel,
+  memory: MemoryPanel,
+  design: DesignPanel,
+  integrations: IntegrationsPanel,
+  settings: SettingsPanel,
+  search: SearchPanel,
+};

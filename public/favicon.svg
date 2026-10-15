@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="MediaForge">
+  <rect width="32" height="32" rx="7" fill="#08090b"/>
+  <rect x="6.5" y="8" width="19" height="14.5" rx="2.5" fill="none" stroke="#8ab4ff" stroke-width="2"/>
+  <path d="M13.2 11.6 L20.2 15.25 L13.2 18.9 Z" fill="#f3f5f7"/>
+  <rect x="10" y="23.6" width="12" height="1.6" rx="0.8" fill="#80d6aa"/>
+</svg>

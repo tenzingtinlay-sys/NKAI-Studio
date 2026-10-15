@@ -1,0 +1,366 @@
+import { n as TSS_SERVER_FUNCTION, t as createServerFn } from "./ssr.mjs";
+import { t as REFERENCES } from "./references-BaZV1RVO.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/ai-1MSGrOAf.js
+var createServerRpc = (serverFnMeta, splitImportFn) => {
+	const url = "/_serverFn/" + serverFnMeta.id;
+	return Object.assign(splitImportFn, {
+		url,
+		serverFnMeta,
+		[TSS_SERVER_FUNCTION]: true
+	});
+};
+function localChat(last, system) {
+	const text = last.trim();
+	const lower = text.toLowerCase();
+	const role = system.split("\n")[0]?.slice(0, 140) || "Studio guide";
+	if (/^(hi|hello|hey|good morning|good evening)\b/i.test(text)) return `Hello. ${role} Ask for a scene, a script beat, or a next step and I will answer in the studio.`;
+	if (lower.includes("script") || lower.includes("scene")) return `Open with the promise, name the problem, show one concrete step, then close with a single ask. I can drop that into your storyboard from the Director.`;
+	return `Working from “${text.length > 180 ? `${text.slice(0, 180)}…` : text}”. Do the smallest useful version first, check that it lands, then expand. I kept this short so it can be spoken on the stage.`;
+}
+function localScript(topic, n) {
+	const clean = topic.replace(/\s+/g, " ").trim().slice(0, 180) || "the idea";
+	const beats = [
+		`Here is ${clean}, said plainly.`,
+		`It matters because waiting costs more than starting.`,
+		`It works in three steps: see the problem, choose one move, check the result.`,
+		`Picture it with a real person, not a slogan.`,
+		`The line to remember: ${clean}.`,
+		`Your next step is one conversation, today.`,
+		`Go one layer deeper, and keep the same promise.`,
+		`Close by telling them exactly what to do next.`
+	];
+	const count = Math.max(2, Math.min(8, n || 4));
+	return beats.slice(0, count).map((text) => ({ text }));
+}
+function esc(s) {
+	return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function brief(prompt) {
+	const parts = prompt.split(/[.;\n]/).map((p) => p.trim()).filter(Boolean);
+	return {
+		title: (parts[0] || "Your idea, designed").slice(0, 70),
+		feats: [
+			...parts.slice(1).flatMap((p) => p.split(",")).map((x) => x.trim()).filter(Boolean),
+			"Fast to start",
+			"Built to scale",
+			"Yours to shape"
+		].slice(0, 3)
+	};
+}
+function localSite(ref, kind, prompt) {
+	const { title, feats } = brief(prompt);
+	const brand = esc((title.split(" ")[0] || "Studio").replace(/[^A-Za-z0-9]/g, "") || "Studio");
+	const bg = ref.bg;
+	const css = `:root{--bg:${bg};--fg:${ref.fg};--ac:${ref.accent};--r:${ref.radius}px;--font:${ref.font},Inter,system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--font)}
+a{color:inherit;text-decoration:none}.btn{display:inline-block;padding:12px 22px;border-radius:calc(var(--r)*2);background:var(--ac);color:${bg};font-weight:650}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid color-mix(in srgb,var(--fg) 18%,transparent)}
+nav{display:flex;justify-content:space-between;align-items:center;padding:20px 6vw}nav b{font-size:20px}
+.card{background:color-mix(in srgb,var(--fg) 6%,var(--bg));border:1px solid color-mix(in srgb,var(--fg) 14%,transparent);border-radius:var(--r);padding:24px}
+.muted{opacity:.72}.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}`;
+	const head = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${css}`;
+	if (kind === "dashboard") {
+		const stats = [
+			["Active scenes", "12"],
+			["Voices", "6"],
+			["Renders", "48"],
+			["Live sessions", "3"]
+		].map(([k, v]) => `<div class="card"><div class="muted">${k}</div><h2>${v}</h2></div>`).join("");
+		return `${head}.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}aside{border-right:1px solid color-mix(in srgb,var(--fg) 14%,transparent);padding:24px}aside a{display:block;padding:10px 12px;border-radius:var(--r)}main{padding:32px;display:grid;gap:20px}@media(max-width:700px){.app{grid-template-columns:1fr}aside{display:none}}</style></head><body><div class="app"><aside><b>${brand}</b><br><br><a href="#">Overview</a><a href="#">Projects</a><a href="#">Voice</a><a href="#">Renders</a></aside><main><h1>${esc(title)}</h1><div class="grid">${stats}</div><div class="card"><h3>Now playing</h3><p class="muted">${esc(feats.join(" · "))}</p></div></main></div></body></html>`;
+	}
+	if (kind === "poster") return `${head}body{min-height:100vh;display:grid;place-items:center;text-align:center}h1{font-size:clamp(42px,8vw,96px);line-height:.95;letter-spacing:-.03em}p{margin:20px 0 28px}</style></head><body><div><h1>${esc(title)}</h1><p class="muted">${feats.map(esc).join(" · ")}</p><a class="btn" href="#">Watch</a></div></body></html>`;
+	const cards = feats.map((f) => `<div class="card"><h3>${esc(f)}</h3><p class="muted">Written for a presenter, a voice, and a single next step.</p></div>`).join("");
+	return `${head}header{padding:12vh 6vw 8vh;max-width:920px}h1{font-size:clamp(36px,6vw,68px);line-height:1.02;letter-spacing:-.03em}header p{margin:18px 0 28px;max-width:560px}section{padding:0 6vw 8vh}.cta{margin:0 6vw 8vh;text-align:center;padding:48px 20px;border-radius:var(--r);background:var(--ac);color:${bg}}</style></head><body><nav><b>${brand}</b><a class="btn ghost" href="#">Studio</a></nav><header><h1>${esc(title)}</h1><p class="muted">${esc(prompt.slice(0, 160) || "A new way to present, ready in minutes.")}</p><a class="btn" href="#">Open the stage</a></header><section><div class="grid">${cards}</div></section><div class="cta"><h2>Ready when you are</h2></div></body></html>`;
+}
+async function grokText(messages, max) {
+	const apiKey = process.env.XAI_API_KEY;
+	if (!apiKey) return null;
+	try {
+		const res = await fetch("https://api.x.ai/v1/chat/completions", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`
+			},
+			signal: AbortSignal.timeout(28e3),
+			body: JSON.stringify({
+				model: "grok-4.5",
+				max_tokens: max,
+				temperature: .6,
+				messages
+			})
+		});
+		if (!res.ok) return null;
+		return (await res.json()).choices?.[0]?.message?.content?.trim() || null;
+	} catch {
+		return null;
+	}
+}
+var studioHealth_createServerFn_handler = createServerRpc({
+	id: "7fe7d98f53a27a0378d4f1e0f2c4eed272f184b34a41ef0eda51298c6c2250c8",
+	name: "studioHealth",
+	filename: "src/lib/studio/ai.ts"
+}, (opts) => studioHealth.__executeServer(opts));
+var studioHealth = createServerFn({ method: "GET" }).handler(studioHealth_createServerFn_handler, async () => {
+	return {
+		engine: process.env.XAI_API_KEY ? "grok" : "local",
+		model: process.env.XAI_API_KEY ? "grok-4.5" : null,
+		references: REFERENCES.length,
+		imagine: Boolean(process.env.XAI_API_KEY),
+		voice: Boolean(process.env.XAI_API_KEY)
+	};
+});
+var studioChat_createServerFn_handler = createServerRpc({
+	id: "9e14fbcf13fd549e3dc62831945be123733fbcc4b997813dade8046ef5f904cd",
+	name: "studioChat",
+	filename: "src/lib/studio/ai.ts"
+}, (opts) => studioChat.__executeServer(opts));
+var studioChat = createServerFn({ method: "POST" }).validator((input) => {
+	const messages = (input.messages || []).slice(-12).filter((m) => m && (m.role === "user" || m.role === "assistant")).map((m) => ({
+		role: m.role,
+		content: String(m.content || "").slice(0, 4e3)
+	}));
+	return {
+		system: String(input.system || "You are a helpful studio guide.").slice(0, 4e3),
+		messages
+	};
+}).handler(studioChat_createServerFn_handler, async ({ data }) => {
+	const last = [...data.messages].reverse().find((m) => m.role === "user")?.content || "";
+	if (!last) return {
+		reply: "Say that again in a full sentence.",
+		engine: "local"
+	};
+	const text = await grokText([{
+		role: "system",
+		content: `${data.system}\nReply in 1-3 short spoken sentences. No markdown, no lists.`
+	}, ...data.messages], 220);
+	if (text) return {
+		reply: text.replace(/[*#`]/g, "").slice(0, 700),
+		engine: "grok"
+	};
+	return {
+		reply: localChat(last, data.system),
+		engine: "local"
+	};
+});
+var studioScript_createServerFn_handler = createServerRpc({
+	id: "7a3bc7d0b1537137902e7efcff2b5406071e5d8afa385e1831980b4c697ed5e5",
+	name: "studioScript",
+	filename: "src/lib/studio/ai.ts"
+}, (opts) => studioScript.__executeServer(opts));
+var studioScript = createServerFn({ method: "POST" }).validator((input) => ({
+	topic: String(input.topic || "").trim().slice(0, 600),
+	scenes: Math.max(2, Math.min(8, Number(input.scenes) || 4)),
+	kind: String(input.kind || "avatar video").slice(0, 80)
+})).handler(studioScript_createServerFn_handler, async ({ data }) => {
+	if (!data.topic) return {
+		scenes: localScript("a clear idea", data.scenes),
+		engine: "local"
+	};
+	const raw = await grokText([{
+		role: "system",
+		content: "Write a spoken video script. Reply with JSON only: {\"scenes\":[{\"text\":\"...\"}]}. Each text is 1-2 sentences a presenter can say. No markdown."
+	}, {
+		role: "user",
+		content: `Topic: ${data.topic}. Kind: ${data.kind}. Scene count: ${data.scenes}.`
+	}], 900);
+	if (raw) {
+		const match = raw.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+		if (match) try {
+			const parsed = JSON.parse(match[0]);
+			const scenes = (Array.isArray(parsed) ? parsed : parsed.scenes || []).map((s) => ({ text: String(s.text || "").trim() })).filter((s) => s.text).slice(0, 8);
+			if (scenes.length) return {
+				scenes,
+				engine: "grok"
+			};
+		} catch {}
+	}
+	return {
+		scenes: localScript(data.topic, data.scenes),
+		engine: "local"
+	};
+});
+var studioDesign_createServerFn_handler = createServerRpc({
+	id: "3a1b5490cb05a34fb68e0790f4aee9cee8eb49e066881cb355ace0586d2f6a4a",
+	name: "studioDesign",
+	filename: "src/lib/studio/ai.ts"
+}, (opts) => studioDesign.__executeServer(opts));
+var studioDesign = createServerFn({ method: "POST" }).validator((input) => ({
+	prompt: String(input.prompt || "").slice(0, 2e3),
+	kind: String(input.kind || "landing").slice(0, 40),
+	reference: String(input.reference || ""),
+	previous: String(input.previous || "").slice(0, 12e3),
+	change: String(input.change || "").slice(0, 500)
+})).handler(studioDesign_createServerFn_handler, async ({ data }) => {
+	const ref = REFERENCES.find((r) => r.id === data.reference) || REFERENCES[0];
+	if (!ref) return {
+		html: "<p>No reference styles loaded.</p>",
+		engine: "local",
+		reference: ""
+	};
+	const kind = [
+		"landing",
+		"dashboard",
+		"poster"
+	].includes(data.kind) ? data.kind : "landing";
+	if (data.prompt || data.change) {
+		const user = data.change ? `Current HTML:\n${data.previous}\n\nApply this change and return the full updated HTML document only:\n${data.change}` : `Design type: ${kind}\nBrief: ${data.prompt}`;
+		const raw = await grokText([{
+			role: "system",
+			content: `You are a product designer. Return ONE complete HTML document with inline CSS only. No markdown fences. Visual language: scheme ${ref.scheme}, background ${ref.bg}, text ${ref.fg}, accent ${ref.accent}, font ${ref.font}, radius ${ref.radius}px. Invent original copy. Do not copy a trademarked brand name.`
+		}, {
+			role: "user",
+			content: user
+		}], 3500);
+		if (raw && /<html|<!doctype|<body/i.test(raw)) {
+			const fenced = raw.match(/```(?:html)?\s*([\s\S]*?)```/);
+			return {
+				html: (fenced ? fenced[1] : raw).trim(),
+				engine: "grok",
+				reference: ref.id
+			};
+		}
+	}
+	return {
+		html: localSite(ref, kind, data.prompt || data.change || "Studio"),
+		engine: "local",
+		reference: ref.id
+	};
+});
+var studioImage_createServerFn_handler = createServerRpc({
+	id: "9a47f2306e771c0a5d7396b4997a99711ea19ec89f190279ebe4d5cb41d5d708",
+	name: "studioImage",
+	filename: "src/lib/studio/ai.ts"
+}, (opts) => studioImage.__executeServer(opts));
+var studioImage = createServerFn({ method: "POST" }).validator((input) => ({ prompt: String(input.prompt || "").trim().slice(0, 700) })).handler(studioImage_createServerFn_handler, async ({ data }) => {
+	const apiKey = process.env.XAI_API_KEY;
+	if (!apiKey) return {
+		ok: false,
+		error: "Photoreal generation is not connected. WebGPU art still renders instantly."
+	};
+	if (!data.prompt) return {
+		ok: false,
+		error: "Describe the image first."
+	};
+	const models = ["grok-imagine-image", "grok-imagine-image-2.0"];
+	let detail = "Image request failed.";
+	for (const model of models) try {
+		const res = await fetch("https://api.x.ai/v1/images/generations", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`
+			},
+			signal: AbortSignal.timeout(45e3),
+			body: JSON.stringify({
+				model,
+				prompt: data.prompt,
+				n: 1,
+				response_format: "b64_json"
+			})
+		});
+		if (!res.ok) {
+			detail = `Image engine returned ${res.status}.`;
+			continue;
+		}
+		const item = (await res.json()).data?.[0];
+		const b64 = item?.b64_json || item?.base64;
+		if (b64) return {
+			ok: true,
+			dataUrl: `data:image/jpeg;base64,${b64}`,
+			engine: model
+		};
+		if (item?.url) {
+			const img = await fetch(item.url, { signal: AbortSignal.timeout(2e4) });
+			if (!img.ok) continue;
+			const buf = Buffer.from(await img.arrayBuffer());
+			return {
+				ok: true,
+				dataUrl: `data:${img.headers.get("content-type") || "image/jpeg"};base64,${buf.toString("base64")}`,
+				engine: model
+			};
+		}
+	} catch {
+		detail = "Image engine timed out.";
+	}
+	return {
+		ok: false,
+		error: detail
+	};
+});
+var studioVoice_createServerFn_handler = createServerRpc({
+	id: "13e89e604a36dcb65a9360d32d0e5e80835b6803d1af22cec6f8495dfb22ffef",
+	name: "studioVoice",
+	filename: "src/lib/studio/ai.ts"
+}, (opts) => studioVoice.__executeServer(opts));
+var studioVoice = createServerFn({ method: "POST" }).validator((input) => ({
+	text: String(input.text || "").trim().slice(0, 500),
+	voice: String(input.voice || "eve").slice(0, 32),
+	lang: String(input.lang || "en").slice(0, 8)
+})).handler(studioVoice_createServerFn_handler, async ({ data }) => {
+	const apiKey = process.env.XAI_API_KEY;
+	if (!apiKey) return {
+		ok: false,
+		error: "Neural voice is not connected. Browser speech still works."
+	};
+	if (!data.text) return {
+		ok: false,
+		error: "Nothing to speak."
+	};
+	try {
+		const res = await fetch("https://api.x.ai/v1/tts", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`
+			},
+			signal: AbortSignal.timeout(3e4),
+			body: JSON.stringify({
+				text: data.text,
+				voice_id: data.voice,
+				language: data.lang.startsWith("en") ? "en" : data.lang.slice(0, 2)
+			})
+		});
+		if (!res.ok) return {
+			ok: false,
+			error: `Voice engine returned ${res.status}.`
+		};
+		const buf = Buffer.from(await res.arrayBuffer());
+		const mime = res.headers.get("content-type") || "audio/mpeg";
+		return {
+			ok: true,
+			audio: buf.toString("base64"),
+			mime,
+			voice: data.voice
+		};
+	} catch {
+		return {
+			ok: false,
+			error: "Voice engine timed out."
+		};
+	}
+});
+var ALLOWED_HOSTS = /* @__PURE__ */ new Set(["images.unsplash.com"]);
+var studioProxyImage_createServerFn_handler = createServerRpc({
+	id: "73a44afe4a8005f5948b78d9da07417332a4b5553451d72f5ccf6424c9f6fbed",
+	name: "studioProxyImage",
+	filename: "src/lib/studio/ai.ts"
+}, (opts) => studioProxyImage.__executeServer(opts));
+var studioProxyImage = createServerFn({ method: "POST" }).validator((input) => {
+	const url = String(input.url || "");
+	let host = "";
+	try {
+		host = new URL(url).host;
+	} catch {
+		host = "";
+	}
+	if (!ALLOWED_HOSTS.has(host)) throw new Error("Image host is not allowed.");
+	return { url };
+}).handler(studioProxyImage_createServerFn_handler, async ({ data }) => {
+	const res = await fetch(data.url, { signal: AbortSignal.timeout(15e3) });
+	if (!res.ok) throw new Error("Could not load the portrait.");
+	const buf = Buffer.from(await res.arrayBuffer());
+	return { dataUrl: `data:${res.headers.get("content-type") || "image/jpeg"};base64,${buf.toString("base64")}` };
+});
+//#endregion
+export { studioChat_createServerFn_handler, studioDesign_createServerFn_handler, studioHealth_createServerFn_handler, studioImage_createServerFn_handler, studioProxyImage_createServerFn_handler, studioScript_createServerFn_handler, studioVoice_createServerFn_handler };
