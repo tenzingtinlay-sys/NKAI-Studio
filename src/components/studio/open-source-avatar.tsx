@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useStudio } from "@/lib/studio/store";
 
 const AVATARS = [
-  { label: "Avaturn · realistic", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avaturn.glb", body: "M" },
-  { label: "Avatar SDK · realistic", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avatarsdk.glb", body: "M" },
-  { label: "Brunette · female", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/brunette.glb", body: "F" },
-  ];
+  { label: "MPFB sample · CC0 (verify source)", url: "/assets/avatars/mpfb.glb", body: "M" },
+  { label: "Avaturn sample · non-commercial terms", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avaturn.glb", body: "M" },
+  { label: "AvatarSDK sample · non-commercial terms", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avatarsdk.glb", body: "M" },
+  { label: "Brunette sample · CC BY-NC 4.0", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/brunette.glb", body: "F" },
+];
 const DEFAULT_MODEL = AVATARS[0].url;
 const LANGUAGES = [
   { label: "English (India)", code: "en-IN" }, { label: "English (US)", code: "en-US" },
@@ -371,7 +372,7 @@ export function OpenSourceAvatarPanel() {
           <label style={{ display: "block", marginTop: 16 }}><b>Rigged 3D model URL (GLB/GLTF)</b>
             <input value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} placeholder="https://…/avatar.glb" style={{ width: "100%", marginTop: 8 }} />
           </label>
-          <small style={{ opacity: .72, display: "block", marginTop: 8 }}>Choose a sample rigged avatar or enter your own compatible GLB. English can use local neural HeadTTS with lip-sync; other languages use a selected browser voice, depending on installed language packs.</small>
+          <small style={{ opacity: .72, display: "block", marginTop: 8 }}>The MPFB sample is intended as the redistribution-friendly starter; the local file is added by the asset download script. Avaturn, AvatarSDK and Brunette samples have non-commercial or CC BY-NC terms and must not be used commercially without a separate grant. English can use local neural HeadTTS; the GPU worker supplies the currently configured multilingual voices. Check docs/AI_AVATAR_ECOSYSTEM.md before redistribution.</small>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
             <button className="mf-ghost" type="button" onClick={() => { const el = viewerRef.current as (HTMLElement & { cameraOrbit?: string; jumpCameraToGoal?: () => void }) | null; if (el) { el.cameraOrbit = "0deg 75deg 2.5m"; el.jumpCameraToGoal?.(); } }}>Reset view</button>
             <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; setModelUrl(DEFAULT_MODEL); setModelError(false); }}>Load sample model</button>
