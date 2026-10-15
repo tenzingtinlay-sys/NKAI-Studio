@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
   }
   if (!worker) {
     setResponseStatus(event, 503);
-    return { error: "No configured NKAI AI worker is currently healthy.", code: "AI_WORKERS_UNAVAILABLE" };
+    return { error: workers.length ? "No configured NKAI AI worker is currently healthy." : "No eligible NKAI inference worker is configured.", code: workers.length ? "AI_WORKERS_UNAVAILABLE" : "AI_WORKER_NOT_CONFIGURED" };
   }
   const upstreamBase = worker.baseUrl || process.env.AI_WORKER_INTERNAL_URL?.trim();
   if (!upstreamBase) {
