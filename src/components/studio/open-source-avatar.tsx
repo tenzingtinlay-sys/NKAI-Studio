@@ -423,8 +423,8 @@ export function OpenSourceAvatarPanel() {
             </div>
           </div>
           <label style={{ display: "block", marginTop: 16 }}><b>Choose avatar</b>
-            <select value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} style={{ width: "100%", marginTop: 8 }}>
-              {AVATARS.map((avatar) => <option key={avatar.url} value={avatar.url} onClick={() => { if (localModelUrlRef.current) { URL.revokeObjectURL(localModelUrlRef.current); localModelUrlRef.current = null; } setLocalModelName(""); }}>{avatar.label}</option>)}
+            <select value={modelUrl} onChange={(e) => { if (localModelUrlRef.current) { URL.revokeObjectURL(localModelUrlRef.current); localModelUrlRef.current = null; } setLocalModelName(""); setModelUrl(e.target.value); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} style={{ width: "100%", marginTop: 8 }}>
+              {AVATARS.map((avatar) => <option key={avatar.url} value={avatar.url}>{avatar.label}</option>)}
               {localModelName && <option value={modelUrl}>{localModelName} · local GLB</option>}
             </select>
           </label>
