@@ -1,8 +1,8 @@
 # LiveTalking and TalkingAvatar integrations
 
-NKAI Studio now exposes both references in the avatar panel and tracks them in `src/data/avatar-catalog.json`. These are deliberately two different integration types.
+NKAI Studio must run its avatar workflows inside the product. The previous outbound launch controls have been removed. LiveTalking is being integrated through a same-origin backend route; the hosted TalkingAvatar site is not embedded or called because its private backend/API and redistribution rights are not established.
 
-## 1. LiveTalking: self-hosted real-time streaming engine
+## 1. LiveTalking: self-hosted real-time streaming engine inside NKAI Studio
 
 - Source: https://github.com/lipku/LiveTalking
 - Project website: https://www.livetalking.ai/
@@ -17,24 +17,24 @@ NKAI Studio now exposes both references in the avatar panel and tracks them in `
 3. Download model checkpoints and avatar assets from upstream instructions, then audit their individual licences. Do not assume the Apache-2.0 code licence applies to model weights or sample media.
 4. Start the server with a selected model and avatar ID, following the upstream README. The documented example is `python app.py --transport webrtc --model wav2lip --avatar_id wav2lip256_avatar1`.
 5. Configure networking for the selected transport. The upstream README warns that WebRTC requires TCP 8010 and a broad UDP port range in its default setup; do not expose a GPU server to the public internet without a firewall, authentication/reverse proxy strategy and TLS.
-6. Open the resulting HTTPS browser URL from NKAI Studio's **LiveTalking · real-time streaming avatar** section. The launch control opens the configured server in a separate tab.
+6. Set `LIVETALKING_INTERNAL_URL` in the app server environment (for example `http://127.0.0.1:8010` locally or a private service hostname in a shared deployment). NKAI Studio embeds `/api/livetalking/` in its own panel and proxies HTTP requests through the backend; the upstream hostname is not exposed in the UI.
 
 ### What is integrated today vs. next
 
-- **Implemented:** NKAI Studio provider catalogue entry, provider launch controls, server URL validation, and documentation.
-- **Not yet integrated:** embedded WebRTC session negotiation, authenticated API adapter, automatic model download, remote health checks, deployment of a GPU host, and end-to-end browser/audio tests. LiveTalking's `/human` API and session protocol are not the same contract as NKAI's existing `/chat` and `/tts` endpoints; do not send requests to it using the chat worker schema without an adapter.
+- **Implemented:** in-app streaming panel, same-origin backend HTTP proxy, private server-side upstream configuration, and documentation.
+- **Not yet verified:** a deployed GPU host, model checkpoint installation, full WebRTC/ICE behavior through the deployment network, authenticated streaming session lifecycle, and end-to-end browser/audio tests. The HTTP proxy does not tunnel UDP; WebRTC media ports must be reachable under the deployment firewall. LiveTalking's session protocol is not the same as NKAI's existing `/chat` and `/tts` worker contract.
 - **Operational requirement:** the GPU process and model weights must actually be running. A passing frontend build does not establish that the stream is live.
 
 For API integration, read the upstream API documentation before implementing a bridge:
 https://github.com/lipku/LiveTalking/blob/main/docs/api.md
 https://github.com/lipku/LiveTalking/blob/main/docs/avatar_api.md
 
-## 2. TalkingAvatar AI Creation Library: hosted provider
+## 2. TalkingAvatar: not used as a runtime dependency
 
 - Creation library: https://www.talkingavatar.ai/create-avatar/ai-creation-library
 - Provider website: https://www.talkingavatar.ai/
 
-NKAI Studio provides a button to open the hosted library. This is an external-service handoff, not a claim that the provider has a public API or permits bulk asset downloads. Before integrating any returned asset into NKAI, verify its download/export rights, commercial use rights, attribution requirements, and whether the provider permits redistribution. Do not scrape private APIs, copy paid assets, or reproduce proprietary backend code.
+The hosted website is not linked from the app and is not used as a runtime dependency. To make avatar creation genuinely in-app, implement a first-party workflow using licensed open models and locally stored outputs. Do not scrape private APIs or copy paid assets/backend code. A provider integration should be considered only after its official API and commercial/export rights are confirmed.
 
 ## 3. Product role in NKAI Studio
 
