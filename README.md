@@ -1,4 +1,15 @@
+---
+title: NKAI Studio
+emoji: 🤖
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # NKAI Studio
+
 
 NKAI Studio includes an open-source avatar chat panel with local-first AI options and an optional self-hosted GPU worker.
 
@@ -54,7 +65,7 @@ See [GPU worker setup](gpu-worker/README.md) and the [deployment / uptime guide]
 
 ## Important deployment note
 
-The local browser model can provide AI responses without an inference API key, but it depends on the user's browser and device. Configure `AI_WORKER_INTERNAL_URL` and optionally `AI_WORKER_API_TOKEN` as server-side environment variables on the deployment host; never paste public worker URLs or secrets into the browser. Configure `LIVETALKING_INTERNAL_URL` for the embedded streaming workspace. The full-stack app must run on a server host such as Vercel; GitHub Pages alone cannot execute these server routes. No setup can guarantee unlimited 24/7 free remote GPU compute. Visit `/deployment` on the deployed app to check which services are actually responding.
+The local browser model can provide AI responses without an inference API key, but it depends on the user's browser and device. Configure `AI_WORKER_INTERNAL_URL` and optionally `AI_WORKER_API_TOKEN` as server-side environment variables on the deployment host; never paste public worker URLs or secrets into the browser. Configure `LIVETALKING_INTERNAL_URL` for the embedded streaming workspace. The full-stack app must run on a server host that supports the Nitro server routes; a static-only host such as GitHub Pages cannot execute these routes. The deployment target for this project is Hugging Face Spaces (Docker), not Vercel. See `docs/FOUR_PLATFORM_DEPLOYMENT.md`. No setup can guarantee unlimited 24/7 free remote GPU compute. Visit `/deployment` on the deployed app to check which services are actually responding.
 
 ## Open-source components
 
