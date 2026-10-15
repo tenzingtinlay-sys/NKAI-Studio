@@ -17,9 +17,11 @@ uvicorn app:app --host 0.0.0.0 --port 7860
 
 On Windows, activate with `.venv\\Scripts\\activate`. Set `CORS_ORIGINS` to the exact NKAI Studio origin in production. The default `*` is convenient for a temporary test, not ideal for a public deployment.
 
+For a public endpoint, set a long random `WORKER_API_TOKEN` environment secret on the worker host. Paste the same token into the avatar panel's **Optional worker access token** field. The token is sent only as an HTTPS Bearer header and is not saved by the browser UI. If `WORKER_API_TOKEN` is unset, `/chat` remains unauthenticated, which is suitable only for a private test.
+
 ## Connect the UI
 
-In NKAI Studio's **Open-source AI Avatar** panel, set the worker URL to the HTTPS URL ending in `/chat`. The UI sends JSON shaped like `{ "message": "...", "history": [...] }` and expects `{ "reply": "..." }`. A `GET /health` endpoint reports model readiness.
+In NKAI Studio's **Open-source AI Avatar** panel, set the worker URL to the HTTPS URL ending in `/chat`. The UI sends JSON shaped like `{ "message": "...", "history": [...] }` and expects `{ "reply": "..." }`. A `GET /health` endpoint reports model readiness and is used by the connection-check button. Configure CORS to include the Studio origin and the `Authorization` header when using a token.
 
 ## About free GPU notebooks
 
