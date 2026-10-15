@@ -1,6 +1,14 @@
+import json
 import unittest
+from unittest.mock import patch
+from urllib.parse import urlparse
 
-from deploy_huggingface_space import build_space_secrets, derive_space_url
+from deploy_huggingface_space import (
+    build_space_secrets,
+    check_chat_worker,
+    check_tts_worker,
+    derive_space_url,
+)
 
 
 def valid_env():
@@ -13,6 +21,21 @@ def valid_env():
         "NKAI_AI_WORKER_INTERNAL_URL": "https://worker.example.com",
         "NKAI_AI_WORKER_API_TOKEN": "w" * 40,
     }
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.status = 200
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
+
+    def read(self, limit):
+        return json.dumps(self.payload).encode("utf-8")
 
 
 class DeployHuggingFaceSpaceTests(unittest.TestCase):
@@ -63,6 +86,33 @@ class DeployHuggingFaceSpaceTests(unittest.TestCase):
         env["NKAI_TTS_INTERNAL_URL"] = "https://tts.example.com"
         with self.assertRaisesRegex(ValueError, "both NKAI_TTS_INTERNAL_URL"):
             build_space_secrets(env, "owner/nkai-studio")
+
+    def test_chat_worker_preflight_requires_ready_health_and_capabilities(self):
+        def fake_urlopen(request, timeout):
+            path = urlparse(request.full_url).path
+            payload = {"status": "ready"} if path.endswith("/health") else {"chat": {"ready": True}}
+            return FakeResponse(payload)
+
+        with patch("deploy_huggingface_space.urllib.request.urlopen", side_effect=fake_urlopen):
+            check_chat_worker("https://worker.example.com/", "w" * 40)
+
+    def test_chat_worker_preflight_rejects_loading_model(self):
+        def fake_urlopen(request, timeout):
+            return FakeResponse({"status": "loading"})
+
+        with patch("deploy_huggingface_space.urllib.request.urlopen", side_effect=fake_urlopen):
+            with self.assertRaisesRegex(RuntimeError, "not ready"):
+                check_chat_worker("https://worker.example.com", "w" * 40)
+
+    def test_tts_worker_preflight_requires_voice_readiness(self):
+        def fake_urlopen(request, timeout):
+            path = urlparse(request.full_url).path
+            payload = {"status": "ready"} if path.endswith("/health") else {"tts": {"ready": False}}
+            return FakeResponse(payload)
+
+        with patch("deploy_huggingface_space.urllib.request.urlopen", side_effect=fake_urlopen):
+            with self.assertRaisesRegex(RuntimeError, "does not report ready speech"):
+                check_tts_worker("https://tts.example.com", "t" * 40)
 
     def test_maps_optional_tts_and_livetalking(self):
         env = valid_env()
