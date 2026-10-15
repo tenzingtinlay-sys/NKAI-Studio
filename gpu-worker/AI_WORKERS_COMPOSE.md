@@ -7,7 +7,7 @@ This Compose file starts the chat model and OpenVoice V2 voice worker together. 
 
 ```bash
 export WORKER_API_TOKEN='replace-with-a-long-random-secret'
-export CORS_ORIGINS='http://localhost:3000'
+export CORS_ORIGINS='http://localhost:8080'
 docker compose -f docker-compose.ai-workers.yml up --build
 ```
 
