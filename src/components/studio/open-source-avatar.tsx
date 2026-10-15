@@ -322,29 +322,63 @@ export function OpenSourceAvatarPanel() {
       const failures: string[] = [];
       for (let index = 0; index < endpoints.length && !reply; index++) {
         try {
-          const endpoint = new URL(endpoints[index], window.location.origin);
+          const endpoint = new URL("/api/ai/stream", window.location.origin);
           if (endpoint.protocol !== "https:" && endpoint.hostname !== "localhost" && endpoint.hostname !== "127.0.0.1") {
             throw new Error("NKAI private inference route must use HTTPS outside local development.");
           }
           const controller = new AbortController();
-          const timeout = window.setTimeout(() => controller.abort(), 45000);
+          const timeout = window.setTimeout(() => controller.abort(), 120000);
           try {
             const response = await fetch(endpoint.toString(), {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
               body: JSON.stringify({ message: prompt, language: speechLanguage, history: history.slice(0, -1).slice(-10), app: "NKAI-Studio" }),
               signal: controller.signal,
             });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json() as { reply?: string; response?: string; text?: string };
-            reply = data.reply || data.response || data.text || "";
-            if (!reply) throw new Error("Missing reply field");
-            setStatus(`Connected · GPU worker ${index + 1}/${endpoints.length}`);
+            if (!response.ok) {
+              const detail = await response.text().catch(() => "");
+              throw new Error(`HTTP ${response.status}${detail ? ": " + detail.slice(0, 160) : ""}`);
+            }
+            if (!response.body) throw new Error("Streaming response body is unavailable");
+            setStatus(`Streaming · GPU worker ${index + 1}/${endpoints.length}`);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let completed = false;
+            setTurns([...history, { role: "assistant", text: "" }]);
+            const consumeEvent = (event: string) => {
+              for (const line of event.split("\n")) {
+                if (!line.startsWith("data:")) continue;
+                const data = line.slice(5).trim();
+                if (!data) continue;
+                if (data === "[DONE]") { completed = true; continue; }
+                let item: { token?: string; error?: string };
+                try { item = JSON.parse(data) as { token?: string; error?: string }; }
+                catch { continue; }
+                if (item.error) throw new Error(item.error);
+                if (item.token) {
+                  reply += item.token;
+                  setTurns([...history, { role: "assistant", text: reply }]);
+                }
+              }
+            };
+            while (!completed) {
+              const { value, done } = await reader.read();
+              buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+              const events = buffer.split("\n\n");
+              buffer = events.pop() || "";
+              for (const event of events) consumeEvent(event);
+              if (done) break;
+            }
+            if (buffer.trim()) consumeEvent(buffer);
+            if (!reply.trim()) throw new Error("Worker stream completed without generated text");
+            setStatus(`Streaming complete · GPU worker ${index + 1}/${endpoints.length}`);
           } finally {
             window.clearTimeout(timeout);
           }
         } catch (error) {
           failures.push(`${index + 1}: ${error instanceof Error ? error.message : "offline"}`);
+          if (reply) setStatus("Stream interrupted · keeping the partial generated response");
         }
       }
       if (!reply) setStatus(`All GPU workers offline · fallback active (${failures.join("; ")})`);
