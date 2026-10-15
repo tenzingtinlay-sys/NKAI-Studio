@@ -45,6 +45,8 @@ jobs:
         run: |
           node -e "JSON.parse(require('node:fs').readFileSync('src/data/avatar-catalog.json', 'utf8'))"
           node -e "JSON.parse(require('node:fs').readFileSync('vercel.json', 'utf8'))"
+          node --check scripts/smoke-ai-worker.mjs
+          node --check scripts/smoke-ai-worker-utils.mjs
           python - <<'PY'
           from pathlib import Path
           import re
