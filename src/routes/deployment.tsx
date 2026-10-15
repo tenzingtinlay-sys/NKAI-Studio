@@ -26,7 +26,7 @@ function DeploymentPage() {
     const results: Check[] = [{ label: "NKAI app", state: "ready", detail: "The application page is running." }];
     const probes = [
       { label: "Private AI chat worker", url: "/api/ai/health", expected: "AI worker" },
-      { label: "Multilingual voice capabilities", url: "/api/ai/capabilities", expected: "voice capability" },
+      { label: "Neural voice capabilities", url: "/api/ai/tts-capabilities", expected: "voice capability" },
       { label: "Live avatar streaming", url: "/api/livetalking/", expected: "live avatar service" },
     ];
     for (const probe of probes) {
