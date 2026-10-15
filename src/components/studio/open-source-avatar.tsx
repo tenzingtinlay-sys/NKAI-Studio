@@ -84,7 +84,7 @@ export function OpenSourceAvatarPanel() {
 
   useEffect(() => { const timer = window.setInterval(() => setRotationNow(Date.now()), 30000); return () => window.clearInterval(timer); }, []);
 
-  const rotationEntries = rotationPlan.split(/\\n+/).map((line) => {
+  const rotationEntries = rotationPlan.split(/\n+/).map((line) => {
     const [platform, hoursText, url] = line.split("|").map((part) => part.trim());
     return { platform, hours: Number(hoursText), url: url || "", valid: Boolean(platform && Number(hoursText) > 0) };
   }).filter((entry) => entry.valid);
@@ -97,7 +97,7 @@ export function OpenSourceAvatarPanel() {
   const rotationElapsedInSlot = activeRotationIndex < 0 ? 0 : rotationPosition - (rotationCursor - rotationEntries[activeRotationIndex].hours * 3600000);
   const rotationRemainingMs = activeRotationIndex < 0 ? 0 : rotationEntries[activeRotationIndex].hours * 3600000 - rotationElapsedInSlot;
   const configuredRotationUrls = rotationEntries.filter((entry) => entry.url).map((entry) => entry.url);
-  const orderedEndpoints = rotationEnabled && activeRotation?.url ? [activeRotation.url, ...configuredRotationUrls.filter((url) => url !== activeRotation.url), ...workerUrl.split(/[\\n,]+/).map((url) => url.trim()).filter((url) => url && url !== activeRotation.url)] : workerUrl.split(/[\\n,]+/).map((url) => url.trim()).filter(Boolean);
+  const orderedEndpoints = rotationEnabled && activeRotation?.url ? [activeRotation.url, ...configuredRotationUrls.filter((url) => url !== activeRotation.url), ...workerUrl.split(/[\n,]+/).map((url) => url.trim()).filter((url) => url && url !== activeRotation.url)] : workerUrl.split(/[\n,]+/).map((url) => url.trim()).filter(Boolean);
 
   useEffect(() => {
     if (!talkingEnabled || !talkingContainerRef.current || talkingHeadRef.current) return;
@@ -324,10 +324,15 @@ export function OpenSourceAvatarPanel() {
               <span className="mf-pill">{status}</span>
             </div>
           </div>
+          <label style={{ display: "block", marginTop: 16 }}><b>Choose avatar</b>
+            <select value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); if (talkingEnabled) { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; } }} style={{ width: "100%", marginTop: 8 }}>
+              {AVATARS.map((avatar) => <option key={avatar.url} value={avatar.url}>{avatar.label}</option>)}
+            </select>
+          </label>
           <label style={{ display: "block", marginTop: 16 }}><b>Rigged 3D model URL (GLB/GLTF)</b>
             <input value={modelUrl} onChange={(e) => { setModelUrl(e.target.value); setModelError(false); }} placeholder="https://…/avatar.glb" style={{ width: "100%", marginTop: 8 }} />
           </label>
-          <small style={{ opacity: .72, display: "block", marginTop: 8 }}>The sample uses the TalkingHead project avatar. Select Enable real lip-sync to load the open-source TalkingHead engine and HeadTTS neural voice locally in your browser (English; first load can be large and needs a modern desktop browser). Use a licensed compatible GLB for a custom identity; a generic model cannot lip-sync.</small>
+          <small style={{ opacity: .72, display: "block", marginTop: 8 }}>Choose a sample rigged avatar or enter your own compatible GLB. English can use local neural HeadTTS with lip-sync; other languages use a selected browser voice, depending on installed language packs.</small>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
             <button className="mf-ghost" type="button" onClick={() => { const el = viewerRef.current as (HTMLElement & { cameraOrbit?: string; jumpCameraToGoal?: () => void }) | null; if (el) { el.cameraOrbit = "0deg 75deg 2.5m"; el.jumpCameraToGoal?.(); } }}>Reset view</button>
             <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); talkingHeadRef.current = null; headTtsRef.current = null; setModelUrl(DEFAULT_MODEL); setModelError(false); }}>Load sample model</button>
@@ -335,7 +340,32 @@ export function OpenSourceAvatarPanel() {
           </div>
         </section>
         <section className="mf-card" style={{ minHeight: 600, display: "flex", flexDirection: "column" }}>
-          <h3 style={{ marginTop: 0 }}>GPU worker connection</h3>
+          <h3 style={{ marginTop: 0 }}>Voice and language</h3>
+          <div className="mf-bar" style={{ marginBottom: 10 }}>
+            <label style={{ flex: 1, minWidth: 150 }}>Language
+              <select value={speechLanguage} onChange={(e) => { setSpeechLanguage(e.target.value); const match = voiceOptions.find((voice) => voice.lang.toLowerCase() === e.target.value.toLowerCase()); setSelectedVoice(match?.name || ""); }} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                {LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.label}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: 1, minWidth: 150 }}>Installed voice
+              <select value={selectedVoice} onChange={(e) => setSelectedVoice(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                <option value="">Automatic matching voice</option>
+                {voiceOptions.filter((voice) => voice.lang.toLowerCase().startsWith(speechLanguage.slice(0, 2).toLowerCase())).map((voice) => <option key={voice.name + voice.lang} value={voice.name}>{voice.name} ({voice.lang})</option>)}
+              </select>
+            </label>
+          </div>
+          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. Other languages use an installed device/browser voice; the voice list depends on your OS. Full multilingual neural speech needs a multilingual model worker.</small>
+          <h3>GPU platform rotation</h3>
+          <p style={{ opacity: .75 }}>The scheduler selects a configured platform slot by elapsed time and tries that endpoint first, then other configured workers. It cannot start or wake a notebook session.</p>
+          <label><b>Platform schedule (one line: platform | hours | HTTPS /chat URL)</b>
+            <textarea value={rotationPlan} onChange={(e) => setRotationPlan(e.target.value)} placeholder={"Lightning AI|4|https://.../chat\nKaggle|12|https://.../chat"} style={{ width: "100%", minHeight: 110, marginTop: 8 }} />
+          </label>
+          <div className="mf-bar" style={{ alignItems: "center", marginTop: 8 }}>
+            <button className="mf-ghost" type="button" onClick={() => { setRotationStartedAt(Date.now()); setRotationNow(Date.now()); }}>Restart rotation clock</button>
+            <label style={{ display: "flex", alignItems: "center", gap: 8 }}><input type="checkbox" checked={rotationEnabled} onChange={(e) => setRotationEnabled(e.target.checked)} /> Enable timed rotation</label>
+          </div>
+          <small style={{ opacity: .75, display: "block", marginBottom: 12 }}>{activeRotation ? "Scheduled slot: " + activeRotation.platform + " · " + Math.ceil(rotationRemainingMs / 60000) + " min remaining · " + (activeRotation.url ? "endpoint configured" : "waiting for endpoint URL") : "Add platform schedule entries to enable rotation."} Colab is excluded as a web-service worker because its free-tier rules prohibit offering web services. ZeroGPU's free quota is too short for continuous serving. Use Kaggle only if your serving method is permitted by its current terms.</small>
+          <h3>GPU worker connection</h3>
           <p style={{ opacity: .75 }}>Paste one or more HTTPS endpoints of your own open-source inference workers, one per line in failover priority order. Each worker should accept POST JSON with <code>message</code> and <code>history</code>, then return JSON containing <code>reply</code>. No provider API key is used by this UI.</p>
           <label><b>Worker endpoint URLs (priority order)</b><textarea value={workerUrl} onChange={(e) => setWorkerUrl(e.target.value)} placeholder={"https://primary-worker.example/chat\nhttps://backup-worker.example/chat"} style={{ width: "100%", marginTop: 8, minHeight: 84 }} /></label><small style={{ opacity: .72 }}>Enter one HTTPS /chat endpoint per line, in priority order. The app tries each live worker before switching to the local fallback.</small>
           <label style={{ display: "block", marginTop: 10 }}><b>Optional worker access token</b><input type="password" autoComplete="off" value={workerToken} onChange={(e) => setWorkerToken(e.target.value)} placeholder="Only if WORKER_API_TOKEN is configured" style={{ width: "100%", marginTop: 8 }} /><small style={{ opacity: .72 }}>Kept in this page memory only; it is not saved to local storage.</small></label>
