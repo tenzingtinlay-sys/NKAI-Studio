@@ -472,7 +472,7 @@ export function OpenSourceAvatarPanel() {
               </select>
             </label>
           </div>
-          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. For generated multilingual audio, connect a running worker that implements POST /tts (for example, the optional OpenVoice V2 worker for English, Spanish, French, Chinese, Japanese and Korean). Hindi and other Indian languages need a matching installed browser voice or a separately configured TTS checkpoint. The included MMS-TTS checkpoints are CC-BY-NC 4.0; use them for non-commercial testing only unless separately licensed.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. For generated multilingual audio, connect a running worker that implements POST /tts. OpenVoice V2 supports English, Spanish, French, Chinese, Japanese and Korean; the optional gated Indic Parler worker covers Indian languages with model-provided voice styles. Hindi and other Indian languages otherwise need a matching browser voice or TTS checkpoint. The included MMS-TTS checkpoints are CC-BY-NC 4.0; use them for non-commercial testing only unless separately licensed.</small>
           <div className="mf-bar" style={{ marginBottom: 12 }}>
             <button className="mf-ghost" type="button" onClick={() => { const code = speechLanguage.toLowerCase().split("-")[0]; void speak(VOICE_TEST_PHRASES[code] || VOICE_TEST_PHRASES.en); }}>Test selected voice</button>
             <small style={{ opacity: .72 }}>Tests neural worker first, then local neural or installed browser voice.</small>
