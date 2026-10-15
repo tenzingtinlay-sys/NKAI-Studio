@@ -11,6 +11,7 @@ There is no single complete, legally redistributable set of every open-source AI
 | Component | What it provides | Licence / caveat | Integration |
 |---|---|---|---|
 | TalkingHead — https://github.com/met4citizen/TalkingHead | Three.js full-body GLB avatars, lip-sync, expressions, animation hooks | Library MIT; sample avatars have separate licences | Browser renderer |
+| Microsoft Rocketbox — https://github.com/microsoft/Microsoft-Rocketbox | 115 rigged human characters, including facial blendshape variants; FBX source files need conversion to GLB and per-character compatibility testing | MIT repository licence | Offline avatar library after conversion |
 | LiveTalking — https://github.com/lipku/LiveTalking | Real-time WebRTC/RTMP digital humans, audio/video sync, Wav2Lip/MuseTalk/ER-NeRF options | Apache-2.0 project; model checkpoints and datasets need separate licence review | Optional GPU streaming service |
 | OpenVoice V2 — https://github.com/myshell-ai/OpenVoice | Cross-lingual voice-tone cloning and style control; native English, Spanish, French, Chinese, Japanese, Korean | Project states MIT and commercial use; check upstream dependencies and checkpoints | Optional TTS service |
 | XTTS-v2 — https://huggingface.co/coqui/XTTS-v2 | Multilingual speech and voice cloning, including Hindi; 17 listed languages | Coqui Public Model License; do not assume commercial permission | Optional TTS adapter |
