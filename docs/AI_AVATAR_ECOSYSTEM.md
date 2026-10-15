@@ -54,7 +54,7 @@ Workers: LLM worker; TTS workers (OpenVoice, XTTS, Piper, or approved MMS); opti
 
 1. Replace hard-coded avatar URLs with the versioned registry in src/data/avatar-catalog.json.
 2. Display each avatar's source, licence, commercial-use status, size, rig/viseme compatibility and bundled/imported status.
-3. Add local GLB/GLTF/VRM import and validate file type/size.
+3. Local GLB import is available in the Studio (100 MB limit, browser-session only); add GLTF/VRM import and deeper rig validation next.
 4. Load TalkingHead only for compatible facial blendshapes; ordinary GLB models must not be labelled lip-sync-ready.
 5. Keep selected language, TTS provider and voice ID separate. Never label an installed browser voice as a bundled neural voice.
 6. Read live capability status from GET /capabilities; do not claim a worker is ready when it is offline.
