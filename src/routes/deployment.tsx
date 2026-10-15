@@ -27,7 +27,7 @@ function DeploymentPage() {
     const probes = [
       { label: "Private AI chat worker", url: "/api/ai/health", expected: "AI worker" },
       { label: "Neural voice capabilities", url: "/api/ai/tts-capabilities", expected: "voice capability" },
-      { label: "Live avatar streaming", url: "/api/livetalking/", expected: "live avatar service" },
+      { label: "Live avatar streaming", url: "/api/livetalking/status", expected: "live avatar service" },
     ];
     for (const probe of probes) {
       try {
@@ -87,7 +87,7 @@ function DeploymentPage() {
         <section style={{ marginTop: 22, border: "1px solid #34313a", background: "#141218", borderRadius: 16, padding: 20 }}>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>What deployment needs</h2>
           <ul style={{ color: "#b8bdc8", lineHeight: 1.8, paddingLeft: 20 }}>
-            <li>Deploy this full-stack app to a server runtime such as Vercel; GitHub Pages alone cannot execute the private API routes.</li>
+            <li>Deploy this full-stack app as a Docker Space on Hugging Face Spaces; GitHub Pages alone cannot execute the private API routes.</li>
             <li>Set <code>AI_WORKER_INTERNAL_URL</code> and, if enabled, <code>AI_WORKER_API_TOKEN</code> in the deployment's server-side environment variables.</li>
             <li>Set <code>LIVETALKING_INTERNAL_URL</code> for the streaming service. WebRTC still needs correctly configured public ICE/STUN/TURN and media ports.</li>
             <li>Run a real conversation, test the selected language's generated audio, and confirm the avatar's mouth moves with playback.</li>
