@@ -389,6 +389,12 @@ export function OpenSourceAvatarPanel() {
                 {voiceOptions.filter((voice) => voice.lang.toLowerCase().startsWith(speechLanguage.slice(0, 2).toLowerCase())).map((voice) => <option key={voice.name + voice.lang} value={voice.name}>{voice.name} ({voice.lang})</option>)}
               </select>
             </label>
+            {speechLanguage.toLowerCase().startsWith("en") && <label style={{ flex: 1, minWidth: 150 }}>Neural voice
+              <select value={neuralVoice} onChange={(e) => setNeuralVoice(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                <option value="am_fenrir">Fenrir · masculine</option>
+                <option value="af_bella">Bella · feminine</option>
+              </select>
+            </label>}
           </div>
           <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. Other languages use an installed device/browser voice; the voice list depends on your OS. Full multilingual neural speech needs a multilingual model worker.</small>
           <h3>GPU platform rotation</h3>
