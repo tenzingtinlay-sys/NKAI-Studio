@@ -303,15 +303,17 @@ export function OpenSourceAvatarPanel() {
         });
         if (!response.ok) continue;
         const data = await response.json() as {
-          tts?: { provider?: string; ready?: boolean; languages?: Array<{ code?: string; label?: string }>; readyLanguages?: string[] };
+          tts?: { provider?: string; ready?: boolean; detail?: string; languages?: Array<{ code?: string; label?: string }>; readyLanguages?: string[] };
           chat?: { model?: string; ready?: boolean };
+          detail?: string | null;
         };
         const provider = data.tts?.provider || data.chat?.model || "Worker";
         const languages = data.tts?.languages?.map((item) => item.label || item.code).filter(Boolean)
           || data.tts?.readyLanguages
           || [];
         const summary = languages.length ? languages.slice(0, 12).join(", ") + (languages.length > 12 ? "…" : "") : "language list not advertised";
-        setStatus(provider + " · TTS " + (data.tts?.ready ? "ready" : "capability endpoint reachable") + " · " + summary);
+        const detail = data.tts?.detail || data.detail;
+        setStatus(provider + " · TTS " + (data.tts?.ready ? "ready" : "capability endpoint reachable") + (detail ? " · " + detail : "") + " · " + summary);
         return;
       } catch {
         // Continue through the configured endpoint order.
