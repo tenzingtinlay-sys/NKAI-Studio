@@ -198,23 +198,14 @@
         "custom avatars",
         "API"
       ],
-      "integrationStatus": "launch-link-added; deployment-and-API-bridge-pending",
+      "integrationStatus": "same-origin-embedded-workspace-and-backend-proxy-added; GPU deployment-and-WebRTC-validation-pending",
       "requires": [
         "GPU host",
         "model checkpoints",
         "networking for WebRTC/UDP",
         "TTS configuration"
       ],
-      "notes": "Use as a separate streaming backend. Do not treat it as a drop-in replacement for the existing /chat and /tts worker contract."
-    },
-    {
-      "id": "talkingavatar-ai-creation-library",
-      "label": "TalkingAvatar AI Creation Library",
-      "kind": "hosted-third-party-avatar-creator",
-      "url": "https://www.talkingavatar.ai/create-avatar/ai-creation-library",
-      "license": "Hosted service; avatar rights, download/export rights and commercial terms must be verified in the provider's current terms",
-      "integrationStatus": "external-launch-link-added; no public API or redistribution rights assumed",
-      "notes": "Use for exploration or creation through the provider UI. Do not scrape or copy its proprietary backend, paid assets or private APIs."
+      "notes": "NKAI UI uses the same-origin /api/livetalking/ route. Configure LIVETALKING_INTERNAL_URL on the server. LiveTalking must run on a private GPU host; WebRTC media still requires reachable ICE/UDP networking."
     }
   ]
 }
