@@ -35,6 +35,14 @@ docker run --rm --gpus all -p 7860:7860 \
 Use your host's secret manager rather than putting the real token into shell history or a committed file. The first startup downloads model weights. A compatible NVIDIA driver and container toolkit are required for GPU mode; otherwise use a host with a supported GPU runtime.
 
 
+## Live worker capabilities
+
+The worker exposes `GET /capabilities` so the app or deployment smoke tests can inspect the loaded chat model, configured TTS languages, and the current licensing notice. The default MMS-TTS route does not clone a voice; it uses the language-specific speaker checkpoint.
+
+## Optional OpenVoice V2 voice cloning
+
+For a separate voice-cloning backend, see [OpenVoice V2 setup](OPENVOICE_SETUP.md). That service requires official OpenVoice V2 checkpoints and a reference recording that you have permission to use. It supports English, Spanish, French, Chinese, Japanese and Korean with MeloTTS; it does not replace the default multilingual MMS worker.
+
 ## Multilingual neural voice
 
 The worker exposes `POST /tts` with JSON `{"text":"नमस्ते","language":"hi-IN"}` and returns base64 WAV audio. The bundled language map includes English, Hindi, Tamil, Telugu, Bengali, Marathi, Punjabi, Kannada, Malayalam, French, German, and Spanish. The avatar UI can use this route for neural speech in those languages when a worker endpoint is configured.
