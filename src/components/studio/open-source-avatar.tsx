@@ -15,7 +15,7 @@ const LANGUAGES = [
   { label: "French", code: "fr-FR" }, { label: "German", code: "de-DE" }, { label: "Spanish", code: "es-ES" },
 ];
 const DEFAULT_GREETING =
-  "Hi, I’m your NKAI avatar. Connect an open-source model worker to enable generated conversations, or use browser voice with the local demo.";
+  "Hi, I’m your NKAI avatar. Load the local Qwen model or connect an open-source GPU worker for generated conversations.";
 
 type Turn = { role: "user" | "assistant"; text: string };
 type TalkingHeadApi = { showAvatar: (avatar: { url: string; body?: string; lipsyncLang?: string; avatarMood?: string }) => Promise<void>; speakAudio: (audio: unknown, options?: object, onSubtitles?: (word: string) => void) => void };
@@ -395,7 +395,7 @@ export function OpenSourceAvatarPanel() {
               </select>
             </label>}
           </div>
-          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. Other languages use an installed device/browser voice; the voice list depends on your OS. Full multilingual neural speech needs a multilingual model worker.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. Other languages use an installed device/browser voice unless a multilingual worker is configured. The included MMS-TTS checkpoints are CC-BY-NC 4.0; use them for non-commercial testing only unless separately licensed.</small>
           <h3>GPU platform rotation</h3>
           <p style={{ opacity: .75 }}>The scheduler selects a configured platform slot by elapsed time and tries that endpoint first, then other configured workers. It cannot start or wake a notebook session.</p>
           <label><b>Platform schedule (one line: platform | hours | HTTPS /chat URL)</b>
