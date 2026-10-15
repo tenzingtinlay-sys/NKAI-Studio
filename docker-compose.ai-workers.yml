@@ -8,7 +8,7 @@ services:
     environment:
       MODEL_ID: ${MODEL_ID:-Qwen/Qwen2.5-1.5B-Instruct}
       PORT: "7860"
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:4173,http://127.0.0.1:4173}
       WORKER_API_TOKEN: ${WORKER_API_TOKEN:?Set WORKER_API_TOKEN in your shell or .env file}
     gpus: all
     restart: unless-stopped
@@ -21,7 +21,7 @@ services:
       - "7861:7861"
     environment:
       PORT: "7861"
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:4173,http://127.0.0.1:4173}
       WORKER_API_TOKEN: ${WORKER_API_TOKEN:?Set WORKER_API_TOKEN in your shell or .env file}
       OPENVOICE_ROOT: /opt/OpenVoice
       OPENVOICE_CHECKPOINT_ROOT: /opt/OpenVoice/checkpoints_v2
