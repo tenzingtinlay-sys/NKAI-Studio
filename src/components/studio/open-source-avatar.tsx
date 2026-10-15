@@ -249,13 +249,13 @@ export function OpenSourceAvatarPanel() {
 
   async function checkWorkerCapabilities() {
     if (!orderedEndpoints.length) {
-      flash("Enter at least one worker URL first.");
+      flash("Private inference route is unavailable.");
       return;
     }
     setStatus("Reading configured worker capabilities…");
     for (const candidate of orderedEndpoints) {
       try {
-        const endpoint = new URL(candidate);
+        const endpoint = new URL(candidate, window.location.origin);
         endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/capabilities";
         endpoint.search = "";
         const response = await fetch(endpoint.toString(), {
@@ -321,9 +321,9 @@ export function OpenSourceAvatarPanel() {
       const failures: string[] = [];
       for (let index = 0; index < endpoints.length && !reply; index++) {
         try {
-          const endpoint = new URL(endpoints[index]);
+          const endpoint = new URL(endpoints[index], window.location.origin);
           if (endpoint.protocol !== "https:" && endpoint.hostname !== "localhost" && endpoint.hostname !== "127.0.0.1") {
-            throw new Error("Remote worker URLs must use HTTPS.");
+            throw new Error("NKAI private inference route must use HTTPS outside local development.");
           }
           const controller = new AbortController();
           const timeout = window.setTimeout(() => controller.abort(), 45000);
