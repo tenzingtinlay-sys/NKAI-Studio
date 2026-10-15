@@ -4,6 +4,19 @@ import { orderWorkersForTimeSlot, parseWorkerPool } from "../../../utils/ai-work
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
 const ALLOWED = new Set(["chat", "tts", "health", "capabilities"]);
 
+async function workerIsReady(worker) {
+  try {
+    const headers = new Headers();
+    if (worker.token) headers.set("authorization", "Bearer " + worker.token);
+    const response = await fetch(worker.baseUrl + "/health", { headers, cache: "no-store", signal: AbortSignal.timeout(4000) });
+    if (!response.ok) return false;
+    const type = response.headers.get("content-type") || "";
+    if (!type.includes("json")) return true;
+    const body = await response.json();
+    return body.status !== "loading" && body.status !== "offline" && body.status !== "error" && body.ready !== false;
+  } catch { return false; }
+}
+
 /**
  * Same-origin gateway to the private open-source inference worker.
  * Set AI_WORKER_INTERNAL_URL to the worker's private base URL and
@@ -14,13 +27,26 @@ export default defineEventHandler(async (event) => {
   let workers;
   try { workers = orderWorkersForTimeSlot(parseWorkerPool(), Date.now()); }
   catch { setResponseStatus(event, 500); return { error: "The server-side AI worker pool configuration is invalid.", code: "AI_WORKER_POOL_INVALID" }; }
-  const worker = workers[0];
-  const upstreamBase = worker?.baseUrl || process.env.AI_WORKER_INTERNAL_URL?.trim();
+  const requestUrl = getRequestURL(event);
+  const suffix = requestUrl.pathname.slice("/api/ai/".length).split("/").filter(Boolean);
+  if (suffix.length !== 1 || !ALLOWED.has(suffix[0])) {
+    setResponseStatus(event, 404);
+    return { error: "Unknown private AI endpoint." };
+  }
+
+  let worker;
+  for (const candidate of workers) {
+    if (await workerIsReady(candidate)) { worker = candidate; break; }
+  }
+  if (!worker) {
+    setResponseStatus(event, 503);
+    return { error: "No configured NKAI AI worker is currently healthy.", code: "AI_WORKERS_UNAVAILABLE" };
+  }
+  const upstreamBase = worker.baseUrl || process.env.AI_WORKER_INTERNAL_URL?.trim();
   if (!upstreamBase) {
     setResponseStatus(event, 503);
     return { error: "The private NKAI inference worker is not configured.", code: "AI_WORKER_NOT_CONFIGURED" };
   }
-
   let base: URL;
   try {
     base = new URL(upstreamBase);
@@ -29,14 +55,6 @@ export default defineEventHandler(async (event) => {
     setResponseStatus(event, 500);
     return { error: "The private AI worker URL is invalid." };
   }
-
-  const requestUrl = getRequestURL(event);
-  const suffix = requestUrl.pathname.slice("/api/ai/".length).split("/").filter(Boolean);
-  if (suffix.length !== 1 || !ALLOWED.has(suffix[0])) {
-    setResponseStatus(event, 404);
-    return { error: "Unknown private AI endpoint." };
-  }
-
   const target = new URL(base.href);
   target.pathname = (base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname) + "/" + suffix[0];
   target.search = requestUrl.search;
