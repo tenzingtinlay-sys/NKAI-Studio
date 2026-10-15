@@ -63,7 +63,6 @@ export function OpenSourceAvatarPanel() {
           cameraZoomEnable: true,
           lipsyncModules: ["en"],
           avatarMood: "neutral",
-          avatarMute: true,
         }) as TalkingHeadApi;
         talkingHeadRef.current = head;
         await head.showAvatar({ url: modelUrl, body: "M", lipsyncLang: "en", avatarMood: "neutral" });
@@ -95,7 +94,6 @@ export function OpenSourceAvatarPanel() {
         if (!cancelled) {
           setStatus("Lip-sync engine could not load · browser voice remains available");
           setTalkingEnabled(false);
-          setModelError(true);
         }
       }
     })();
