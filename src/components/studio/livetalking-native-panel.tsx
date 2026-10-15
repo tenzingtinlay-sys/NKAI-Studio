@@ -20,11 +20,14 @@ export function LiveTalkingNativePanel() {
 
   async function connect() {
     setBusy(true);
+    setConnected(false);
     setError("");
     setStatus("Negotiating WebRTC with the private LiveTalking worker…");
     try {
       peerRef.current?.close();
-      const pc = new RTCPeerConnection();
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      });
       peerRef.current = pc;
       pc.addTransceiver("video", { direction: "recvonly" });
       pc.addTransceiver("audio", { direction: "recvonly" });
@@ -46,6 +49,9 @@ export function LiveTalkingNativePanel() {
         } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
           setConnected(false);
           setStatus("WebRTC connection lost · check GPU worker ICE/UDP networking");
+        } else if (pc.connectionState === "connecting") {
+          setConnected(false);
+          setStatus("Offer accepted · establishing media connection…");
         }
       };
 
@@ -78,8 +84,7 @@ export function LiveTalkingNativePanel() {
       }
       sessionRef.current = result.sessionid || "";
       await pc.setRemoteDescription({ type: result.type, sdp: result.sdp });
-      setConnected(true);
-      setStatus("Offer accepted · waiting for media tracks");
+      setStatus("Offer accepted · establishing the media connection…");
     } catch (cause) {
       peerRef.current?.close();
       peerRef.current = null;
@@ -105,7 +110,7 @@ export function LiveTalkingNativePanel() {
 
   async function speak() {
     const message = text.trim();
-    if (!message || !sessionRef.current) return;
+    if (!message || !sessionRef.current || !connected) return;
     setBusy(true);
     setError("");
     try {
@@ -161,14 +166,14 @@ export function LiveTalkingNativePanel() {
         {!connected
           ? <button type="button" className="mf-primary" disabled={busy} onClick={() => void connect()}>{busy ? "Connecting…" : "Connect live avatar"}</button>
           : <button type="button" className="mf-ghost" disabled={busy} onClick={disconnect}>Disconnect</button>}
-        <button type="button" className="mf-ghost" disabled={!connected || busy} onClick={() => void interrupt()}>Interrupt speech</button>
+        <button type="button" className="mf-ghost" disabled={!sessionRef.current || busy} onClick={() => void interrupt()}>Interrupt speech</button>
       </div>
       <form onSubmit={(event) => { event.preventDefault(); void speak(); }} style={{ display: "flex", gap: 8 }}>
         <input aria-label="Text for live avatar" value={text} onChange={(event) => setText(event.target.value)} placeholder="Type text for the live avatar to speak…" disabled={!connected || busy} style={{ flex: 1, minWidth: 0 }} />
         <button type="submit" className="mf-primary" disabled={!connected || busy || !text.trim()}>{busy ? "Working…" : "Speak"}</button>
       </form>
       <p style={{ margin: 0, opacity: 0.72, fontSize: 12 }}>
-        Adapted to LiveTalking's open-source HTTP/WebRTC contract through NKAI's same-origin backend. The GPU service, model checkpoints and reachable WebRTC media ports must be configured separately; this bridge does not use a paid inference API.
+        Adapted to LiveTalking's open-source HTTP/WebRTC contract through NKAI's same-origin backend. The GPU service, model checkpoints and reachable WebRTC media ports must be configured separately; this bridge does not use a paid inference API. STUN helps discover public network addresses; restrictive networks may still require a properly configured TURN server.
       </p>
       {error ? <p role="alert" style={{ color: "#ff9b9b", margin: 0 }}>{error}</p> : null}
     </section>
