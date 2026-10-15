@@ -1,3 +1,21 @@
+/**
+ * @typedef {Object} AIWorker
+ * @property {string} id
+ * @property {string} platform
+ * @property {string} baseUrl
+ * @property {string} token
+ * @property {number} leaseHours
+ * @property {number} priority
+ */
+
+/**
+ * @typedef {Object} WorkerPoolEnv
+ * @property {string} [AI_WORKER_POOL_JSON]
+ * @property {string} [AI_WORKER_INTERNAL_URL]
+ * @property {string} [AI_WORKER_API_TOKEN]
+ */
+
+/** @type {Set<string>} */
 const BLOCKED_LIVE_PLATFORMS = new Set(["google-colab", "colab", "kaggle", "kaggle-notebooks"]);
 
 /**
@@ -5,7 +23,7 @@ const BLOCKED_LIVE_PLATFORMS = new Set(["google-colab", "colab", "kaggle", "kagg
  * only when it explicitly opts in and is not a notebook-only platform.
  * Example entry: { id, platform, baseUrl, token, leaseHours, liveServingAllowed }.
  */
-export function parseWorkerPool(env = process.env) {
+/** @param {WorkerPoolEnv} [env] @returns {AIWorker[]} */\nexport function parseWorkerPool(env = process.env) {
   const raw = env.AI_WORKER_POOL_JSON?.trim();
   if (raw) {
     let parsed;
@@ -63,6 +81,6 @@ export function orderWorkersForTimeSlot(workers, nowMs = Date.now()) {
   return [...workers.slice(activeIndex), ...workers.slice(0, activeIndex)];
 }
 
-export function workerEndpoint(worker, endpoint) {
+/** @param {AIWorker} worker @param {string} endpoint @returns {string} */\nexport function workerEndpoint(worker, endpoint) {
   return worker.baseUrl + "/" + endpoint;
 }
