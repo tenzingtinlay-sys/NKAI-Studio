@@ -3,13 +3,15 @@
 This Compose file starts the chat model and OpenVoice V2 voice worker together. It needs Docker Compose with GPU support, a compatible NVIDIA driver/Container Toolkit, internet access for first-time model downloads, and a voice recording you own or are explicitly authorized to use.
 
 1. Create a private voice folder and put the authorized reference recording at `voice-secrets/voice-reference.wav`. Keep this folder out of Git.
-2. Set a strong shared token and the Studio origin in your shell (or a private ignored `.env` file):
+2. Copy the safe environment template, edit the private `.env` file, and replace the example token with a long random secret:
 
 ```bash
-export WORKER_API_TOKEN='replace-with-a-long-random-secret'
-export CORS_ORIGINS='http://localhost:8080'
-docker compose -f docker-compose.ai-workers.yml up --build
+cp .env.example .env
+# Edit .env and set WORKER_API_TOKEN to a strong random secret.
+docker compose --env-file .env -f docker-compose.ai-workers.yml up --build
 ```
+
+The template defaults to the Vite development origin on port 8080. Set `CORS_ORIGINS` to the exact origin that serves your Studio.
 
 The first build/download is large. The chat worker downloads Qwen weights on first startup; OpenVoice downloads its official checkpoint archive on first startup. Keep the `openvoice-checkpoints` volume to avoid re-downloading the OpenVoice checkpoints. The model cache for the chat worker may also be persisted by your Docker runtime.
 
