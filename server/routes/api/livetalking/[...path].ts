@@ -1,4 +1,5 @@
 import { defineEventHandler, getRequestURL, readRawBody, setResponseStatus } from "h3";
+import { getSessionUser } from "../../../../src/lib/auth/verify.server";
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
 const ALLOWED_PATHS = new Set(["offer", "human", "interrupt_talk"]);
@@ -26,6 +27,21 @@ function isRateLimited(key: string, limit: number): boolean {
  * WebRTC media itself travels over ICE/UDP and cannot be tunneled through this HTTP route.
  */
 export default defineEventHandler(async (event) => {
+  // Streaming consumes scarce GPU sessions. Require a verified app session even
+  // when the rest of the app is running in its unauthenticated development mode.
+  // Never treat the shared dev-user fallback as authorization for GPU endpoints.
+  let user;
+  try {
+    user = await getSessionUser();
+  } catch {
+    setResponseStatus(event, 401);
+    return { error: "Sign in to use live avatar streaming.", code: "LIVETALKING_AUTH_REQUIRED" };
+  }
+  if (!user) {
+    setResponseStatus(event, 401);
+    return { error: "Sign in to use live avatar streaming.", code: "LIVETALKING_AUTH_REQUIRED" };
+  }
+
   const upstreamBase = process.env.LIVETALKING_INTERNAL_URL?.trim();
   if (!upstreamBase) {
     setResponseStatus(event, 503);
