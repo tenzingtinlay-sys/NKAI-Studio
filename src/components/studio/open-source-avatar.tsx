@@ -162,8 +162,7 @@ export function OpenSourceAvatarPanel() {
   async function speak(text: string) {
     const tts = headTtsRef.current;
     if (!speechLanguage.toLowerCase().startsWith("en") || !(talkingReady && tts)) {
-      const candidate = (activeRotation?.url || workerUrl.split(/[\n,]+/).map((url) => url.trim()).find(Boolean) || "").trim();
-      if (candidate) {
+      for (const candidate of orderedEndpoints) {
         try {
           const endpoint = new URL(candidate);
           endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/tts";
@@ -173,27 +172,26 @@ export function OpenSourceAvatarPanel() {
             headers: { "Content-Type": "application/json", ...(workerToken.trim() ? { Authorization: "Bearer " + workerToken.trim() } : {}) },
             body: JSON.stringify({ text: text.slice(0, 800), language: speechLanguage }),
           });
-          if (response.ok) {
-            const data = await response.json() as { audio_base64?: string; mime_type?: string };
-            if (data.audio_base64) {
-              const binary = window.atob(data.audio_base64);
-              const bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              const audioContext = new AudioContext();
-              const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
-              if (talkingHeadRef.current) talkingHeadRef.current.speakAudio({ audio: audioBuffer, ...estimateVisemes(text, audioBuffer.duration) });
-              else {
-                const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" })));
-                await audio.play();
-              }
-              setStatus("Multilingual neural speech · open-source MMS-TTS worker");
-              return;
-            }
+          if (!response.ok) continue;
+          const data = await response.json() as { audio_base64?: string; mime_type?: string };
+          if (!data.audio_base64) continue;
+          const binary = window.atob(data.audio_base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const audioContext = new AudioContext();
+          const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
+          if (talkingHeadRef.current) talkingHeadRef.current.speakAudio({ audio: audioBuffer, ...estimateVisemes(text, audioBuffer.duration) });
+          else {
+            const audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" })));
+            await audio.play();
           }
+          setStatus("Multilingual neural speech · worker endpoint " + candidate);
+          return;
         } catch {
-          setStatus("Multilingual worker TTS unavailable · using installed browser voice");
+          // Try the next platform endpoint before using the browser voice.
         }
       }
+      setStatus("Multilingual worker TTS unavailable · using installed browser voice");
     }
     const isEnglish = speechLanguage.toLowerCase().startsWith("en");
     if (talkingReady && tts && isEnglish) {
