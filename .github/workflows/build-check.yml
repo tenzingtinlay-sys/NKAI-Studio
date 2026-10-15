@@ -35,6 +35,10 @@ jobs:
           bash -n gpu-worker/download_openvoice_checkpoints.sh
           bash -n gpu-worker/start-openvoice-container.sh
 
+      - name: Validate combined AI worker Compose configuration
+        run: |
+          WORKER_API_TOKEN=ci-placeholder CORS_ORIGINS=http://localhost:3000 docker compose -f docker-compose.ai-workers.yml config --quiet
+
       - name: TypeScript check
         run: npm run typecheck
 
