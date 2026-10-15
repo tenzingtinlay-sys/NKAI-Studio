@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useStudio } from "@/lib/studio/store";
 
 const AVATARS = [
-  { label: "MPFB sample · CC0 (verify source)", url: "/assets/avatars/mpfb.glb", body: "M" },
+  { label: "MPFB sample · verify licence/rig", url: "/assets/avatars/mpfb.glb", body: "M" },
   { label: "Avaturn sample · non-commercial terms", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avaturn.glb", body: "M" },
   { label: "AvatarSDK sample · non-commercial terms", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avatarsdk.glb", body: "M" },
   { label: "Brunette sample · CC BY-NC 4.0", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/brunette.glb", body: "F" },
@@ -135,7 +135,7 @@ export function OpenSourceAvatarPanel() {
         const tts = new ttsModule.HeadTTS({
           endpoints: ["webgpu", "wasm"],
           languages: ["en-us"],
-          voices: ["am_fenrir"],
+          voices: ["am_fenrir", "af_bella"],
           workerModule: "https://cdn.jsdelivr.net/npm/@met4citizen/headtts@1.3/modules/worker-tts.mjs",
           dictionaryURL: "https://cdn.jsdelivr.net/npm/@met4citizen/headtts@1.3/dictionaries/",
           dtypeWebgpu: "q4f16",
@@ -167,7 +167,7 @@ export function OpenSourceAvatarPanel() {
 
   async function speak(text: string) {
     const tts = headTtsRef.current;
-    if (speechLanguage.toLowerCase() !== "en-us" || !(talkingReady && tts)) {
+    if (!speechLanguage.toLowerCase().startsWith("en") || !(talkingReady && tts)) {
       for (const candidate of orderedEndpoints) {
         try {
           const endpoint = new URL(candidate);
@@ -199,7 +199,7 @@ export function OpenSourceAvatarPanel() {
       }
       setStatus("Multilingual worker TTS unavailable · using installed browser voice");
     }
-    const isEnglish = speechLanguage.toLowerCase() === "en-us";
+    const isEnglish = speechLanguage.toLowerCase().startsWith("en");
     if (talkingReady && tts && isEnglish) {
       try {
         setStatus("Generating local neural speech with lip-sync…");
