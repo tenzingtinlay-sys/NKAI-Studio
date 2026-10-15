@@ -32,7 +32,7 @@ export OPENVOICE_CHECKPOINT_ROOT=/app/OpenVoice/checkpoints_v2
 export OPENVOICE_REFERENCE_AUDIO=/secrets/voice-reference.wav
 export WORKER_API_TOKEN='replace-with-a-long-random-secret'
 export CORS_ORIGINS='https://YOUR-STUDIO-HOST'
-uvicorn gpu-worker.openvoice_app:app --host 0.0.0.0 --port 7861
+cd gpu-worker && uvicorn openvoice_app:app --host 0.0.0.0 --port 7861
 ```
 
 If running from the gpu-worker directory, use the equivalent module path supported by your deployment (for example, uvicorn openvoice_app:app). Keep the reference recording outside the public web root.
@@ -43,7 +43,7 @@ If running from the gpu-worker directory, use the equivalent module path support
 - GET /capabilities: lists supported languages and voice-cloning requirements.
 - POST /tts: JSON body: {"text":"Hello there","language":"en-US","consent_confirmed":true}. Response contains audio_base64 and mime_type.
 
-The request must explicitly confirm that the configured reference voice is authorized. The API token is required if WORKER_API_TOKEN is set.
+For the Studio router, configure this worker endpoint in the rotation list with a trailing /chat path, for example https://YOUR-OPENVOICE-HOST/chat. The app will try /chat for LLM responses (this worker returns HTTP 501) and then /tts for speech; configure your separate LLM endpoint as another rotation candidate. The request must explicitly confirm that the configured reference voice is authorized. The API token is required if WORKER_API_TOKEN is set.
 
 ## Licensing and safety
 
