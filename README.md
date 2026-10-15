@@ -33,7 +33,8 @@ npm run build
 ## Avatar assets and model licences
 
 - Run `npm run assets:download` to download the approved MPFB starter avatar into `public/assets/avatars/` and write its SHA-256 provenance record. CI runs this step before building.
-- Review the [AI avatar ecosystem and build blueprint](docs/AI_AVATAR_ECOSYSTEM.md) and [avatar/voice registry](src/data/avatar-catalog.json) before bundling or redistributing assets.
+- Review the [AI avatar ecosystem and build blueprint](docs/AI_AVATAR_ECOSYSTEM.md), [product parity matrix](docs/PRODUCT_PARITY_MATRIX.md), and [avatar/voice registry](src/data/avatar-catalog.json) before bundling or redistributing assets.
+- Optional multilingual voice cloning worker: [OpenVoice V2 setup](gpu-worker/OPENVOICE_SETUP.md). It requires its own model checkpoints and an authorized reference voice recording; it is not automatically installed with the default worker.
 - The TalkingHead library is MIT, but its sample avatars do not all share that licence. Some examples are non-commercial or CC BY-NC. Do not bundle them in a commercial app without permission.
 - The current MMS-TTS voice worker supports the languages listed in the registry, but those checkpoints are generally CC-BY-NC 4.0. Commercial deployments need an appropriately licensed TTS engine/checkpoint, such as a separately audited OpenVoice V2 setup for its supported languages.
 
