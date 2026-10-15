@@ -159,7 +159,7 @@ export function OpenSourceAvatarPanel() {
 
   async function speak(text: string) {
     const tts = headTtsRef.current;
-    if (!speechLanguage.toLowerCase().startsWith("en")) {
+    if (!speechLanguage.toLowerCase().startsWith("en") || !(talkingReady && tts)) {
       const candidate = (activeRotation?.url || workerUrl.split(/[\n,]+/).map((url) => url.trim()).find(Boolean) || "").trim();
       if (candidate) {
         try {
