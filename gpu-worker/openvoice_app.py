@@ -24,6 +24,7 @@ REFERENCE_AUDIO = Path(os.getenv("OPENVOICE_REFERENCE_AUDIO", "")).resolve()
 DEVICE = "cuda:0" if torch.cuda.is_available() else "cpu"
 MAX_TEXT_CHARS = int(os.getenv("MAX_TEXT_CHARS", "500"))
 WORKER_API_TOKEN = os.getenv("WORKER_API_TOKEN", "").strip()
+ALLOW_UNAUTHENTICATED = os.getenv("ALLOW_UNAUTHENTICATED_LOCAL", "false").strip().lower() == "true"
 
 LANGUAGES = {
     "en": "EN", "en-us": "EN", "en-gb": "EN", "en-in": "EN", "en-au": "EN",
@@ -59,6 +60,8 @@ class TTSRequest(BaseModel):
 
 
 def check_auth(authorization: str | None):
+    if not WORKER_API_TOKEN and not ALLOW_UNAUTHENTICATED:
+        raise HTTPException(status_code=503, detail="Worker access token is not configured. Set WORKER_API_TOKEN before exposing this service.")
     if WORKER_API_TOKEN:
         supplied = authorization.removeprefix("Bearer ").strip() if authorization else ""
         if not hmac.compare_digest(supplied, WORKER_API_TOKEN):
@@ -96,12 +99,21 @@ def load_converter():
 @app.get("/health")
 def health():
     ready = converter is not None and target_speaker_embedding is not None
+    auth_ready = bool(WORKER_API_TOKEN) or ALLOW_UNAUTHENTICATED
+    if not auth_ready:
+        status = "auth-not-configured"
+    elif ready:
+        status = "ready"
+    else:
+        status = "needs-checkpoints-or-reference-audio"
     return {
-        "status": "ready" if ready else "needs-checkpoints-or-reference-audio",
+        "status": status,
         "provider": "OpenVoice V2 + MeloTTS",
         "device": DEVICE,
         "referenceAudioConfigured": REFERENCE_AUDIO.is_file(),
-        "detail": startup_error,
+        "authenticationConfigured": bool(WORKER_API_TOKEN),
+        "allowUnauthenticatedLocal": ALLOW_UNAUTHENTICATED,
+        "detail": startup_error or (None if auth_ready else "Set WORKER_API_TOKEN. For private localhost-only experiments, explicitly set ALLOW_UNAUTHENTICATED_LOCAL=true."),
     }
 
 
@@ -118,6 +130,8 @@ def capabilities():
             "license": "OpenVoice V1/V2 project is MIT; verify MeloTTS, checkpoint and dependency terms for your deployment.",
         },
         "device": DEVICE,
+        "authenticationConfigured": bool(WORKER_API_TOKEN),
+        "allowUnauthenticatedLocal": ALLOW_UNAUTHENTICATED,
     }
 
 @app.post("/chat")
