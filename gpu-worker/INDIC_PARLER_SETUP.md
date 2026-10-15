@@ -21,6 +21,22 @@ cd gpu-worker && uvicorn indic_parler_app:app --host 0.0.0.0 --port 7862
 
 For a direct module launch from the `gpu-worker` directory, use `uvicorn indic_parler_app:app --host 0.0.0.0 --port 7862`.
 
+## Docker option
+
+From the repository root, build with the worker directory as the context:
+
+```bash
+docker build -f gpu-worker/Dockerfile.indic-parler -t nkai-indic-parler-worker ./gpu-worker
+```
+
+Create a private env file (do not commit it) with `HF_TOKEN`, `WORKER_API_TOKEN`, and `CORS_ORIGINS`, then run:
+
+```bash
+docker run --rm --gpus all --env-file gpu-worker/.env -p 7862:7862 nkai-indic-parler-worker
+```
+
+The container downloads the gated model at startup. Use a persistent model cache/volume on the target host if you need to avoid downloading the model again after a restart. Never bake the Hugging Face token into the image.
+
 ## API
 
 - `GET /health` reports model, authentication and gate readiness.
