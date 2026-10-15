@@ -5,8 +5,7 @@ const AVATARS = [
   { label: "Avaturn · realistic", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avaturn.glb", body: "M" },
   { label: "Avatar SDK · realistic", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/avatarsdk.glb", body: "M" },
   { label: "Brunette · female", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/brunette.glb", body: "F" },
-  { label: "VRoid · stylized", url: "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/avatars/vroid.glb", body: "F" },
-];
+  ];
 const DEFAULT_MODEL = AVATARS[0].url;
 const LANGUAGES = [
   { label: "English (India)", code: "en-IN" }, { label: "English (US)", code: "en-US" },
@@ -467,7 +466,7 @@ function localReply(message: string) {
 function estimateVisemes(text: string, durationSeconds: number) {
   // Coarse text-timed visemes keep the mouth moving for external TTS audio.
   // For phoneme-accurate sync, use a TTS model that emits word/viseme timestamps.
-  const visemes = Array.from(text.toLowerCase()).filter((char) => /[a-z]/.test(char)).map((char) => {
+  const visemes = Array.from(text.toLowerCase()).filter((char) => /\\p{L}/u.test(char)).map((char) => {
     if ("a".includes(char)) return "aa";
     if ("e".includes(char)) return "E";
     if ("i".includes(char)) return "I";
@@ -481,7 +480,7 @@ function estimateVisemes(text: string, durationSeconds: number) {
     if ("n".includes(char)) return "nn";
     if ("r".includes(char)) return "RR";
     if ("cjqx".includes(char)) return "CH";
-    return "sil";
+    return "aa";
   });
   const step = visemes.length ? (durationSeconds * 1000) / visemes.length : 100;
   return { visemes, vtimes: visemes.map((_, index) => Math.round(index * step)), vdurations: visemes.map(() => Math.max(35, Math.round(step))) };
