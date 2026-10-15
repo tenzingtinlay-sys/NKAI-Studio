@@ -6,7 +6,7 @@ This optional worker gives the NKAI Studio avatar generated answers using open m
 
 Default: `Qwen/Qwen2.5-1.5B-Instruct`. Set `MODEL_ID` to another compatible Hugging Face Transformers causal language model if desired. Check each model's license and hosting terms before use.
 
-## Run on a GPU host that permits persistent inference services
+## Run on a GPU host that permits persistent inference services. Use Python 3.10 or newer for the default MMS-TTS worker so the `uroman` dependency can automatically romanize supported non-Latin scripts.
 
 ```bash
 python -m venv .venv
@@ -45,7 +45,7 @@ For a separate voice-cloning backend, see [OpenVoice V2 setup](OPENVOICE_SETUP.m
 
 ## Multilingual neural voice
 
-The worker exposes `POST /tts` with JSON `{"text":"नमस्ते","language":"hi-IN"}` and returns base64 WAV audio. The bundled language map includes English, Hindi, Tamil, Telugu, Bengali, Marathi, Punjabi, Kannada, Malayalam, French, German, and Spanish. The avatar UI can use this route for neural speech in those languages when a worker endpoint is configured.
+The worker exposes `POST /tts` with JSON `{"text":"नमस्ते","language":"hi-IN"}` and returns base64 WAV audio. The bundled language map includes English, Hindi, Tamil, Telugu, Bengali, Marathi, Punjabi, Kannada, Malayalam, French, German, Spanish, Chinese, Japanese, and Korean. The Transformers VITS tokenizer uses the installed `uroman` package when a checkpoint requires romanization of non-Latin text. The avatar UI can use this route for neural speech when a worker endpoint is configured.
 
 **Model licence warning:** the `facebook/mms-tts-*` checkpoints currently use CC-BY-NC 4.0. Treat this integration as non-commercial testing unless you have confirmed a separate licence that permits your intended use. Review the model card and licence for every language model before deployment. Models download on first use; changing languages may require loading a different model.
 
