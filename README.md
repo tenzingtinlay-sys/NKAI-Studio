@@ -39,6 +39,10 @@ npm run build
 - The TalkingHead library is MIT, but its sample avatars do not all share that licence. Some examples are non-commercial or CC BY-NC. Do not bundle them in a commercial app without permission.
 - The current MMS-TTS voice worker supports the languages listed in the registry, but those checkpoints are generally CC-BY-NC 4.0. Commercial deployments need an appropriately licensed TTS engine/checkpoint, such as a separately audited OpenVoice V2 setup for its supported languages.
 
+## Run both AI workers with Docker Compose
+
+For a combined Qwen chat worker and OpenVoice V2 multilingual voice worker, use [docker-compose.ai-workers.yml](docker-compose.ai-workers.yml) and the [deployment guide](gpu-worker/AI_WORKERS_COMPOSE.md). This requires a GPU-capable Docker host, a private authorized reference recording, and a configured worker token; first startup downloads large model weights.
+
 ## Connect an open-source GPU worker
 
 See [GPU worker setup](gpu-worker/README.md) and the [deployment / uptime guide](gpu-worker/DEPLOYMENT.md). The multilingual MMS-TTS checkpoints currently use CC-BY-NC 4.0; use them for non-commercial testing only unless you have a separate licence that permits your use. See the worker README before deploying them. Set `CORS_ORIGINS` to the Studio origin and configure `WORKER_API_TOKEN` as a host secret before exposing the worker publicly.
