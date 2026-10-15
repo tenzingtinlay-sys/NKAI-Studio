@@ -41,7 +41,7 @@ npm run build
 
 ## Run both AI workers with Docker Compose
 
-For a combined Qwen chat worker and OpenVoice V2 multilingual voice worker, use [docker-compose.ai-workers.yml](docker-compose.ai-workers.yml) and the [deployment guide](gpu-worker/AI_WORKERS_COMPOSE.md). This requires a GPU-capable Docker host, a private authorized reference recording, and a configured worker token; first startup downloads large model weights.
+For a combined Qwen chat worker and OpenVoice V2 multilingual voice worker, use [docker-compose.ai-workers.yml](docker-compose.ai-workers.yml), the [safe environment template](.env.example), and the [deployment guide](gpu-worker/AI_WORKERS_COMPOSE.md). This requires a GPU-capable Docker host, a private authorized reference recording, and a configured worker token; first startup downloads large model weights.
 
 ## Connect an open-source GPU worker
 
