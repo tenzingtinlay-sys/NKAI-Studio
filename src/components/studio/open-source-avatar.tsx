@@ -3,7 +3,8 @@ import { useStudio } from "@/lib/studio/store";
 import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
 
 const AVATARS = [
-  { label: "MPFB sample · verify licence/rig", url: "/assets/avatars/mpfb.glb", body: "M" },
+  { label: "MPFB human · CC0 sample", url: "/assets/avatars/mpfb.glb", body: "M" },
+  { label: "Brunette human · CC BY-NC 4.0 (non-commercial only)", url: "/assets/avatars/brunette.glb", body: "F" },
 ];
 const DEFAULT_MODEL = AVATARS[0].url;
 const LANGUAGES = [
