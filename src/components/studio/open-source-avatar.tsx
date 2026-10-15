@@ -253,11 +253,11 @@ export function OpenSourceAvatarPanel() {
       flash("Private inference route is unavailable.");
       return;
     }
-    setStatus("Reading configured worker capabilities…");
+    setStatus("Checking neural voice worker capabilities…");
     for (const candidate of orderedEndpoints) {
       try {
         const endpoint = new URL(candidate, window.location.origin);
-        endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/capabilities";
+        endpoint.pathname = "/api/ai/tts-capabilities";
         endpoint.search = "";
         const response = await fetch(endpoint.toString(), {
           method: "GET",
@@ -281,7 +281,7 @@ export function OpenSourceAvatarPanel() {
         // Continue through the configured endpoint order.
       }
     }
-    setStatus("No worker capabilities endpoint responded · check HTTPS, CORS and worker readiness");
+    setStatus("No neural voice capabilities endpoint responded · check TTS worker configuration and readiness");
   }
 
   async function loadLocalModel() {
