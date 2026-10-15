@@ -1,5 +1,7 @@
+import io
 import json
 import unittest
+from contextlib import redirect_stdout
 from unittest.mock import patch
 from urllib.parse import urlparse
 
@@ -94,7 +96,9 @@ class DeployHuggingFaceSpaceTests(unittest.TestCase):
             return FakeResponse(payload)
 
         with patch("deploy_huggingface_space.urllib.request.urlopen", side_effect=fake_urlopen):
-            check_chat_worker("https://worker.example.com/", "w" * 40)
+            # Keep mocked readiness from looking like a live endpoint test in CI logs.
+            with redirect_stdout(io.StringIO()):
+                check_chat_worker("https://worker.example.com/", "w" * 40)
 
     def test_chat_worker_preflight_rejects_loading_model(self):
         def fake_urlopen(request, timeout):
