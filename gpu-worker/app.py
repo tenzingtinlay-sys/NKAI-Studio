@@ -113,8 +113,8 @@ def chat(request: ChatRequest, authorization: str | None = Header(default=None))
     if not request.message.strip():
         return {"reply": "Please enter a message so I can help."}
 
-    language_names = {"en": "English", "en-in": "English", "hi": "Hindi", "hi-in": "Hindi", "ta": "Tamil", "ta-in": "Tamil", "te": "Telugu", "te-in": "Telugu", "bn": "Bengali", "bn-in": "Bengali", "mr": "Marathi", "mr-in": "Marathi", "pa": "Punjabi", "pa-in": "Punjabi", "kn": "Kannada", "kn-in": "Kannada", "ml": "Malayalam", "ml-in": "Malayalam", "fr": "French", "fr-fr": "French", "de": "German", "de-de": "German", "es": "Spanish", "es-es": "Spanish", "zh": "Chinese", "zh-cn": "Chinese", "ja": "Japanese", "ja-jp": "Japanese", "ko": "Korean", "ko-kr": "Korean"}
-    language_name = language_names.get(request.language.lower(), "the user's language")
+    language_names = {"en": "English", "hi": "Hindi", "ta": "Tamil", "te": "Telugu", "bn": "Bengali", "mr": "Marathi", "pa": "Punjabi", "kn": "Kannada", "ml": "Malayalam", "fr": "French", "de": "German", "es": "Spanish", "zh": "Chinese", "ja": "Japanese", "ko": "Korean", "as": "Assamese", "gu": "Gujarati", "or": "Odia", "ur": "Urdu", "ne": "Nepali", "sa": "Sanskrit", "brx": "Bodo", "doi": "Dogri", "kok": "Konkani", "mai": "Maithili", "mni": "Manipuri", "sat": "Santali", "sd": "Sindhi"}
+    language_name = language_names.get(request.language.lower()) or language_names.get(request.language.lower().split("-")[0], "the user's language")
     messages = [{"role": "system", "content": SYSTEM_PROMPT + f" Reply in {language_name} unless the user explicitly asks for another language."}]
     for item in request.history[-10:]:
         role = item.get("role")
