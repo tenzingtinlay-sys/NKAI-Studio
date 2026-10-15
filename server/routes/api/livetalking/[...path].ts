@@ -29,8 +29,8 @@ export default defineEventHandler(async (event) => {
     headers.set(name, Array.isArray(value) ? value.join(", ") : String(value));
   }
   headers.set("x-forwarded-prefix", prefix);
-  let body: Uint8Array | undefined;
-  if (!["GET", "HEAD"].includes(method)) { const raw = await readRawBody(event, false); if (raw) body = typeof raw === "string" ? new TextEncoder().encode(raw) : new Uint8Array(raw); }
+  let body: string | undefined;
+  if (!["GET", "HEAD"].includes(method)) { const raw = await readRawBody(event, false); if (raw) body = typeof raw === "string" ? raw : new TextDecoder().decode(raw); }
   try {
     const upstream = await fetch(target, { method, headers, body, redirect: "manual", signal: AbortSignal.timeout(120000) });
     const responseHeaders = new Headers();
