@@ -59,7 +59,7 @@ export function OpenSourceAvatarPanel() {
     setBusy(true);
     setStatus(workerUrl.trim() ? "Connecting to configured GPU worker…" : "No GPU worker configured · local fallback");
     let reply = "";
-    const endpoints = workerUrl.split(/[\\n,]+/).map((url) => url.trim()).filter(Boolean);
+    const endpoints = workerUrl.split(/[\n,]+/).map((url) => url.trim()).filter(Boolean);
     if (endpoints.length) {
       const failures: string[] = [];
       for (let index = 0; index < endpoints.length && !reply; index++) {
