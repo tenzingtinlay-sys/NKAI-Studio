@@ -47,6 +47,7 @@ app.add_middleware(
 )
 converter = None
 target_speaker_embedding = None
+startup_error = None
 converter_lock = Lock()
 generation_lock = Lock()
 
@@ -66,22 +67,30 @@ def check_auth(authorization: str | None):
 
 @app.on_event("startup")
 def load_converter():
-    global converter, target_speaker_embedding
+    global converter, target_speaker_embedding, startup_error
+    startup_error = None
     if not REFERENCE_AUDIO.is_file():
         # Keep service available for health checks, but explain why TTS is not ready.
+        startup_error = "Set OPENVOICE_REFERENCE_AUDIO to a private, authorized voice recording."
         return
     config = CHECKPOINT_ROOT / "converter" / "config.json"
     checkpoint = CHECKPOINT_ROOT / "converter" / "checkpoint.pth"
     if not config.is_file() or not checkpoint.is_file():
+        startup_error = "OpenVoice V2 converter checkpoints are missing from OPENVOICE_CHECKPOINT_ROOT."
         return
-    from openvoice import se_extractor
-    from openvoice.api import ToneColorConverter
-    with converter_lock:
-        converter = ToneColorConverter(str(config), device=DEVICE)
-        converter.load_ckpt(str(checkpoint))
-        target_speaker_embedding, _ = se_extractor.get_se(
-            str(REFERENCE_AUDIO), converter, vad=True
-        )
+    try:
+        from openvoice import se_extractor
+        from openvoice.api import ToneColorConverter
+        with converter_lock:
+            converter = ToneColorConverter(str(config), device=DEVICE)
+            converter.load_ckpt(str(checkpoint))
+            target_speaker_embedding, _ = se_extractor.get_se(
+                str(REFERENCE_AUDIO), converter, vad=True
+            )
+    except Exception as exc:
+        converter = None
+        target_speaker_embedding = None
+        startup_error = f"Could not load OpenVoice converter/reference audio: {type(exc).__name__}: {exc}"
 
 
 @app.get("/health")
@@ -92,6 +101,7 @@ def health():
         "provider": "OpenVoice V2 + MeloTTS",
         "device": DEVICE,
         "referenceAudioConfigured": REFERENCE_AUDIO.is_file(),
+        "detail": startup_error,
     }
 
 
@@ -104,6 +114,7 @@ def capabilities():
             "languages": [{"code": key, "label": LANGUAGE_NAMES[value]} for key, value in LANGUAGES.items()],
             "voiceCloning": True,
             "requiresConsentedReferenceAudio": True,
+            "detail": startup_error,
             "license": "OpenVoice V1/V2 project is MIT; verify MeloTTS, checkpoint and dependency terms for your deployment.",
         },
         "device": DEVICE,
