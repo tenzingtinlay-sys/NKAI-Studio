@@ -35,14 +35,47 @@ export default defineEventHandler(async (event) => {
     return { error: "Unknown private AI endpoint." };
   }
 
-  let worker;
-  for (const candidate of workers) {
-    if (await workerIsReady(candidate)) { worker = candidate; break; }
+  const method = event.method.toUpperCase();
+  if (!["GET", "HEAD", "POST", "OPTIONS"].includes(method)) {
+    setResponseStatus(event, 405);
+    return { error: "Method not allowed." };
   }
-  if (!worker) {
-    setResponseStatus(event, 503);
-    return { error: workers.length ? "No configured NKAI AI worker is currently healthy." : "No eligible NKAI inference worker is configured.", code: workers.length ? "AI_WORKERS_UNAVAILABLE" : "AI_WORKER_NOT_CONFIGURED" };
+
+  // Optional dedicated TTS service (for example, an authorized OpenVoice V2 worker).
+  // This lets the chat model and natural-speech model run on separate GPU workers.
+  let worker: AIWorker | undefined;
+  const dedicatedTtsUrl = suffix[0] === "tts" ? process.env.AI_TTS_INTERNAL_URL?.trim() : "";
+  if (dedicatedTtsUrl) {
+    let ttsUrl: URL;
+    try {
+      ttsUrl = new URL(dedicatedTtsUrl);
+      if (!["http:", "https:"].includes(ttsUrl.protocol) || ttsUrl.username || ttsUrl.password) throw new Error("Invalid URL");
+    } catch {
+      setResponseStatus(event, 500);
+      return { error: "The private TTS worker URL is invalid.", code: "AI_TTS_URL_INVALID" };
+    }
+    worker = {
+      id: "dedicated-tts",
+      platform: "lightning-ai",
+      baseUrl: ttsUrl.href.replace(/\\/$/, ""),
+      token: process.env.AI_TTS_API_TOKEN?.trim() || "",
+      leaseHours: 24,
+      priority: 0,
+    };
+    if (!(await workerIsReady(worker))) {
+      setResponseStatus(event, 503);
+      return { error: "The dedicated TTS worker is not ready. Check its /health endpoint, reference voice, and authentication.", code: "AI_TTS_UNAVAILABLE" };
+    }
+  } else {
+    for (const candidate of workers) {
+      if (await workerIsReady(candidate)) { worker = candidate; break; }
+    }
+    if (!worker) {
+      setResponseStatus(event, 503);
+      return { error: workers.length ? "No configured NKAI AI worker is currently healthy." : "No eligible NKAI inference worker is configured.", code: workers.length ? "AI_WORKERS_UNAVAILABLE" : "AI_WORKER_NOT_CONFIGURED" };
+    }
   }
+
   const upstreamBase = worker.baseUrl || process.env.AI_WORKER_INTERNAL_URL?.trim();
   if (!upstreamBase) {
     setResponseStatus(event, 503);
@@ -59,12 +92,6 @@ export default defineEventHandler(async (event) => {
   const target = new URL(base.href);
   target.pathname = (base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname) + "/" + suffix[0];
   target.search = requestUrl.search;
-
-  const method = event.method.toUpperCase();
-  if (!["GET", "HEAD", "POST", "OPTIONS"].includes(method)) {
-    setResponseStatus(event, 405);
-    return { error: "Method not allowed." };
-  }
 
   const headers = new Headers();
   for (const [name, value] of Object.entries(event.node?.req?.headers ?? {})) {
