@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const prefix = "/api/livetalking";
   const suffix = requestUrl.pathname.startsWith(prefix) ? requestUrl.pathname.slice(prefix.length) : "/";
   const relativePath = suffix.replace(/^\\/+/, "");
-  if (relativePath.split("/").some((segment) => segment === "..") || relativePath.includes("\\\\")) {
+  if (relativePath.split("/").some((segment) => segment === "..") || relativePath.includes("\\")) {
     setResponseStatus(event, 400);
     return { error: "Invalid proxy path." };
   }
