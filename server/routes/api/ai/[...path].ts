@@ -1,4 +1,5 @@
 import { defineEventHandler, getRequestURL, readRawBody, setResponseStatus } from "h3";
+import { getSessionUser } from "../../../../src/lib/auth/verify.server";
 import { orderWorkersForTimeSlot, parseWorkerPool } from "../../../utils/ai-worker-pool.mjs";
 import type { AIWorker } from "../../../utils/ai-worker-types";
 
@@ -27,6 +28,20 @@ async function workerIsReady(worker: AIWorker): Promise<boolean> {
  * values in browser code. The browser only calls /api/ai/{chat,tts,health,capabilities}.
  */
 export default defineEventHandler(async (event) => {
+  // Inference can consume scarce GPU time. Require a real verified session;
+  // the app's shared development-user fallback is not sufficient authorization.
+  let user;
+  try {
+    user = await getSessionUser();
+  } catch {
+    setResponseStatus(event, 401);
+    return { error: "Sign in to use NKAI inference.", code: "AI_AUTH_REQUIRED" };
+  }
+  if (!user) {
+    setResponseStatus(event, 401);
+    return { error: "Sign in to use NKAI inference.", code: "AI_AUTH_REQUIRED" };
+  }
+
   let workers;
   try { workers = orderWorkersForTimeSlot(parseWorkerPool(), Date.now()); }
   catch { setResponseStatus(event, 500); return { error: "The server-side AI worker pool configuration is invalid.", code: "AI_WORKER_POOL_INVALID" }; }
@@ -38,9 +53,24 @@ export default defineEventHandler(async (event) => {
   }
 
   const method = event.method.toUpperCase();
-  if (!["GET", "HEAD", "POST", "OPTIONS"].includes(method)) {
+  const endpoint = suffix[0];
+  const readOnlyEndpoints = new Set(["health", "capabilities", "tts-capabilities"]);
+  if (readOnlyEndpoints.has(endpoint) ? !["GET", "HEAD"].includes(method) : method !== "POST") {
     setResponseStatus(event, 405);
-    return { error: "Method not allowed." };
+    return { error: "Method not allowed for this AI endpoint." };
+  }
+
+  if (method === "POST") {
+    const origin = event.node?.req?.headers?.origin;
+    if (typeof origin !== "string" || origin !== requestUrl.origin) {
+      setResponseStatus(event, 403);
+      return { error: "Cross-origin requests are not allowed.", code: "AI_ORIGIN_REJECTED" };
+    }
+    const contentType = String(event.node?.req?.headers?.["content-type"] || "").split(";")[0].trim().toLowerCase();
+    if (contentType !== "application/json") {
+      setResponseStatus(event, 415);
+      return { error: "Content-Type must be application/json." };
+    }
   }
 
   // Optional dedicated TTS service (for example, an authorized OpenVoice V2 worker).
@@ -93,21 +123,36 @@ export default defineEventHandler(async (event) => {
   }
   const target = new URL(base.href);
   target.pathname = (base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname) + "/" + (suffix[0] === "tts-capabilities" ? "capabilities" : suffix[0] === "stream" ? "chat/stream" : suffix[0]);
-  target.search = requestUrl.search;
+  // Never relay caller-controlled query parameters, cookies, origin, or arbitrary
+  // headers to the private worker. The gateway only forwards validated JSON.
+  target.search = "";
 
   const headers = new Headers();
-  for (const [name, value] of Object.entries(event.node?.req?.headers ?? {})) {
-    const lower = name.toLowerCase();
-    if (HOP_BY_HOP.has(lower) || lower === "authorization" || value == null) continue;
-    headers.set(name, Array.isArray(value) ? value.join(", ") : String(value));
-  }
+  headers.set("x-forwarded-prefix", "/api/ai");
+  headers.set("content-type", "application/json");
   const token = dedicatedTtsUrl ? worker?.token?.trim() : worker?.token?.trim() || process.env.AI_WORKER_API_TOKEN?.trim();
   if (token) headers.set("authorization", "Bearer " + token);
 
   let body: string | undefined;
-  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+  if (method === "POST") {
     const raw = await readRawBody(event, false);
-    if (raw) body = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
+    body = raw ? (typeof raw === "string" ? raw : new TextDecoder().decode(raw)) : "";
+    const maxBytes = endpoint === "tts" ? 16_000 : 64_000;
+    if (!body) {
+      setResponseStatus(event, 400);
+      return { error: "A JSON request body is required." };
+    }
+    if (new TextEncoder().encode(body).byteLength > maxBytes) {
+      setResponseStatus(event, 413);
+      return { error: "The AI request body is too large." };
+    }
+    try {
+      const parsed: unknown = JSON.parse(body);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Expected JSON object");
+    } catch {
+      setResponseStatus(event, 400);
+      return { error: "Invalid JSON request body." };
+    }
   }
 
   try {
