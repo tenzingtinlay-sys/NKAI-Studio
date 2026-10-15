@@ -35,6 +35,7 @@ jobs:
           python -m py_compile gpu-worker/smoke_test_openvoice.py
           bash -n gpu-worker/download_openvoice_checkpoints.sh
           bash -n gpu-worker/start-openvoice-container.sh
+          bash -n scripts/blender/convert_rocketbox_library.sh
 
       - name: Validate combined AI worker Compose configuration
         run: |
