@@ -109,6 +109,10 @@ def capabilities():
         "device": DEVICE,
     }
 
+@app.post("/chat")
+def chat_not_supported():
+    raise HTTPException(status_code=501, detail="This endpoint provides TTS only. Configure the separate NKAI chat worker for /chat.")
+
 
 @app.post("/tts")
 def synthesize(request: TTSRequest, authorization: str | None = Header(default=None)):
