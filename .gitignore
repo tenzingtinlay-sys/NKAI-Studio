@@ -1,0 +1,4 @@
+# Downloaded third-party model collections (large assets are not committed to Git)
+downloads/third-party/Microsoft-Rocketbox/
+public/assets/avatars/*.glb
+public/assets/avatars/*.provenance.json
