@@ -10,8 +10,8 @@ NKAI Studio includes an open-source avatar chat panel with local-first AI option
 - Language selector for English, Hindi, Tamil, Telugu, Bengali, Marathi, Punjabi, Kannada, Malayalam, French, German, Spanish, Chinese, Japanese, and Korean. Neural speech uses the optional `/tts` endpoint when the configured worker supports that language; installed browser voices are the fallback.
 - Optional browser-local Qwen2.5-0.5B-Instruct model through Transformers.js (WebGPU first, WASM fallback). The first use downloads model files and may require substantial memory and bandwidth.
 - Optional self-hosted Transformers/FastAPI GPU worker using open model weights.
-- Persistent timed platform rotation (configured hours and endpoint per slot), ordered worker failover, and an explicitly labeled scripted fallback.
-- Optional bearer-token protection for the GPU worker.
+- Same-origin private AI gateway routes for chat, TTS, health, and capability checks. Worker addresses and bearer tokens remain server-side.
+- An in-app deployment diagnostics page at `/deployment` that checks the live AI, voice, and streaming endpoints.
 
 ## Run the Studio
 
@@ -50,7 +50,7 @@ See [GPU worker setup](gpu-worker/README.md) and the [deployment / uptime guide]
 
 ## Important deployment note
 
-The local browser model can provide AI responses without an inference API key, but it depends on the user's browser and device. GPU worker failover can switch between already-running endpoints; it cannot restart expired notebook sessions or guarantee 24/7 free cloud GPU access. Verify the current terms and quotas of any Colab, Kaggle, Hugging Face, or Lightning AI account before using it as a service host.
+The local browser model can provide AI responses without an inference API key, but it depends on the user's browser and device. Configure `AI_WORKER_INTERNAL_URL` and optionally `AI_WORKER_API_TOKEN` as server-side environment variables on the deployment host; never paste public worker URLs or secrets into the browser. Configure `LIVETALKING_INTERNAL_URL` for the embedded streaming workspace. The full-stack app must run on a server host such as Vercel; GitHub Pages alone cannot execute these server routes. No setup can guarantee unlimited 24/7 free remote GPU compute. Visit `/deployment` on the deployed app to check which services are actually responding.
 
 ## Open-source components
 
