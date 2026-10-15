@@ -33,6 +33,7 @@ jobs:
           python -m py_compile scripts/blender/convert_rocketbox_to_glb.py
           python -m py_compile gpu-worker/smoke_test_openvoice.py
           bash -n gpu-worker/download_openvoice_checkpoints.sh
+          bash -n gpu-worker/start-openvoice-container.sh
 
       - name: TypeScript check
         run: npm run typecheck
