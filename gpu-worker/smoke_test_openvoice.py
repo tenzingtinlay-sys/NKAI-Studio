@@ -41,6 +41,7 @@ def main():
     parser.add_argument("--test-tts", action="store_true", help="Generate a short audio sample")
     parser.add_argument("--consent-confirmed", action="store_true", help="Confirm permission to use the configured reference voice")
     parser.add_argument("--language", default="en-US", help="TTS language tag (default: en-US)")
+    parser.add_argument("--voice", default=None, help="Optional voice style/name for compatible TTS workers")
     parser.add_argument("--text", default="Hello! This is a short NKAI Studio voice test.")
     parser.add_argument("--output", default="nkai-voice-smoke-test.wav")
     args = parser.parse_args()
@@ -65,7 +66,12 @@ def main():
         base + "/tts",
         token,
         method="POST",
-        payload={"text": args.text, "language": args.language, "consent_confirmed": True},
+        payload={
+            "text": args.text,
+            "language": args.language,
+            "consent_confirmed": True,
+            **({"voice": args.voice} if args.voice else {}),
+        },
         timeout=180,
     )
     audio = result.get("audio_base64")
