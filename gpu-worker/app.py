@@ -142,6 +142,13 @@ def tts(request: TTSRequest, authorization: str | None = Header(default=None)):
         raise HTTPException(status_code=400, detail=f"No bundled MMS-TTS model for language: {language}")
     with tts_lock:
         if model_id not in tts_cache:
+            # Keep one TTS model resident to avoid filling a small free GPU with
+            # several language models after users switch languages.
+            for old_id, (_, old_model, old_device) in list(tts_cache.items()):
+                del tts_cache[old_id]
+                del old_model
+                if old_device == "cuda" and torch.cuda.is_available():
+                    torch.cuda.empty_cache()
             tts_tokenizer = AutoTokenizer.from_pretrained(model_id)
             tts_model = VitsModel.from_pretrained(model_id)
             device = "cuda" if torch.cuda.is_available() else "cpu"
