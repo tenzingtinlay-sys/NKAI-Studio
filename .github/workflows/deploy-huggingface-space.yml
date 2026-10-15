@@ -18,10 +18,20 @@ jobs:
           python-version: "3.11"
       - name: Install Hugging Face Hub client
         run: python -m pip install --upgrade huggingface_hub
-      - name: Upload app to the configured Hugging Face Space
+      - name: Upload app, configure private secrets, and verify runtime
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+          NKAI_BETTER_AUTH_SECRET: ${{ secrets.NKAI_BETTER_AUTH_SECRET }}
+          NKAI_GROK_AUTH_ISSUER: ${{ secrets.NKAI_GROK_AUTH_ISSUER }}
+          NKAI_GROK_AUTH_CLIENT_ID: ${{ secrets.NKAI_GROK_AUTH_CLIENT_ID }}
+          NKAI_GROK_AUTH_CLIENT_SECRET: ${{ secrets.NKAI_GROK_AUTH_CLIENT_SECRET }}
+          NKAI_DATABASE_URL: ${{ secrets.NKAI_DATABASE_URL }}
+          NKAI_AI_WORKER_INTERNAL_URL: ${{ secrets.NKAI_AI_WORKER_INTERNAL_URL }}
+          NKAI_AI_WORKER_API_TOKEN: ${{ secrets.NKAI_AI_WORKER_API_TOKEN }}
+          NKAI_TTS_INTERNAL_URL: ${{ secrets.NKAI_TTS_INTERNAL_URL }}
+          NKAI_TTS_API_TOKEN: ${{ secrets.NKAI_TTS_API_TOKEN }}
+          NKAI_LIVETALKING_INTERNAL_URL: ${{ secrets.NKAI_LIVETALKING_INTERNAL_URL }}
         run: |
           if [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE_ID" ]; then
             echo "::error::Configure repository secrets HF_TOKEN and HF_SPACE_ID first."
@@ -29,11 +39,32 @@ jobs:
           fi
           python - <<'PY'
           import os
+          import time
+          import urllib.error
+          import urllib.request
           from huggingface_hub import HfApi
+
           token = os.environ["HF_TOKEN"]
-          repo_id = os.environ["HF_SPACE_ID"]
+          repo_id = os.environ["HF_SPACE_ID"].strip()
           if "/" not in repo_id or len(repo_id.split("/")) != 2:
-              raise SystemExit("HF_SPACE_ID must be the owner/space-name of an existing Space.")
+              raise SystemExit("HF_SPACE_ID must be owner/space-name.")
+
+          required = {
+              "NKAI_BETTER_AUTH_SECRET": "BETTER_AUTH_SECRET",
+              "NKAI_GROK_AUTH_ISSUER": "GROK_AUTH_ISSUER",
+              "NKAI_GROK_AUTH_CLIENT_ID": "GROK_AUTH_CLIENT_ID",
+              "NKAI_GROK_AUTH_CLIENT_SECRET": "GROK_AUTH_CLIENT_SECRET",
+              "NKAI_DATABASE_URL": "DATABASE_URL",
+              "NKAI_AI_WORKER_INTERNAL_URL": "AI_WORKER_INTERNAL_URL",
+              "NKAI_AI_WORKER_API_TOKEN": "AI_WORKER_API_TOKEN",
+          }
+          missing = [source for source in required if not os.environ.get(source, "").strip()]
+          if missing:
+              raise SystemExit(
+                  "Missing required GitHub repository secrets: " + ", ".join(missing)
+                  + ". Deployment is blocked to avoid shipping a dev-user app or an unprotected worker."
+              )
+
           api = HfApi(token=token)
           try:
               api.repo_info(repo_id=repo_id, repo_type="space")
@@ -46,6 +77,24 @@ jobs:
                   exist_ok=True,
                   token=token,
               )
+
+          space_url = "https://" + repo_id.replace("/", "-").lower() + ".hf.space"
+          secrets_to_set = {target: os.environ[source].strip() for source, target in required.items()}
+          secrets_to_set["BETTER_AUTH_URL"] = space_url
+          optional = {
+              "NKAI_TTS_INTERNAL_URL": "AI_TTS_INTERNAL_URL",
+              "NKAI_TTS_API_TOKEN": "AI_TTS_API_TOKEN",
+              "NKAI_LIVETALKING_INTERNAL_URL": "LIVETALKING_INTERNAL_URL",
+          }
+          for source, target in optional.items():
+              value = os.environ.get(source, "").strip()
+              if value:
+                  secrets_to_set[target] = value
+
+          for key, value in secrets_to_set.items():
+              api.add_space_secret(repo_id=repo_id, key=key, value=value)
+              print(f"Configured Hugging Face Space secret: {key}")
+
           api.upload_folder(
               repo_id=repo_id,
               repo_type="space",
@@ -58,11 +107,8 @@ jobs:
               commit_message="Deploy NKAI Studio from GitHub Actions",
               token=token,
           )
-          import time
-          import urllib.error
-          import urllib.request
-
           print(f"Uploaded source to Hugging Face Space {repo_id}. Waiting for the Docker Space to start.")
+
           deadline = time.time() + 900
           last_stage = "unknown"
           while time.time() < deadline:
@@ -73,23 +119,21 @@ jobs:
                   last_stage = stage
               if stage == "RUNNING":
                   break
-              if stage in {"BUILD_ERROR", "RUNTIME_ERROR", "CONFIG_ERROR", "NO_APP_FILE"}:
+              if stage in {"BUILD_ERROR", "RUNTIME_ERROR", "CONFIG_ERROR", "NO_APP_FILE", "STOPPED", "PAUSED"}:
                   raise SystemExit(f"Hugging Face Space failed with runtime stage: {stage}")
               time.sleep(15)
           else:
               raise SystemExit(f"Timed out waiting for Hugging Face Space to start; last stage was {last_stage}. Check the Space build/runtime logs.")
 
-          base_url = "https://" + repo_id.replace("/", "-").lower() + ".hf.space"
-          # Confirm the app serves its real diagnostic route after the container starts.
-          request = urllib.request.Request(base_url + "/deployment", headers={"User-Agent": "NKAI-Studio-deployment-check"})
+          request = urllib.request.Request(space_url + "/deployment", headers={"User-Agent": "NKAI-Studio-deployment-check"})
           try:
               with urllib.request.urlopen(request, timeout=20) as response:
                   if response.status != 200:
                       raise SystemExit(f"Space started but /deployment returned HTTP {response.status}")
                   page = response.read(1_000_000).decode("utf-8", errors="replace")
-                  if "NKAI STUDIO" not in page.upper() and "deployment" not in page.lower():
-                      raise SystemExit("Space returned HTTP 200 but the NKAI deployment diagnostic page marker was not found.")
-                  print(f"Deployment smoke test passed: {base_url}/deployment (HTTP {response.status}).")
+                  if "deployment" not in page.lower():
+                      raise SystemExit("Space returned HTTP 200 but the deployment diagnostic page marker was not found.")
+                  print(f"Deployment smoke test passed: {space_url}/deployment (HTTP {response.status}).")
           except urllib.error.HTTPError as exc:
               raise SystemExit(f"Space runtime is RUNNING but /deployment returned HTTP {exc.code}. Check app logs.") from exc
           except Exception as exc:
