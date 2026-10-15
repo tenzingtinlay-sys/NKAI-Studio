@@ -2,7 +2,7 @@ import { defineEventHandler, getRequestURL, readRawBody, setResponseStatus } fro
 import { getSessionUser } from "../../../../src/lib/auth/verify.server";
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
-const ALLOWED_PATHS = new Set(["offer", "human", "interrupt_talk"]);
+const ALLOWED_PATHS = new Set(["status", "offer", "human", "interrupt_talk"]);
 const RATE_WINDOW_MS = 60_000;
 const RATE_LIMITS = { offer: 4, human: 24, interrupt_talk: 24 } as const;
 const rateBuckets = new Map<string, { startedAt: number; count: number }>();
@@ -58,28 +58,67 @@ export default defineEventHandler(async (event) => {
   }
 
   const requestUrl = getRequestURL(event);
-  // This endpoint is callable from a browser, so reject cross-origin requests
-  // before reading the body or spending a worker session. Require JSON to
-  // prevent cross-site HTML forms from reaching the upstream API.
-  const origin = event.node?.req?.headers?.origin;
-  if (typeof origin !== "string" || origin !== requestUrl.origin) {
-    setResponseStatus(event, 403);
-    return { error: "Cross-origin requests are not allowed.", code: "LIVETALKING_ORIGIN_REJECTED" };
-  }
-  const contentType = String(event.node?.req?.headers?.["content-type"] || "").split(";")[0].trim().toLowerCase();
-  if (contentType !== "application/json") {
-    setResponseStatus(event, 415);
-    return { error: "Content-Type must be application/json." };
+  // State-changing browser requests must be same-origin JSON. The read-only
+  // status probe is authenticated and does not accept a caller-supplied target.
+  const method = event.method.toUpperCase();
+  if (method === "POST") {
+    const origin = event.node?.req?.headers?.origin;
+    if (typeof origin !== "string" || origin !== requestUrl.origin) {
+      setResponseStatus(event, 403);
+      return { error: "Cross-origin requests are not allowed.", code: "LIVETALKING_ORIGIN_REJECTED" };
+    }
+    const contentType = String(event.node?.req?.headers?.["content-type"] || "").split(";")[0].trim().toLowerCase();
+    if (contentType !== "application/json") {
+      setResponseStatus(event, 415);
+      return { error: "Content-Type must be application/json." };
+    }
   }
 
   const prefix = "/api/livetalking";
   const suffix = requestUrl.pathname.startsWith(prefix) ? requestUrl.pathname.slice(prefix.length) : "/";
   const relativePath = suffix.split("/").filter(Boolean).join("/");
-  const method = event.method.toUpperCase();
-
   if (!ALLOWED_PATHS.has(relativePath)) {
     setResponseStatus(event, 404);
     return { error: "This LiveTalking endpoint is not exposed through NKAI Studio.", code: "LIVETALKING_ENDPOINT_NOT_ALLOWED" };
+  }
+  if (relativePath === "status") {
+    if (method !== "GET" && method !== "HEAD") {
+      setResponseStatus(event, 405);
+      return { error: "Method not allowed for the LiveTalking status endpoint." };
+    }
+    const probe = new URL(base.href);
+    probe.pathname = base.pathname || "/";
+    probe.search = "";
+    try {
+      const upstream = await fetch(probe, {
+        method: "GET",
+        redirect: "manual",
+        signal: AbortSignal.timeout(5000),
+        headers: { "cache-control": "no-store" },
+      });
+      const httpStatus = upstream.status;
+      await upstream.body?.cancel();
+      const reachable = httpStatus < 500;
+      setResponseStatus(event, reachable ? 200 : 503);
+      return {
+        configured: true,
+        reachable,
+        httpStatus,
+        mediaVerified: false,
+        detail: reachable
+          ? "The LiveTalking HTTP endpoint responded. WebRTC media and GPU readiness still require a real browser session."
+          : "The LiveTalking HTTP endpoint returned a server error.",
+      };
+    } catch {
+      setResponseStatus(event, 503);
+      return {
+        configured: true,
+        reachable: false,
+        mediaVerified: false,
+        error: "The LiveTalking service could not be reached.",
+        code: "LIVETALKING_UNREACHABLE",
+      };
+    }
   }
   if (method !== "POST") {
     setResponseStatus(event, 405);
