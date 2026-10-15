@@ -1,20 +1,11 @@
 import { defineEventHandler, getRequestURL, readRawBody, setResponseStatus } from "h3";
 import { orderWorkersForTimeSlot, parseWorkerPool } from "../../../utils/ai-worker-pool.mjs";
+import type { AIWorker } from "../../../utils/ai-worker-types";
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
 const ALLOWED = new Set(["chat", "tts", "health", "capabilities"]);
 
-/**
- * @typedef {Object} AIWorker
- * @property {string} id
- * @property {string} platform
- * @property {string} baseUrl
- * @property {string} token
- * @property {number} leaseHours
- * @property {number} priority
- */
-/** @param {AIWorker} worker @returns {Promise<boolean>} */
-async function workerIsReady(worker) {
+async function workerIsReady(worker: AIWorker): Promise<boolean> {
   try {
     const headers = new Headers();
     if (worker.token) headers.set("authorization", "Bearer " + worker.token);
