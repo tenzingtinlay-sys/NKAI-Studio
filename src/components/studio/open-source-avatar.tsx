@@ -466,7 +466,7 @@ function localReply(message: string) {
 function estimateVisemes(text: string, durationSeconds: number) {
   // Coarse text-timed visemes keep the mouth moving for external TTS audio.
   // For phoneme-accurate sync, use a TTS model that emits word/viseme timestamps.
-  const visemes = Array.from(text.toLowerCase()).filter((char) => /\\p{L}/u.test(char)).map((char) => {
+  const visemes = Array.from(text.toLowerCase()).filter((char) => /[a-z]/.test(char) || char.charCodeAt(0) > 127).map((char) => {
     if ("a".includes(char)) return "aa";
     if ("e".includes(char)) return "E";
     if ("i".includes(char)) return "I";
