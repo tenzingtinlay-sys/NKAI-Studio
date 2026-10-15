@@ -14,7 +14,7 @@ pip install git+https://github.com/myshell-ai/MeloTTS.git
 python -m unidic download
 ```
 
-Download the official OpenVoice V2 checkpoint archive linked from the upstream repository's Usage guide and extract it into OpenVoice/checkpoints_v2. Confirm that these files exist:
+Download the official OpenVoice V2 checkpoint archive linked from the upstream repository's Usage guide and extract it into OpenVoice/checkpoints_v2. You can automate this step with [download_openvoice_checkpoints.sh](download_openvoice_checkpoints.sh); its [checkpoint guide](OPENVOICE_CHECKPOINTS.md) explains the expected disk paths. Confirm that these files exist:
 
 - checkpoints_v2/converter/config.json
 - checkpoints_v2/converter/checkpoint.pth
