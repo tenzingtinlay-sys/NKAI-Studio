@@ -21,7 +21,7 @@ const LANGUAGES = [
   { label: "Sindhi", code: "sd-IN" },
 ];
 const DEFAULT_GREETING =
-  "Hi, I’m your NKAI avatar. Load the local Qwen model or connect an open-source GPU worker for generated conversations.";
+  "Hi, I’m your NKAI avatar. I can run with a browser-local open-source AI model and your device’s speech voices. No API key, avatar ID, or paid inference service is required.";
 const VOICE_TEST_PHRASES: Record<string, string> = {
   en: "Hello! This is a voice test for NKAI Studio.",
   hi: "नमस्ते! यह NKAI Studio की आवाज़ का परीक्षण है।",
@@ -111,8 +111,9 @@ export function OpenSourceAvatarPanel() {
     return () => { if ("speechSynthesis" in window) window.speechSynthesis.removeEventListener("voiceschanged", updateVoices); };
   }, [speechLanguage]);
 
-  // Inference always uses same-origin server routes; worker secrets remain server-side.
-  const orderedEndpoints = ["/api/ai/chat"];
+  // Default mode is fully browser-local. No worker URL, token, Space ID, or API key is needed.
+  // Hosted GPU workers remain optional; basic avatar use must not depend on them.
+  const orderedEndpoints: string[] = [];
 
   useEffect(() => {
     if (!talkingEnabled || !talkingContainerRef.current || talkingHeadRef.current) return;
@@ -317,7 +318,8 @@ export function OpenSourceAvatarPanel() {
     setTurns(history);
     setDraft("");
     setBusy(true);
-    setStatus("Connecting to NKAI private inference worker…");
+    setStatus("Preparing free browser-local AI…");
+    if (!localGeneratorRef.current) await loadLocalModel();
     let reply = "";
     const endpoints = orderedEndpoints;
     if (endpoints.length) {
@@ -403,7 +405,7 @@ export function OpenSourceAvatarPanel() {
     }
     if (!reply) {
       reply = localReply(prompt);
-      if (!localModelReady) reply = "NKAI private AI worker is unavailable and the local AI model is not ready. This is an offline fallback, not a generated AI answer. " + reply;
+      if (!localGeneratorRef.current) reply = "The browser-local AI model could not load. This is an offline fallback, not a generated AI answer. Check your connection, browser WebGPU/WASM support, and available memory. " + reply;
     }
     setTurns([...history, { role: "assistant", text: reply }]);
     setBusy(false);
@@ -434,12 +436,12 @@ export function OpenSourceAvatarPanel() {
   return (
     <div className="mf-canvas">
       <div className="mf-head">
-        <div><h1>Open-source AI Avatar</h1><p>3D character viewer, browser voice, and optional self-hosted GPU inference — no paid AI API key required.</p></div>
-        <div className="mf-bar"><span className="mf-pill">API-key-free architecture</span></div>
+        <div><h1>Open-source AI Avatar</h1><p>Browser-rendered 3D avatar, local open-source chat model, and device speech — no API key, avatar ID, Space ID, or paid inference service required.</p></div>
+        <div className="mf-bar"><span className="mf-pill">Local-first · no API keys</span></div>
       </div>
       <section className="mf-card" style={{ marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}>Launch an avatar engine inside NKAI Studio</h2>
-        <p style={{ opacity: .75 }}>These controls switch between in-app experiences. They do not open an external website.</p>
+        <p style={{ opacity: .75 }}>The standard avatar and chat run in this app. The first local AI launch downloads open model weights to your browser; no API key or hosted worker is used.</p>
         <div className="mf-bar" style={{ flexWrap: "wrap" }}>
           <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); setStatus("3D avatar viewer active"); }}>Launch 3D Avatar</button>
           <button className="mf-ghost" type="button" onClick={() => { setModelError(false); setTalkingEnabled(true); setStatus("Starting TalkingHead lip-sync engine…"); }}>Launch TalkingHead Lip-Sync</button>
@@ -517,7 +519,7 @@ export function OpenSourceAvatarPanel() {
               </select>
             </label>
           </div>
-          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. For generated multilingual audio, connect a running worker that implements POST /tts. For a more natural speaker-style voice, deploy the optional OpenVoice V2 worker and set AI_TTS_INTERNAL_URL plus AI_TTS_API_TOKEN on the NKAI server; it supports English, Spanish, French, Chinese, Japanese and Korean and requires an authorized reference recording plus the consent checkbox. The optional gated Indic Parler worker covers Indian languages with model-provided voice styles. Hindi and other Indian languages otherwise need a matching browser voice or TTS checkpoint. The included MMS-TTS checkpoints are CC-BY-NC 4.0; use them for non-commercial testing only unless separately licensed.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>No voice API key is needed for browser speech. English neural speech can run locally through HeadTTS when enabled; other languages use voices installed in your browser or operating system. The voice and language available depend on your device. Hosted TTS workers are optional and are not required for the base avatar.</small>
           <div className="mf-bar" style={{ marginBottom: 12 }}>
             <button className="mf-ghost" type="button" onClick={() => { const code = speechLanguage.toLowerCase().split("-")[0]; void speak(VOICE_TEST_PHRASES[code] || VOICE_TEST_PHRASES.en); }}>Test selected voice</button>
             <small style={{ opacity: .72 }}>Tests neural worker first, then local neural or installed browser voice.</small>
@@ -526,16 +528,16 @@ export function OpenSourceAvatarPanel() {
             <input type="checkbox" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} style={{ marginTop: 2 }} />
             <span>I own or have permission to use the configured reference voice for voice cloning. Required only for OpenVoice voice-cloning workers.</span>
           </label>
-          <h3>Private inference worker</h3>
-          <p style={{ opacity: .75 }}>Chat, speech generation, health checks and capability discovery use NKAI Studio's own backend routes. Private worker URLs and access tokens stay on the server; no external worker website is opened from this panel.</p>
+          <h3>Optional hosted worker (not required)</h3>
+          <p style={{ opacity: .75 }}>The default chat and speech path runs in your browser/device. These diagnostics are only for optional self-hosted workers; you do not need to configure them to use the local avatar.</p>
           <div className="mf-bar" style={{ marginTop: 10, marginBottom: 14 }}>
             <button className="mf-ghost" type="button" onClick={async () => { setStatus("Checking NKAI private inference worker…"); try { const response = await fetch("/api/ai/health", { cache: "no-store" }); const data = await response.json() as { status?: string; model?: string; error?: string }; if (!response.ok) throw new Error(data.error || "HTTP " + response.status); setStatus("Private worker " + (data.status || "reachable") + (data.model ? " · " + data.model : "")); } catch (error) { setStatus("Private AI worker unavailable · " + (error instanceof Error ? error.message : "check server configuration")); } }}>Check connection</button>
             <button className="mf-ghost" type="button" onClick={() => void checkWorkerCapabilities()}>Check voice capabilities</button>
             <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
           </div>
           <div ref={streamingContainerRef} />
-          <h3>Real-time avatar streaming</h3>
-          <p style={{ opacity: .75 }}>This native panel negotiates WebRTC and sends speech commands through NKAI Studio's same-origin backend. It does not open the upstream LiveTalking website.</p>
+          <h3>Optional remote real-time streaming</h3>
+          <p style={{ opacity: .75 }}>The local 3D avatar works without a streaming server. Remote WebRTC streaming is an advanced optional mode and requires a running compatible LiveTalking service; it is not needed for local chat or device speech.</p>
           <div style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, padding: 14, background: "#101318", minHeight: 360 }}>
             <LiveTalkingNativePanel />
           </div>
@@ -553,7 +555,7 @@ export function OpenSourceAvatarPanel() {
             <button className="mf-ghost" type="button" onClick={() => { if ("speechSynthesis" in window) window.speechSynthesis.cancel(); setStatus("Voice stopped"); }}>Stop voice</button>
             <button className="mf-ghost" type="button" onClick={() => setTurns([{ role: "assistant", text: DEFAULT_GREETING }])}>Clear chat</button>
           </div>
-          <small style={{ opacity: .7, marginTop: 12 }}>For AI without any server/API, select “Load local AI (no API)”. It downloads a quantized Qwen model into browser runtime (first load is large and needs a capable desktop). The optional GPU worker remains the higher-capacity route. Free cloud GPU sessions may expire.</small>
+          <small style={{ opacity: .7, marginTop: 12 }}>NKAI defaults to browser-local inference. The quantized Qwen model downloads on first use and needs network access for that download plus enough RAM/VRAM; after loading, inference runs on your device. No API key, token, Space ID, avatar ID, or paid cloud inference is required. Remote GPU/WebRTC services are optional only.</small>
         </section>
       </div>
     </div>
@@ -582,10 +584,10 @@ function createModelViewer(src: string, onError: () => void) {
 function localReply(message: string) {
   const lower = message.toLowerCase();
   if (/\b(hi|hello|hey|good morning|good evening)\b/.test(lower)) return "Hello! I’m ready to help. What would you like to build or practise today?";
-  if (lower.includes("who are you") || lower.includes("your name")) return "I’m the NKAI Studio avatar. Connect an open-source GPU worker for generated answers, or continue with this local fallback.";
-  if (lower.includes("help") || lower.includes("what can you do")) return "I can guide your work in short steps, help structure a presentation, practise an introduction, and read responses aloud. For fully generated answers, connect a compatible self-hosted model worker.";
+  if (lower.includes("who are you") || lower.includes("your name")) return "I’m the NKAI Studio avatar. Load the browser-local open-source model for generated answers; no API key or hosted GPU worker is required.";
+  if (lower.includes("help") || lower.includes("what can you do")) return "I can guide your work in short steps, help structure a presentation, practise an introduction, and read responses aloud. Load the browser-local open-source model for generated conversation.";
   if (lower.includes("thank")) return "You’re welcome. What should we work on next?";
-  return `I heard: “${message.slice(0, 180)}”. This is the offline fallback, not a large language model. Connect an open-source inference worker for generated conversation.`;
+  return `I heard: “${message.slice(0, 180)}”. This is the offline fallback, not a large language model. Check browser support and load the local open-source model for generated conversation.`;
 }
 
 
