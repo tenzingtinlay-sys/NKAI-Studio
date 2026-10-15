@@ -2,6 +2,23 @@ import { defineEventHandler, getRequestURL, readRawBody, setResponseStatus } fro
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length"]);
 const ALLOWED_PATHS = new Set(["offer", "human", "interrupt_talk"]);
+const RATE_WINDOW_MS = 60_000;
+const RATE_LIMITS = { offer: 4, human: 24, interrupt_talk: 24 } as const;
+const rateBuckets = new Map<string, { startedAt: number; count: number }>();
+
+function isRateLimited(key: string, limit: number): boolean {
+  const now = Date.now();
+  for (const [bucketKey, bucket] of rateBuckets) {
+    if (now - bucket.startedAt >= RATE_WINDOW_MS) rateBuckets.delete(bucketKey);
+  }
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now - bucket.startedAt >= RATE_WINDOW_MS) {
+    rateBuckets.set(key, { startedAt: now, count: 1 });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > limit;
+}
 
 /**
  * Narrow same-origin adapter for LiveTalking's documented WebRTC/text-control API.
@@ -39,6 +56,47 @@ export default defineEventHandler(async (event) => {
     return { error: "Method not allowed for this LiveTalking endpoint." };
   }
 
+  const clientIp = event.node?.req?.socket?.remoteAddress || "unknown";
+  const rateKey = clientIp + ":" + relativePath;
+  if (isRateLimited(rateKey, RATE_LIMITS[relativePath as keyof typeof RATE_LIMITS])) {
+    setResponseStatus(event, 429);
+    return { error: "Too many LiveTalking requests. Wait a minute and try again.", code: "LIVETALKING_RATE_LIMITED" };
+  }
+
+  const raw = await readRawBody(event, false);
+  const body = raw ? (typeof raw === "string" ? raw : new TextDecoder().decode(raw)) : "";
+  if (!body || body.length > 256_000) {
+    setResponseStatus(event, body ? 413 : 400);
+    return { error: body ? "LiveTalking request body is too large." : "A JSON request body is required." };
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Expected object");
+    payload = parsed as Record<string, unknown>;
+  } catch {
+    setResponseStatus(event, 400);
+    return { error: "Invalid JSON request body." };
+  }
+
+  if (relativePath === "offer" && (payload.type !== "offer" || typeof payload.sdp !== "string" || payload.sdp.length > 200_000)) {
+    setResponseStatus(event, 400);
+    return { error: "A valid WebRTC offer with type=offer and an SDP string is required." };
+  }
+  if (relativePath === "human" && (
+    typeof payload.sessionid !== "string" || payload.sessionid.length > 160 ||
+    typeof payload.text !== "string" || !payload.text.trim() || payload.text.length > 2000 ||
+    payload.type !== "echo"
+  )) {
+    setResponseStatus(event, 400);
+    return { error: "A session ID and text (up to 2,000 characters) are required; only echo mode is exposed." };
+  }
+  if (relativePath === "interrupt_talk" && (typeof payload.sessionid !== "string" || payload.sessionid.length > 160)) {
+    setResponseStatus(event, 400);
+    return { error: "A valid session ID is required." };
+  }
+
   const target = new URL(base.href);
   const basePath = base.pathname.endsWith("/") ? base.pathname.slice(0, -1) : base.pathname;
   target.pathname = basePath + "/" + relativePath;
@@ -51,10 +109,7 @@ export default defineEventHandler(async (event) => {
     headers.set(name, Array.isArray(value) ? value.join(", ") : String(value));
   }
   headers.set("x-forwarded-prefix", prefix);
-
-  let body: string | undefined;
-  const raw = await readRawBody(event, false);
-  if (raw) body = typeof raw === "string" ? raw : new TextDecoder().decode(raw);
+  headers.set("content-type", "application/json");
 
   try {
     const upstream = await fetch(target, {
