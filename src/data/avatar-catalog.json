@@ -61,6 +61,19 @@
       "format": "FBX with textures and animation assets",
       "visemes": "some assets include facial blendshapes; verify each selected character",
       "integration": "download separately and convert selected FBX assets to GLB with Blender; not included in current automatic downloader"
+    },
+    {
+      "id": "liveportrait-source",
+      "label": "LivePortrait image animation (Pinokio installer)",
+      "sourceRepository": "https://github.com/KwaiVGI/LivePortrait",
+      "sourceUrl": "https://github.com/pinokiofactory/liveportrait",
+      "license": "Upstream KwaiVGI/LivePortrait licence and all model/checkpoint/asset licences must be verified before deployment",
+      "commercialUse": "verify-upstream-code-model-and-asset-licences",
+      "redistribute": false,
+      "format": "image-driven portrait animation/video",
+      "visemes": "not a complete speech-driven interactive avatar by itself",
+      "integration": "catalogue-only; Pinokio script is an installer, not the LivePortrait inference engine",
+      "notes": "Can animate a portrait using a driving video; does not by itself provide a conversational LLM, voice, speech recognition, or verified low-latency real-time voice avatar. Add speech-driven lip sync and TTS/ASR separately."
     }
   ],
   "voiceEngines": [
@@ -177,6 +190,42 @@
       "voiceCloning": false,
       "deployment": "optional-self-hosted-adapter",
       "defaultEnabled": false
+    },
+    {
+      "id": "vibevoice-realtime",
+      "url": "https://github.com/pinokiofactory/vibevoice-realtime",
+      "upstreamUrl": "https://github.com/microsoft/VibeVoice",
+      "modelUrl": "https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B",
+      "license": "Review Microsoft VibeVoice code, model card, model weights and dependency terms before use",
+      "commercialUse": "licence-review-required",
+      "languages": "verify upstream model card",
+      "voiceCloning": "not assumed; use supported preset/voice capabilities only",
+      "deployment": "optional-self-hosted-gpu-worker",
+      "api": "WebSocket /stream and GET /config in the Pinokio launcher demo; verify upstream revision and API before adapter",
+      "defaultEnabled": false,
+      "notes": "Pinokiofactory repository is a launcher script that pins and starts the Microsoft VibeVoice realtime TTS demo; it is not an avatar renderer. Model is designed for GPU inference and the README warns CPU performance may be poor."
+    },
+    {
+      "id": "e2-f5-tts-pinokio",
+      "url": "https://github.com/pinokiofactory/e2-f5-tts",
+      "upstreamUrl": "https://huggingface.co/spaces/mrfakename/E2-F5-TTS",
+      "license": "Verify the upstream model, code, checkpoint and dependency licences",
+      "commercialUse": "licence-review-required",
+      "voiceCloning": "verify upstream capabilities and terms",
+      "deployment": "optional-self-hosted-worker",
+      "defaultEnabled": false,
+      "notes": "Pinokio launcher for E2/F5 TTS; speech synthesis only, not a talking-avatar engine."
+    },
+    {
+      "id": "kokoro-tts-pinokio",
+      "url": "https://github.com/pinokiofactory/Kokoro-TTS",
+      "upstreamUrl": "https://github.com/hexgrad/kokoro",
+      "license": "Verify upstream code and voice/model asset licences individually",
+      "commercialUse": "licence-review-required",
+      "voiceCloning": false,
+      "deployment": "optional-self-hosted-worker",
+      "defaultEnabled": false,
+      "notes": "Pinokio launcher for Kokoro TTS; speech synthesis only, not a talking-avatar engine."
     }
   ],
   "integrations": [
@@ -233,6 +282,31 @@
         "DUIX.COM license and attribution compliance"
       ],
       "notes": "Do not run model weights in Cloudflare Workers or commit large weights/media to Git. The upstream README describes local open-source deployment as video synthesis and points real-time interactive use to the hosted Duix service. Keep LiveTalking as the separate real-time streaming engine until Duix documents and passes a true streaming test."
+    },
+    {
+      "id": "pinokiofactory",
+      "label": "Pinokio Factory AI app launchers",
+      "kind": "local-ai-installer-and-runtime-launcher-collection",
+      "sourceUrl": "https://github.com/pinokiofactory",
+      "websiteUrl": "https://pinokio.co/",
+      "license": "Each launcher script, upstream project, model weight, voice and asset has its own licence; audit individually",
+      "commercialUse": "not-a-single-licence; review-each-upstream-project",
+      "features": [
+        "one-click local installation and launch scripts",
+        "LivePortrait portrait animation launcher",
+        "VibeVoice realtime TTS demo launcher",
+        "E2/F5 TTS launcher",
+        "Kokoro TTS launcher"
+      ],
+      "integrationStatus": "reviewed-and-catalogued; no Pinokio runtime installed in NKAI and no GPU model deployed",
+      "runtimeMode": "local-launcher-collection-not-a-hosted-avatar-api",
+      "requires": [
+        "separate supported desktop/GPU host",
+        "version-pinned upstream projects and model downloads",
+        "isolated environment and service adapter",
+        "per-project licensing and security review"
+      ],
+      "notes": "Pinokio itself is an AI browser/installer that runs local projects; pinokiofactory publishes launch scripts. LivePortrait can animate a portrait but is not a full conversational voice avatar; VibeVoice/E2-F5/Kokoro provide speech-related capabilities rather than avatar rendering. Use as optional local development/deployment sources, not as a production cloud API without an adapter."
     }
   ]
 }
