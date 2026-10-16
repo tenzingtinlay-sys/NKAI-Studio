@@ -75,7 +75,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SITE="https://nkai-studio.tenzingtinlay.workers.dev"
+          SITE="$BETTER_AUTH_URL"
           for attempt in $(seq 1 12); do
             code="$(curl --silent --output /tmp/nkai-home.html --write-out '%{http_code}' "$SITE/" || true)"
             if [[ "$code" == "200" ]]; then
