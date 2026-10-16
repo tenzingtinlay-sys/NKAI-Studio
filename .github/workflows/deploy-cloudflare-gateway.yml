@@ -1,0 +1,80 @@
+name: Deploy Cloudflare Live Avatar Gateway
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-live-avatar-gateway
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      REGISTER_SECRET: ${{ secrets.NKAI_GATEWAY_REGISTER_SECRET }}
+      ALLOWED_ORIGINS: ${{ secrets.NKAI_FRONTEND_ORIGIN }}
+    steps:
+      - name: Check required deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN REGISTER_SECRET ALLOWED_ORIGINS; do
+            if [[ -z "${!key}" ]]; then
+              echo "::error::Missing GitHub Actions secret for ${key}. See gateway/README.md."
+              exit 1
+            fi
+          done
+          node -e 'const u = new URL(process.env.ALLOWED_ORIGINS); if (u.protocol !== "https:" || u.origin !== process.env.ALLOWED_ORIGINS || u.pathname !== "/") process.exit(1)' || {
+            echo "::error::NKAI_FRONTEND_ORIGIN must be a single HTTPS origin without a path or trailing slash."
+            exit 1
+          }
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: gateway/package-lock.json
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+
+      - name: Deploy Worker with strict origin allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd gateway
+          wrangler deploy --var "ALLOWED_ORIGINS:${ALLOWED_ORIGINS}" 2>&1 | tee "$RUNNER_TEMP/wrangler-deploy.log"
+          GATEWAY_URL="$(grep -Eo 'https://nkai-avatar-gateway\.[a-zA-Z0-9-]+\.workers\.dev' "$RUNNER_TEMP/wrangler-deploy.log" | tail -n 1 || true)"
+          if [[ -z "$GATEWAY_URL" ]]; then
+            echo "::error::Could not detect the deployed workers.dev URL from Wrangler output."
+            exit 1
+          fi
+          echo "GATEWAY_URL=$GATEWAY_URL" >> "$GITHUB_ENV"
+
+      - name: Set private host-registration secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$REGISTER_SECRET" | wrangler secret put REGISTER_SECRET --config gateway/wrangler.toml
+
+      - name: Verify public gateway and origin policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "$GATEWAY_URL/health" | tee "$RUNNER_TEMP/gateway-health.json"
+          node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/gateway-health.json","utf8")); if(j.gateway!==true || !Array.isArray(j.servers)) process.exit(1); console.log("\nGateway health schema OK; registered GPU hosts:", j.servers.length)'
+          curl --fail --silent --show-error -D "$RUNNER_TEMP/cors-headers.txt" -o /dev/null -H "Origin: $ALLOWED_ORIGINS" "$GATEWAY_URL/health"
+          grep -Fqi "access-control-allow-origin: $ALLOWED_ORIGINS" "$RUNNER_TEMP/cors-headers.txt" || {
+            echo "::error::Configured frontend origin was not returned by the gateway CORS policy."
+            exit 1
+          }
+          echo "Gateway URL: $GATEWAY_URL"
+          echo "No GPU host is assumed healthy until it registers and passes the separate WebRTC media test."
