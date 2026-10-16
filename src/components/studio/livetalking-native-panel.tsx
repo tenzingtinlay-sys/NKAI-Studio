@@ -137,7 +137,7 @@ export function LiveTalkingNativePanel() {
     if (!sessionRef.current) return;
     setBusy(true);
     try {
-      const response = await fetch("/api/livetalking/interrupt_talk", {
+      const response = await fetch("/api/livetalking/interrupt", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionid: sessionRef.current }),
