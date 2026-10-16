@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
 
   let body: { message?: unknown; text?: unknown; language?: unknown; history?: unknown };
   try {
-    body = await readBody(event);
+    body = (await readBody(event)) ?? {};
   } catch {
     return fail(event, 400, "Invalid JSON request.");
   }
