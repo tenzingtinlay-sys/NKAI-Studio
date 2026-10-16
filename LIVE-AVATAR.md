@@ -43,9 +43,11 @@ Keep LiveTalking and the host agent running. Open `https://YOUR-GATEWAY/health`;
 
 ## Step 4 — connect the frontend
 
-**Important integration caveat:** the current NKAI Studio LiveTalking panel posts to same-origin `/api/livetalking/offer` and `/api/livetalking/human` and reads the private `LIVETALKING_INTERNAL_URL` server setting. It does not currently provide the “Server address” field described in the earlier proposed instructions. The Cloudflare gateway therefore needs an explicit frontend/server integration change before these gateway endpoints can be used from the app. Do not assume that pasting the gateway URL into the current UI will work.
+The current Studio intentionally uses a same-origin server adapter rather than asking the browser to hold a gateway URL. In the hosting environment for NKAI Studio, set the server-side environment variable `LIVETALKING_INTERNAL_URL` to the Cloudflare Worker base URL, for example `https://nkai-avatar-gateway.YOURNAME.workers.dev` (no path and no trailing slash). Do not put `REGISTER_SECRET` in the frontend or set it as a public `VITE_*` variable.
 
-After the integration is implemented, open the Studio over HTTPS, choose the avatar/live-video control, connect, and verify both the remote video and audio. Browser-local chat and device speech are fallback features; they are not a substitute for a running LiveTalking stream.
+The browser continues to call the authenticated same-origin `/api/livetalking/offer` and `/api/livetalking/human` routes; the server adapter forwards those requests to the gateway. The gateway then selects a registered GPU host. Sign in to NKAI Studio before using live streaming.
+
+After configuring the server variable and redeploying/restarting the app, open the Studio over HTTPS, choose the avatar/live-video control, connect, and verify both remote video and audio. The gateway's `ALLOWED_ORIGINS` list is needed only if calling the gateway directly from a browser; the current same-origin server adapter does not require direct browser-to-gateway calls. Browser-local chat and device speech remain available independently.
 
 ## Step 5 — troubleshoot
 
