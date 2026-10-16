@@ -58,7 +58,7 @@ export function DuixAvatarCreator() {
     <section className="mf-card" style={{ marginBottom: 18, border: "1px solid #5c3c85", background: "linear-gradient(145deg, #17131f, #10141b)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#c4a2ff", fontSize: 11, fontWeight: 800, letterSpacing: ".12em" }}><Sparkles size={15} /> DUИX CLOUD · AVATAR CREATOR</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#c4a2ff", fontSize: 11, fontWeight: 800, letterSpacing: ".12em" }}><Sparkles size={15} /> DUIX CLOUD · AVATAR CREATOR</div>
           <h2 style={{ fontSize: 22, margin: "8px 0 6px" }}>Create a Duix AI avatar</h2>
           <p style={{ color: "#aab3c2", lineHeight: 1.6, margin: 0, maxWidth: 760 }}>Configure a Duix avatar from inside NKAI Studio. Your Duix API token stays on the server; this form never asks for it in the browser.</p>
         </div>
@@ -82,7 +82,7 @@ export function DuixAvatarCreator() {
               <p style={{ fontSize: 12, color: "#d7b8a4", lineHeight: 1.5, marginBottom: 0 }}>Photo upload is shown for workflow parity, but creation is disabled for this mode until Duix’s documented photo-upload API fields are confirmed. The image is not uploaded by this form.</p>
             </div>
           ) : (
-            <div style={{ marginTop: 12, padding: 14, borderRadius: 12, background: "#1b1b26", color: "#c8c6d4", fontSize: 13, lineHeight: 1.55 }}>Use an avatar available in your Duix account library. The documented createAvatar example does not expose a library-avatar ID field, so Duix applies the defaults associated with your account/API workflow.</div>
+            <div style={{ marginTop: 12, padding: 14, borderRadius: 12, background: "#1b1b26", color: "#c8c6d4", fontSize: 13, lineHeight: 1.55 }}>The documented createAvatar example does not expose a library-avatar ID or language field. This selection is a workspace preference only; it is not sent to Duix until its API schema confirms support.</div>
           )}
         </div>
 
@@ -97,7 +97,7 @@ export function DuixAvatarCreator() {
             <select id="duix-voice" value={voice} onChange={(e) => setVoice(e.target.value)}>{voices.map((v) => <option key={v} value={v}>{v}</option>)}</select>
           </div>
           <div>
-            <label htmlFor="duix-language" style={{ display: "block", marginBottom: 6, fontWeight: 700 }}>Primary language</label>
+            <label htmlFor="duix-language" style={{ display: "block", marginBottom: 6, fontWeight: 700 }}>Primary language preference (not sent by documented API)</label>
             <select id="duix-language" value={language} onChange={(e) => setLanguage(e.target.value)}>
               <option value="en-US">English (US)</option><option value="en-IN">English (India)</option><option value="hi-IN">Hindi</option><option value="zh-CN">Chinese (Mandarin)</option><option value="ja-JP">Japanese</option><option value="ko-KR">Korean</option><option value="fr-FR">French</option><option value="de-DE">German</option><option value="es-ES">Spanish</option>
             </select>
