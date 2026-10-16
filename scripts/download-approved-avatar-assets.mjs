@@ -5,8 +5,6 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputDir = resolve(root, "public/assets/avatars");
-const maxBytes = 50 * 1024 * 1024;
-
 const assets = [
   {
     id: "ready-player-me-brunette-sample",
