@@ -5,10 +5,9 @@ type WorkerStatus = {
   id: string; platform: string; priority: number; healthy: boolean; status: string;
   latencyMs?: number; capabilities?: unknown; detail?: string;
 };
-type GatewayAction = "chat" | "tts" | "capabilities" | "health" | "live-offer" | "live-human" | "live-interrupt";
+type GatewayAction = "chat" | "tts" | "capabilities" | "health";
 const ACTION_PATHS: Record<GatewayAction, string> = {
   chat: "/chat", tts: "/tts", capabilities: "/capabilities", health: "/health",
-  "live-offer": "/offer", "live-human": "/human", "live-interrupt": "/interrupt_talk",
 };
 
 function json(body: unknown, status = 200) {
@@ -101,7 +100,7 @@ export const Route = createFileRoute("/api/ai-gateway")({
         configuredWorkers: workers.length, healthyWorkers: healthy.length,
         routing: "priority-order; healthy compatible worker first", workers: statuses,
         features: { healthChecks: true, automaticWorkerSelection: true, chatProxy: true, ttsProxy: true,
-          liveTalkingProxy: true, persistentQueue: false, sessionMigration: false },
+          liveTalkingProxy: false, persistentQueue: false, sessionMigration: false },
         note: workers.length ? undefined : "Configure AI_WORKER_INTERNAL_URL and AI_WORKER_API_TOKEN, or AI_GPU_WORKERS, as server-side secrets." });
     },
     POST: async ({ request }) => {
@@ -113,7 +112,7 @@ export const Route = createFileRoute("/api/ai-gateway")({
       try { body = await request.json() as Record<string, unknown>; } catch { return json({ error: "Invalid JSON request body." }, 400); }
       const action = body.action;
       if (typeof action !== "string" || !(action in ACTION_PATHS)) {
-        return json({ error: "Unsupported action. Use chat, tts, capabilities, health, live-offer, live-human, or live-interrupt." }, 400);
+        return json({ error: "Unsupported action. Use chat, tts, capabilities, or health." }, 400);
       }
       const path = ACTION_PATHS[action as GatewayAction];
       const workers = loadWorkers();
