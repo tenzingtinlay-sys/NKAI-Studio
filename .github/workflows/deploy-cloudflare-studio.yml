@@ -1,0 +1,89 @@
+name: Deploy NKAI Studio to Cloudflare Workers
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-studio-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DATABASE_URL: ${{ secrets.NKAI_DATABASE_URL }}
+      BETTER_AUTH_URL: ${{ secrets.NKAI_BETTER_AUTH_URL }}
+      BETTER_AUTH_SECRET: ${{ secrets.NKAI_BETTER_AUTH_SECRET }}
+      GOOGLE_CLIENT_ID: ${{ secrets.NKAI_GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.NKAI_GOOGLE_CLIENT_SECRET }}
+      VITE_AUTH_ENABLED: "true"
+      NITRO_PRESET: cloudflare_module
+
+    steps:
+      - name: Validate deployment configuration without printing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID DATABASE_URL BETTER_AUTH_URL BETTER_AUTH_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+            if [[ -z "${!key}" ]]; then
+              echo "::error::Missing required GitHub Actions secret for ${key}. See docs/cloudflare-deployment.md."
+              exit 1
+            fi
+          done
+          node --input-type=module -e '
+            const u = new URL(process.env.BETTER_AUTH_URL);
+            if (u.protocol !== "https:" || u.pathname !== "/" || u.search || u.hash) {
+              console.error("NKAI_BETTER_AUTH_URL must be the final HTTPS origin with no path, query, or hash.");
+              process.exit(1);
+            }
+          '
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and apply database migrations
+        run: npm run build
+
+      - name: Deploy Worker
+        run: npx --yes wrangler@4 deploy --config .output/server/wrangler.json
+
+      - name: Configure runtime secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$DATABASE_URL" | npx --yes wrangler@4 secret put DATABASE_URL --config .output/server/wrangler.json
+          printf '%s' "$BETTER_AUTH_URL" | npx --yes wrangler@4 secret put BETTER_AUTH_URL --config .output/server/wrangler.json
+          printf '%s' "$BETTER_AUTH_SECRET" | npx --yes wrangler@4 secret put BETTER_AUTH_SECRET --config .output/server/wrangler.json
+          printf '%s' "$GOOGLE_CLIENT_ID" | npx --yes wrangler@4 secret put GOOGLE_CLIENT_ID --config .output/server/wrangler.json
+          printf '%s' "$GOOGLE_CLIENT_SECRET" | npx --yes wrangler@4 secret put GOOGLE_CLIENT_SECRET --config .output/server/wrangler.json
+          printf '%s' "$VITE_AUTH_ENABLED" | npx --yes wrangler@4 secret put VITE_AUTH_ENABLED --config .output/server/wrangler.json
+
+      - name: Verify deployment HTTP response
+        shell: bash
+        run: |
+          set -euo pipefail
+          SITE="$BETTER_AUTH_URL"
+          for attempt in $(seq 1 12); do
+            code="$(curl --silent --output /tmp/nkai-home.html --write-out '%{http_code}' "$SITE/" || true)"
+            if [[ "$code" == "200" ]]; then
+              echo "Home route returned HTTP 200."
+              grep -qi '<html' /tmp/nkai-home.html
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::The deployed homepage did not return HTTP 200 at $SITE. Check the Worker URL and runtime logs."
+          exit 1

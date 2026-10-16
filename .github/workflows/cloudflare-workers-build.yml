@@ -1,0 +1,54 @@
+name: Cloudflare Workers build check
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-workers-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with the Cloudflare Workers Nitro preset
+        env:
+          NITRO_PRESET: cloudflare_module
+          VITE_AUTH_ENABLED: "false"
+        run: npm run build
+
+      - name: Verify generated Worker configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .output/server/index.mjs
+          test -s .output/server/wrangler.json
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const c = JSON.parse(readFileSync(".output/server/wrangler.json", "utf8"));
+            if (!c.main || !c.assets?.directory) throw new Error("Missing Worker entrypoint or static asset directory");
+            if (!c.compatibility_flags?.includes("nodejs_compat")) throw new Error("nodejs_compat is not enabled");
+            if (!c.compatibility_flags?.includes("nodejs_compat_populate_process_env")) throw new Error("process.env population is not enabled");
+            console.log(JSON.stringify({name:c.name, main:c.main, assets:c.assets.directory, compatibility_date:c.compatibility_date, compatibility_flags:c.compatibility_flags}, null, 2));
+          '
+
+      - name: Wrangler bundle validation (no deployment)
+        run: npx --yes wrangler@4 deploy --dry-run --config .output/server/wrangler.json
