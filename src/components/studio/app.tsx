@@ -4,6 +4,7 @@ import {
   Bot,
   Brain,
   Clapperboard,
+  CloudCog,
   FolderKanban,
   Image as ImageIcon,
   LayoutTemplate,
@@ -146,6 +147,12 @@ export function StudioApp() {
                     {n.label}
                   </button>
                 ))}
+                {group === "System" && (
+                  <button onClick={() => window.location.assign("/gateway")}>
+                    <CloudCog size={16} />
+                    Cloudflare Gateway
+                  </button>
+                )}
               </nav>
             </div>
           ))}
@@ -211,6 +218,9 @@ export function StudioApp() {
                   {n.label}
                 </button>
               ))}
+              <button className="mf-ghost" onClick={() => window.location.assign("/gateway")}>
+                Cloudflare Gateway Test Lab
+              </button>
             </div>
           </div>
         </div>
