@@ -21,6 +21,17 @@ const VOICE_PROFILES = [
   { id: "warm-calm", label: "Warm / calm", pitch: 0.94, rate: 0.9 },
   { id: "bright-energetic", label: "Bright / energetic", pitch: 1.08, rate: 1.08 },
 ] as const;
+const INTERACTION_MODES = [
+  { id: "balanced", label: "Balanced everyday assistant", guidance: "Adapt naturally between listening, explaining, planning, and action." },
+  { id: "professional", label: "Professional / executive", guidance: "Be concise, polished, structured, tactful, and oriented toward outcomes and trade-offs." },
+  { id: "teacher", label: "Teacher / explainer", guidance: "Teach step by step, define unfamiliar terms, use examples, and check understanding." },
+  { id: "coach", label: "Coach / accountability partner", guidance: "Help set realistic goals, reflect on obstacles, and identify achievable next actions without shaming." },
+  { id: "empathetic", label: "Empathetic support", guidance: "Listen first, validate the user's expressed feelings without assuming them, and respond gently and practically." },
+  { id: "playful", label: "Casual / playful", guidance: "Use relaxed, friendly language and light humor when appropriate; do not trivialize serious issues." },
+  { id: "romantic-adult", label: "Romantic companion (adults only)", guidance: "For adult users only, offer affectionate, respectful, non-explicit romantic roleplay or companionship. Be transparent that you are an AI, respect boundaries, avoid dependency-building, and never engage in romantic or sexual content with minors." },
+  { id: "creative", label: "Creative / brainstorming", guidance: "Offer multiple imaginative possibilities, then help assess feasibility and improve the strongest ideas." },
+  { id: "critical", label: "Critical thinking / debate", guidance: "Test assumptions respectfully, offer counterarguments, distinguish evidence from speculation, and revise conclusions when warranted." },
+] as const;
 const LANGUAGES = [
   { label: "English (India)", code: "en-IN" }, { label: "English (US)", code: "en-US" },
   { label: "Hindi", code: "hi-IN" }, { label: "Tamil", code: "ta-IN" }, { label: "Telugu", code: "te-IN" },
@@ -84,6 +95,8 @@ export function OpenSourceAvatarPanel() {
   const [characterId, setCharacterId] = useState<(typeof AI_CHARACTERS)[number]["id"]>("wise-guide");
   const [voiceProfileId, setVoiceProfileId] = useState<(typeof VOICE_PROFILES)[number]["id"]>("natural");
   const [perceivedAge, setPerceivedAge] = useState("adult");
+  const [interactionMode, setInteractionMode] = useState<(typeof INTERACTION_MODES)[number]["id"]>("balanced");
+  const [appearanceAgeGroup, setAppearanceAgeGroup] = useState("adult");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("3D viewer · browser-rendered");
@@ -366,7 +379,7 @@ export function OpenSourceAvatarPanel() {
                 character: characterId,
                 voice_profile: voiceProfileId,
                 perceived_age: perceivedAge,
-                system_prompt: buildCharacterPrompt(characterId, speechLanguage, perceivedAge),
+                system_prompt: buildCharacterPrompt(characterId, speechLanguage, perceivedAge, interactionMode),
               }),
               signal: controller.signal,
             });
@@ -422,7 +435,7 @@ export function OpenSourceAvatarPanel() {
       try {
         setStatus("Generating with local open-source model in this browser…");
         const messages = [
-          { role: "system" as const, content: buildCharacterPrompt(characterId, speechLanguage, perceivedAge) },
+          { role: "system" as const, content: buildCharacterPrompt(characterId, speechLanguage, perceivedAge, interactionMode) },
           ...history.slice(-10).map((turn) => ({ role: turn.role, content: turn.text })),
         ];
         const generated = await localGeneratorRef.current(messages, { max_new_tokens: 180, do_sample: true, temperature: 0.7, return_full_text: false });
@@ -537,6 +550,24 @@ export function OpenSourceAvatarPanel() {
               </select>
             </label>
           </div>
+          <div className="mf-bar" style={{ marginBottom: 12 }}>
+            <label style={{ flex: 1, minWidth: 180 }}>Conversation / behaviour style
+              <select value={interactionMode} onChange={(e) => setInteractionMode(e.target.value as typeof interactionMode)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                {INTERACTION_MODES.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: 1, minWidth: 180 }}>Desired avatar age appearance
+              <select value={appearanceAgeGroup} onChange={(e) => setAppearanceAgeGroup(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                <option value="child">Child</option>
+                <option value="teen">Teenager</option>
+                <option value="young-adult">Young adult</option>
+                <option value="adult">Adult</option>
+                <option value="older-adult">Older adult</option>
+                <option value="elderly">Elderly</option>
+              </select>
+            </label>
+          </div>
+          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Conversation style changes the assistant's response behaviour. The age appearance selector records your preference only; it does not generate a new face. The current bundled library contains only the listed sample models, so child-to-elderly faces, wardrobe, and facial diversity require additional licensed avatar assets.</small>
           <h3>Voice and language</h3>
           <div className="mf-bar" style={{ marginBottom: 10 }}>
             <label style={{ flex: 1, minWidth: 150 }}>Language
@@ -667,8 +698,9 @@ function estimateVisemes(text: string, durationSeconds: number) {
 }
 
 /** Shared persona prompt for local inference and server workers that accept system_prompt. */
-function buildCharacterPrompt(characterId: string, speechLanguage: string, perceivedAge: string) {
+function buildCharacterPrompt(characterId: string, speechLanguage: string, perceivedAge: string, interactionMode: string) {
   const character = AI_CHARACTERS.find((item) => item.id === characterId) || AI_CHARACTERS[0];
+  const mode = INTERACTION_MODES.find((item) => item.id === interactionMode) || INTERACTION_MODES[0];
   const language = LANGUAGES.find((item) => item.code === speechLanguage)?.label || speechLanguage;
   const ageStyle = perceivedAge === "young-adult" ? "Use a fresh, approachable communication style."
     : perceivedAge === "mature" ? "Use a composed, experienced, measured communication style."
@@ -676,6 +708,7 @@ function buildCharacterPrompt(characterId: string, speechLanguage: string, perce
   return [
     "You are NKAI, an intelligent, thoughtful, highly capable AI assistant inside NKAI Studio.",
     character.focus,
+    "Conversation mode: " + mode.guidance,
     "Help with a broad range of personal and professional topics: explain concepts, solve problems, plan and navigate next steps, teach skills, compare choices, and provide emotional support with empathy.",
     "Be curious, attentive, respectful, non-judgmental, and emotionally aware. Acknowledge the user's context and feelings when relevant. Never claim to be human or to have feelings or lived experiences.",
     "Think carefully before answering. Be accurate, structured, clear, practical, and specific. Ask a concise clarifying question when key information is missing. Offer step-by-step actions and explain trade-offs when useful.",
