@@ -143,7 +143,8 @@ export function OpenSourceAvatarPanel() {
 
   // Default mode is fully browser-local. No worker URL, token, Space ID, or API key is needed.
   // Hosted GPU workers remain optional; basic avatar use must not depend on them.
-  const orderedEndpoints: string[] = [];
+  // Route hosted inference through NKAI’s same-origin gateway. It chooses a healthy GPU worker server-side; browser code never receives worker URLs or tokens.
+  const orderedEndpoints: string[] = ["/api/ai"];
 
   useEffect(() => {
     if (!talkingEnabled || !talkingContainerRef.current || talkingHeadRef.current) return;
@@ -353,10 +354,13 @@ export function OpenSourceAvatarPanel() {
     setTurns(history);
     setDraft("");
     setBusy(true);
-    setStatus("Preparing free browser-local AI…");
-    if (!localGeneratorRef.current) await loadLocalModel();
     let reply = "";
     const endpoints = orderedEndpoints;
+    if (endpoints.length) setStatus("Connecting to NKAI GPU gateway…");
+    else {
+      setStatus("Preparing free browser-local AI…");
+      if (!localGeneratorRef.current) await loadLocalModel();
+    }
     if (endpoints.length) {
       const failures: string[] = [];
       for (let index = 0; index < endpoints.length && !reply; index++) {
