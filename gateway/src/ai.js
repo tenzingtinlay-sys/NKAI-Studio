@@ -210,9 +210,11 @@ export async function handleAi(request, env, url) {
   if (
     path === "/api/ai/capabilities" ||
     path === "/api/ai/chat" ||
-    path === "/api/ai/chat/stream"
+    path === "/api/ai/chat/stream" ||
+    path === "/api/ai/tts"
   ) {
     const isCapabilities = path === "/api/ai/capabilities";
+    const isTts = path === "/api/ai/tts";
     const expectedMethod = isCapabilities ? "GET" : "POST";
     if (request.method !== expectedMethod) {
       return reply({ error: expectedMethod + " required" }, 405);
@@ -234,10 +236,11 @@ export async function handleAi(request, env, url) {
         !parsed.data ||
         typeof parsed.data !== "object" ||
         Array.isArray(parsed.data) ||
-        typeof parsed.data.message !== "string" ||
-        !parsed.data.message.trim()
+        (isTts
+          ? typeof parsed.data.text !== "string" || !parsed.data.text.trim()
+          : typeof parsed.data.message !== "string" || !parsed.data.message.trim())
       ) {
-        return reply({ error: "message is required" }, 400);
+        return reply({ error: isTts ? "text is required" : "message is required" }, 400);
       }
       raw = parsed.raw;
     }
@@ -260,16 +263,17 @@ export async function handleAi(request, env, url) {
     }
 
     const streaming = path === "/api/ai/chat/stream";
+    const upstreamPath = isTts ? "/tts" : streaming ? "/chat/stream" : "/chat";
     const upstream = await callWorker(
       env,
       worker,
-      streaming ? "/chat/stream" : "/chat",
+      upstreamPath,
       {
         method: "POST",
         headers: workerHeaders(env, "application/json"),
         body: raw,
       },
-      streaming ? 150000 : 60000,
+      streaming ? 150000 : isTts ? 90000 : 60000,
     );
     if (!upstream) {
       return reply({ error: "AI worker is unreachable and has been removed" }, 502);
