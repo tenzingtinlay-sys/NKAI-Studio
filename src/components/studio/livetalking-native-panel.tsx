@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 type OfferResponse = { sdp?: string; type?: RTCSdpType; sessionid?: string; error?: string; detail?: string };
 type ApiResponse = { code?: number; msg?: string; error?: string; detail?: string };
+type ServiceStatus = { configured?: boolean; reachable?: boolean; httpStatus?: number; mediaVerified?: boolean; error?: string; code?: string; detail?: string };
 
 export function LiveTalkingNativePanel() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -12,11 +13,42 @@ export function LiveTalkingNativePanel() {
   const [status, setStatus] = useState("Disconnected · waiting for configured LiveTalking GPU worker");
   const [text, setText] = useState("");
   const [error, setError] = useState("");
+  const [serviceStatus, setServiceStatus] = useState<ServiceStatus | null>(null);
+  const [checkingService, setCheckingService] = useState(false);
 
   useEffect(() => () => {
     peerRef.current?.close();
     peerRef.current = null;
   }, []);
+
+  async function checkService() {
+    setCheckingService(true);
+    setError("");
+    try {
+      const response = await fetch("/api/livetalking/status", {
+        method: "GET",
+        headers: { accept: "application/json" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(7000),
+      });
+      const result = await response.json() as ServiceStatus;
+      setServiceStatus(result);
+      if (!response.ok || !result.reachable) {
+        setStatus(result.error || "Live avatar service is not reachable.");
+        setError(result.error || (result.code === "LIVETALKING_NOT_CONFIGURED"
+          ? "Set LIVETALKING_INTERNAL_URL on the NKAI app server."
+          : "Start the LiveTalking GPU service and verify its HTTP endpoint."));
+      } else {
+        setStatus("LiveTalking HTTP service responds · WebRTC media still needs a connection test");
+      }
+    } catch (cause) {
+      setServiceStatus({ configured: true, reachable: false, mediaVerified: false });
+      setStatus("Could not check the live avatar service");
+      setError(cause instanceof Error ? cause.message : "Status check failed.");
+    } finally {
+      setCheckingService(false);
+    }
+  }
 
   async function connect() {
     setBusy(true);
@@ -158,11 +190,12 @@ export function LiveTalkingNativePanel() {
   return (
     <section className="nkai-live-panel" style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <strong>LiveTalking · in-app WebRTC</strong>
+        <strong>NKAI Live Avatar · WebRTC</strong>
         <span aria-live="polite" style={{ opacity: 0.8, fontSize: 12 }}>{status}</span>
       </div>
       <video ref={videoRef} autoPlay playsInline controls style={{ width: "100%", maxHeight: 460, minHeight: 220, background: "#090b10", borderRadius: 12, objectFit: "contain" }} />
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="mf-ghost" disabled={checkingService || busy} onClick={() => void checkService()}>{checkingService ? "Checking service…" : "Check service"}</button>
         {!connected
           ? <button type="button" className="mf-primary" disabled={busy} onClick={() => void connect()}>{busy ? "Connecting…" : "Connect live avatar"}</button>
           : <button type="button" className="mf-ghost" disabled={busy} onClick={disconnect}>Disconnect</button>}
@@ -175,6 +208,7 @@ export function LiveTalkingNativePanel() {
       <p style={{ margin: 0, opacity: 0.72, fontSize: 12 }}>
         Adapted to LiveTalking's open-source HTTP/WebRTC contract through NKAI's same-origin backend. The GPU service, model checkpoints and reachable WebRTC media ports must be configured separately; this bridge does not use a paid inference API. STUN helps discover public network addresses; restrictive networks may still require a properly configured TURN server.
       </p>
+      {serviceStatus ? <p style={{ margin: 0, opacity: 0.76, fontSize: 12 }} aria-live="polite">HTTP service: {serviceStatus.reachable ? "reachable" : serviceStatus.configured === false ? "not configured" : "unavailable"} · Media verified: {serviceStatus.mediaVerified ? "yes" : "not yet"}{typeof serviceStatus.httpStatus === "number" ? " · HTTP " + serviceStatus.httpStatus : ""}</p> : null}
       {error ? <p role="alert" style={{ color: "#ff9b9b", margin: 0 }}>{error}</p> : null}
     </section>
   );
