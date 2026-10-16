@@ -137,7 +137,7 @@ export function AvatarLandingPage() {
 
   async function speakGpuVoice(textToSpeak: string) {
     try {
-      const response = await fetch("/api/ai/tts", {
+      const response = await fetch("/api/avatar-ai/tts", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text: textToSpeak.slice(0, 500), language: code }),
@@ -175,7 +175,7 @@ export function AvatarLandingPage() {
         role: item.role === "you" ? "user" : "assistant",
         text: item.text,
       }));
-      const response = await fetch("/api/ai/chat", {
+      const response = await fetch("/api/avatar-ai/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ message: prompt, language: code, history }),
