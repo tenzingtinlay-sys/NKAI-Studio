@@ -533,6 +533,20 @@ export function OpenSourceAvatarPanel() {
             <button className="mf-ghost" type="button" disabled={talkingEnabled} onClick={() => { setModelError(false); setTalkingEnabled(true); }}>Enable real lip-sync</button>
           </div>
         </section>
+        <section className="mf-card" style={{ marginTop: 16 }}>
+          <h2 style={{ marginTop: 0 }}>Duix real-human avatar downloads</h2>
+          <p style={{ opacity: .78 }}>These are the four official public Duix Mobile avatar packages. They contain Duix SDK model assets, not browser-ready GLB files, so this web viewer cannot render the ZIP files directly. Download them for the supported Duix Android/iOS SDK, or load a compatible GLB above for this browser viewer.</p>
+          <div className="mf-grid two">
+            <a className="mf-ghost" href="https://github.com/duixcom/Duix.mobile/releases/download/v2.0.1/Leo.zip" target="_blank" rel="noreferrer">Download Leo avatar (.zip)</a>
+            <a className="mf-ghost" href="https://github.com/duixcom/Duix.mobile/releases/download/v2.0.1/Oliver.zip" target="_blank" rel="noreferrer">Download Oliver avatar (.zip)</a>
+            <a className="mf-ghost" href="https://github.com/duixcom/Duix.mobile/releases/download/v2.0.1/Sofia.zip" target="_blank" rel="noreferrer">Download Sofia avatar (.zip)</a>
+            <a className="mf-ghost" href="https://github.com/duixcom/Duix.mobile/releases/download/v2.0.1/Lily.zip" target="_blank" rel="noreferrer">Download Lily avatar (.zip)</a>
+          </div>
+          <div className="mf-bar" style={{ marginTop: 12 }}>
+            <a className="mf-ghost" href="https://github.com/duixcom/Duix-Mobile" target="_blank" rel="noreferrer">Duix Mobile SDK and integration guide</a>
+            <a className="mf-ghost" href="https://github.com/duixcom/Duix-Avatar" target="_blank" rel="noreferrer">Duix Avatar offline toolkit</a>
+          </div>
+        </section>
         <section className="mf-card" style={{ minHeight: 600, display: "flex", flexDirection: "column" }}>
           <h3 style={{ marginTop: 0 }}>Choose your AI character</h3>
           <p style={{ opacity: .75, marginTop: 0 }}>Choose the assistant's approach separately from its 3D appearance. Every character aims to be helpful, thoughtful, respectful, and practical.</p>
