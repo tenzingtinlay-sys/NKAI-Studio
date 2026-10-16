@@ -1,0 +1,75 @@
+name: Download and Verify NKAI Repository Assets
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "vendor/duix-avatar/Duix-Avatar-main.zip"
+      - "scripts/download-approved-avatar-assets.mjs"
+      - ".github/workflows/download-repo-assets.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  download-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository and fetch Git LFS files
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          submodules: recursive
+
+      - name: Verify repository archive and available disk
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h .
+          if [ -f "vendor/duix-avatar/Duix-Avatar-main.zip" ]; then
+            file vendor/duix-avatar/Duix-Avatar-main.zip
+            if grep -q "^version https://git-lfs.github.com/spec/v1" vendor/duix-avatar/Duix-Avatar-main.zip; then
+              echo "ERROR: Git LFS pointer was checked out instead of the actual ZIP."
+              exit 1
+            fi
+            unzip -tq vendor/duix-avatar/Duix-Avatar-main.zip
+          else
+            echo "Duix archive not found in the checked-out repository."
+            exit 1
+          fi
+
+      - name: Extract uploaded Duix source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/repo-assets/duix-avatar
+          unzip -q vendor/duix-avatar/Duix-Avatar-main.zip -d build/repo-assets/duix-avatar
+          echo "Extracted file count:"
+          find build/repo-assets/duix-avatar -type f | wc -l
+          echo "Top-level extracted files:"
+          find build/repo-assets/duix-avatar -maxdepth 3 -type f | sort | head -n 200
+
+      - name: Download approved small avatar assets
+        run: |
+          node scripts/download-approved-avatar-assets.mjs
+
+      - name: Verify downloaded GLB asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s public/assets/avatars/brunette.glb
+          test -s public/assets/avatars/brunette.provenance.json
+          head -c 4 public/assets/avatars/brunette.glb | grep -q "glTF"
+          echo "PASS: approved avatar GLB exists and has a binary glTF signature."
+
+      - name: Package extracted archive and downloaded avatar assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: nkai-repository-assets
+          path: |
+            build/repo-assets/duix-avatar/
+            public/assets/avatars/
+          if-no-files-found: error
+          compression-level: 1
+          retention-days: 7
