@@ -118,12 +118,27 @@ export default {
       return json({ unregistered: true, id });
     }
 
-    if (url.pathname === "/api/livetalking/offer" || url.pathname === "/api/livetalking/human") {
+    const proxyPaths = ["/api/livetalking/offer", "/api/livetalking/human", "/api/livetalking/interrupt_talk", "/offer", "/human", "/interrupt_talk", "/status"];
+    if (proxyPaths.includes(url.pathname)) {
+      const directBrowserPath = url.pathname.startsWith("/api/livetalking/");
+      if (url.pathname.endsWith("/status")) {
+        if (request.method !== "GET" && request.method !== "HEAD") return json({ error: "GET required" }, 405, cors);
+        if (directBrowserPath && !isAllowedOrigin(request, env)) return json({ error: "Origin is not allowed" }, 403, cors);
+        const backend = await getBackend(env);
+        if (!backend) return json({ configured: true, reachable: false, mediaVerified: false, error: "No live avatar server has registered yet" }, 503, cors);
+        try {
+          const probe = await fetch(backend.url + "/", { method: "GET", redirect: "manual", signal: AbortSignal.timeout(5000) });
+          await probe.body?.cancel();
+          return json({ configured: true, reachable: probe.status < 500, httpStatus: probe.status, mediaVerified: false }, probe.status < 500 ? 200 : 503, cors);
+        } catch {
+          return json({ configured: true, reachable: false, mediaVerified: false, error: "LiveTalking host is unreachable" }, 503, cors);
+        }
+      }
       if (request.method !== "POST") return json({ error: "POST required" }, 405, cors);
-      if (!isAllowedOrigin(request, env)) return json({ error: "Origin is not allowed. Configure ALLOWED_ORIGINS in gateway/wrangler.toml." }, 403);
+      if (directBrowserPath && !isAllowedOrigin(request, env)) return json({ error: "Origin is not allowed. Configure ALLOWED_ORIGINS in gateway/wrangler.toml." }, 403, cors);
       const backend = await getBackend(env);
       if (!backend) return json({ error: "No live avatar server has registered yet" }, 503, cors);
-      const upstreamPath = url.pathname.endsWith("/offer") ? "/offer" : "/human";
+      const upstreamPath = url.pathname.endsWith("/offer") ? "/offer" : url.pathname.endsWith("/human") ? "/human" : "/interrupt_talk";
       const headers = new Headers({ "content-type": request.headers.get("content-type") || "application/json" });
       let upstream;
       try {
