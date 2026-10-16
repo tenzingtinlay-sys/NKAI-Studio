@@ -20,3 +20,5 @@ LiveAvatar is a hosted service and is not the same as the local Qwen/LiveTalking
 
 Upstream SDK: https://github.com/heygen-com/liveavatar-web-sdk
 API token reference: https://liveavatar.readme.io/reference/create_session_token_v1_sessions_token_post
+
+The root npm lockfile includes `@heygen/liveavatar-web-sdk` and its runtime dependencies.
