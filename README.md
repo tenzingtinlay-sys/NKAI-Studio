@@ -88,3 +88,7 @@ The local browser model can provide AI responses without an inference API key, b
 ## Unified runtime
 
 See `docs/UNIFIED_AI_RUNTIME.md` for the server-side timed worker-pool design.
+
+## Build the embedded LiveTalking runtime
+
+The in-app LiveTalking panel is backed by the existing same-origin adapter. To package the upstream engine for a permitted NVIDIA GPU host, use [the LiveTalking container setup](deploy/livetalking/README.md). It builds the upstream open-source engine and mounts model/avatar files separately; it does not include or redistribute checkpoints. Real WebRTC audio/video still requires a running GPU host and working ICE/UDP (or TURN) networking.
