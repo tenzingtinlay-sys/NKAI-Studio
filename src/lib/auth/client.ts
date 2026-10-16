@@ -143,6 +143,19 @@ export async function signIn(
     return;
   }
 
+  // Public deployment uses this app's own Google OAuth client. Keep the
+  // Grok broker path for the sandbox preview and any explicitly configured X login.
+  if (providerId === "grok-google") {
+    const { data, error } = await authClient.signIn.social({
+      provider: "google",
+      callbackURL,
+      errorCallbackURL,
+    });
+    if (error) throw new Error(error.message ?? "Google sign-in failed");
+    if (data?.url) window.location.href = data.url;
+    return;
+  }
+
   const { data, error } = await authClient.signIn.oauth2({
     providerId,
     callbackURL,
