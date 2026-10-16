@@ -206,6 +206,33 @@
         "TTS configuration"
       ],
       "notes": "NKAI UI uses the same-origin /api/livetalking/ route. Configure LIVETALKING_INTERNAL_URL on the server. LiveTalking must run on a private GPU host; WebRTC media still requires reachable ICE/UDP networking."
+    },
+    {
+      "id": "duix-avatar",
+      "label": "Duix Avatar realistic talking-human video synthesis",
+      "kind": "self-hosted-gpu-video-synthesis-engine",
+      "sourceUrl": "https://github.com/duixcom/Duix-Avatar",
+      "websiteUrl": "https://www.duix.com/",
+      "license": "DUIX.COM Community License Agreement; commercial deployment requires written clearance where Section 2 applies; retain required attribution and legal notices",
+      "commercialUse": "license-review-required; do not enable for public/commercial users until Section 2 and attribution obligations are cleared",
+      "features": [
+        "real-person likeness video model",
+        "voice cloning with consent",
+        "text-to-speech",
+        "audio-driven lip-synced video synthesis",
+        "job-based rendered video output"
+      ],
+      "integrationStatus": "catalogued; GPU deployment, compliant consent workflow, file transfer, output storage, licensing and end-to-end tests pending",
+      "runtimeMode": "generated-talking-video-not-verified-realtime-streaming",
+      "requires": [
+        "separate Linux or Windows NVIDIA GPU host",
+        "Duix service containers and model weights",
+        "secure media upload/download pipeline",
+        "object storage for source recordings and rendered output",
+        "user consent and likeness/voice rights",
+        "DUIX.COM license and attribution compliance"
+      ],
+      "notes": "Do not run model weights in Cloudflare Workers or commit large weights/media to Git. The upstream README describes local open-source deployment as video synthesis and points real-time interactive use to the hosted Duix service. Keep LiveTalking as the separate real-time streaming engine until Duix documents and passes a true streaming test."
     }
   ]
 }
