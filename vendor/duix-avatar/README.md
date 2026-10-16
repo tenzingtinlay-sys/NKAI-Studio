@@ -1,6 +1,6 @@
 # Duix Avatar source in NKAI Studio
 
-The upstream Duix Avatar archive is preserved at `Duix-Avatar-main.zip` through Git LFS. Its extracted source is committed at [`source/Duix-Avatar-main`](source/Duix-Avatar-main).
+The upstream Duix Avatar archive was removed after extraction to keep the repository clean. The extracted source is committed at [`source/Duix-Avatar-main`](source/Duix-Avatar-main). The extraction workflow was also removed because it depended on the deleted archive.
 
 **Integration status:** source extracted to `main`; not yet connected as a live video-generation backend in the NKAI web Studio. The upstream app is Electron/Vue and its generation services require a compatible Docker/GPU runtime.
 
