@@ -21,8 +21,6 @@ REQUIRED_SECRETS = {
     "NKAI_GOOGLE_CLIENT_ID": "GOOGLE_CLIENT_ID",
     "NKAI_GOOGLE_CLIENT_SECRET": "GOOGLE_CLIENT_SECRET",
     "NKAI_DATABASE_URL": "DATABASE_URL",
-    "NKAI_AI_WORKER_INTERNAL_URL": "AI_WORKER_INTERNAL_URL",
-    "NKAI_AI_WORKER_API_TOKEN": "AI_WORKER_API_TOKEN",
 }
 OPTIONAL_SECRETS = {
     "NKAI_TTS_INTERNAL_URL": "AI_TTS_INTERNAL_URL",
@@ -103,15 +101,22 @@ def build_space_secrets(env: Mapping[str, str], repo_id: str) -> dict[str, str]:
         )
 
     auth_secret = env["NKAI_BETTER_AUTH_SECRET"].strip()
-    worker_token = env["NKAI_AI_WORKER_API_TOKEN"].strip()
+    worker_url = env.get("NKAI_AI_WORKER_INTERNAL_URL", "").strip()
+    worker_token = env.get("NKAI_AI_WORKER_API_TOKEN", "").strip()
+    browser_only = env.get("NKAI_BROWSER_ONLY_DEPLOYMENT", "true").strip().lower() in {"1", "true", "yes", "on"}
     if len(auth_secret) < 32:
         raise ValueError("NKAI_BETTER_AUTH_SECRET must be at least 32 characters.")
-    if len(worker_token) < 32:
-        raise ValueError("NKAI_AI_WORKER_API_TOKEN must be at least 32 characters.")
 
     if not env["NKAI_GOOGLE_CLIENT_ID"].strip() or not env["NKAI_GOOGLE_CLIENT_SECRET"].strip():
         raise ValueError("Configure both Google OAuth client credentials.")
-    require_https_url(env["NKAI_AI_WORKER_INTERNAL_URL"].strip(), "NKAI_AI_WORKER_INTERNAL_URL")
+    if bool(worker_url) != bool(worker_token):
+        raise ValueError("Configure both NKAI_AI_WORKER_INTERNAL_URL and NKAI_AI_WORKER_API_TOKEN, or leave both empty for browser-only mode.")
+    if worker_url:
+        require_https_url(worker_url, "NKAI_AI_WORKER_INTERNAL_URL")
+        if len(worker_token) < 32:
+            raise ValueError("NKAI_AI_WORKER_API_TOKEN must be at least 32 characters.")
+    elif not browser_only:
+        raise ValueError("No AI worker is configured. Deploy a protected worker or explicitly enable NKAI_BROWSER_ONLY_DEPLOYMENT=true for browser-local inference.")
     db_url = env["NKAI_DATABASE_URL"].strip()
     if not db_url.startswith(("postgres://", "postgresql://")):
         raise ValueError("NKAI_DATABASE_URL must be a PostgreSQL connection string.")
@@ -130,6 +135,9 @@ def build_space_secrets(env: Mapping[str, str], repo_id: str) -> dict[str, str]:
         require_https_url(livetalking_url, "NKAI_LIVETALKING_INTERNAL_URL")
 
     result = {target: env[source].strip() for source, target in REQUIRED_SECRETS.items()}
+    if worker_url:
+        result["AI_WORKER_INTERNAL_URL"] = worker_url
+        result["AI_WORKER_API_TOKEN"] = worker_token
     result["BETTER_AUTH_URL"] = derive_space_url(repo_id)
     for source, target in OPTIONAL_SECRETS.items():
         value = env.get(source, "").strip()
@@ -146,12 +154,14 @@ def deploy() -> None:
     space_url = derive_space_url(repo_id)
     secrets_to_set = build_space_secrets(os.environ, repo_id)
 
-    # Fail before changing the Space if the configured worker cannot actually
-    # serve inference. A page deployment must never hide an unavailable worker.
-    check_chat_worker(
-        os.environ["NKAI_AI_WORKER_INTERNAL_URL"].strip(),
-        os.environ["NKAI_AI_WORKER_API_TOKEN"].strip(),
-    )
+    # Verify a configured protected worker before changing the Space. If no
+    # worker is configured, browser-local inference remains available.
+    worker_url = os.environ.get("NKAI_AI_WORKER_INTERNAL_URL", "").strip()
+    worker_token = os.environ.get("NKAI_AI_WORKER_API_TOKEN", "").strip()
+    if worker_url and worker_token:
+        check_chat_worker(worker_url, worker_token)
+    else:
+        print("WARNING: browser-only mode; hosted GPU chat is disabled until a protected worker is configured.")
     tts_url = os.environ.get("NKAI_TTS_INTERNAL_URL", "").strip()
     if tts_url:
         check_tts_worker(tts_url, os.environ["NKAI_TTS_API_TOKEN"].strip())
