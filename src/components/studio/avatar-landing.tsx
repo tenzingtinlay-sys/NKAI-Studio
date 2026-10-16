@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Camera, CameraOff, Check, ChevronDown, CircleHelp, Globe2, Languages, Mic, MicOff, MonitorPlay, Phone, Radio, Search, Send, Settings2, Sparkles, Volume2, VolumeX, Video, VideoOff, WandSparkles } from "lucide-react";
 import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
 
-type Avatar = { id: string; name: string; role: string; gender: "Woman" | "Man" | "Androgynous"; languages: string[]; image: string; tone: string; accent: string };
+type Avatar = { id: string; name: string; role: string; gender: "Woman" | "Man" | "Androgynous"; languages: string[]; tone: string; accent: string };
 const AVATARS: Avatar[] = [
-  { id: "maya", name: "Maya", role: "Warm conversation", gender: "Woman", languages: ["English", "Hindi", "Tamil"], image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1000&q=85", tone: "warm", accent: "#b9a0ff" },
-  { id: "arjun", name: "Arjun", role: "Career coach", gender: "Man", languages: ["English", "Hindi", "Punjabi"], image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=1000&q=85", tone: "clear", accent: "#8bd9c5" },
-  { id: "sophia", name: "Sophia", role: "Language partner", gender: "Woman", languages: ["English", "French", "Spanish"], image: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=85", tone: "bright", accent: "#f1bd8b" },
-  { id: "noah", name: "Noah", role: "Learning companion", gender: "Man", languages: ["English", "German", "Japanese"], image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=1000&q=85", tone: "calm", accent: "#89bfff" },
-  { id: "isha", name: "Isha", role: "Mindful guide", gender: "Woman", languages: ["Hindi", "English", "Bengali"], image: "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=1000&q=85", tone: "gentle", accent: "#f2a9c5" },
-  { id: "leo", name: "Leo", role: "Creative partner", gender: "Man", languages: ["English", "Spanish", "French"], image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=1000&q=85", tone: "energetic", accent: "#e6bd73" },
+  { id: "maya", name: "Maya", role: "Warm conversation", gender: "Woman", languages: ["English", "Hindi", "Tamil"], tone: "warm", accent: "#b9a0ff" },
+  { id: "arjun", name: "Arjun", role: "Career coach", gender: "Man", languages: ["English", "Hindi", "Punjabi"], tone: "clear", accent: "#8bd9c5" },
+  { id: "sophia", name: "Sophia", role: "Language partner", gender: "Woman", languages: ["English", "French", "Spanish"], tone: "bright", accent: "#f1bd8b" },
+  { id: "noah", name: "Noah", role: "Learning companion", gender: "Man", languages: ["English", "German", "Japanese"], tone: "calm", accent: "#89bfff" },
+  { id: "isha", name: "Isha", role: "Mindful guide", gender: "Woman", languages: ["Hindi", "English", "Bengali"], tone: "gentle", accent: "#f2a9c5" },
+  { id: "leo", name: "Leo", role: "Creative partner", gender: "Man", languages: ["English", "Spanish", "French"], tone: "energetic", accent: "#e6bd73" },
 ];
 const LANGUAGES = ["English (India)", "Hindi", "Tamil", "Telugu", "Bengali", "Marathi", "Punjabi", "Kannada", "Malayalam", "English (US)", "French", "German", "Spanish", "Japanese", "Korean", "Mandarin"];
 const LANG_CODES: Record<string, string> = { "English (India)": "en-IN", Hindi: "hi-IN", Tamil: "ta-IN", Telugu: "te-IN", Bengali: "bn-IN", Marathi: "mr-IN", Punjabi: "pa-IN", Kannada: "kn-IN", Malayalam: "ml-IN", "English (US)": "en-US", French: "fr-FR", German: "de-DE", Spanish: "es-ES", Japanese: "ja-JP", Korean: "ko-KR", Mandarin: "zh-CN" };
@@ -216,7 +216,7 @@ export function AvatarLandingPage() {
           <div className="nkai-hero-copy">
             <div className="nkai-eyebrow"><span className="nkai-pulse" /> YOUR CONVERSATION, REIMAGINED</div>
             <h1>Meet your AI.<br /><span>Face to face.</span></h1>
-            <p>Choose a human-style avatar, speak your language, and start a natural conversation — all from one clean workspace.</p>
+            <p>Choose a conversation profile, select your language, and chat by text or voice from one clean workspace.</p>
             <div className="nkai-hero-actions"><button className="nkai-button-primary" onClick={() => { setTab("call"); setSessionStarted(true); document.getElementById("nkai-call-stage")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}><Video size={17} /> Start a conversation</button><button className="nkai-button-secondary" onClick={() => setTab("gallery")}><WandSparkles size={16} /> Explore avatars</button></div>
             <div className="nkai-trust-row"><span><Check size={14} /> Browser voice playback</span><span><Check size={14} /> 16 language choices</span><span><Check size={14} /> Camera stays on your device</span></div>
           </div>
