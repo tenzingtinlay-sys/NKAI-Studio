@@ -37,6 +37,7 @@ const NAV: { id: ViewId; label: string; icon: typeof Video; group: string }[] = 
   { id: "voice", label: "Voice", icon: AudioLines, group: "Create" },
   { id: "agents", label: "Agents", icon: Bot, group: "Create" },
   { id: "live", label: "Live Avatar", icon: Radio, group: "Create" },
+  { id: "liveavatar-cloud", label: "LiveAvatar Cloud", icon: Radio, group: "Create" },
   { id: "projects", label: "Projects", icon: FolderKanban, group: "Workspace" },
   { id: "templates", label: "Templates", icon: LayoutTemplate, group: "Workspace" },
   { id: "scenes", label: "Scenes", icon: Clapperboard, group: "Workspace" },
