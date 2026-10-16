@@ -18,9 +18,8 @@ from urllib.parse import urlparse
 
 REQUIRED_SECRETS = {
     "NKAI_BETTER_AUTH_SECRET": "BETTER_AUTH_SECRET",
-    "NKAI_GROK_AUTH_ISSUER": "GROK_AUTH_ISSUER",
-    "NKAI_GROK_AUTH_CLIENT_ID": "GROK_AUTH_CLIENT_ID",
-    "NKAI_GROK_AUTH_CLIENT_SECRET": "GROK_AUTH_CLIENT_SECRET",
+    "NKAI_GOOGLE_CLIENT_ID": "GOOGLE_CLIENT_ID",
+    "NKAI_GOOGLE_CLIENT_SECRET": "GOOGLE_CLIENT_SECRET",
     "NKAI_DATABASE_URL": "DATABASE_URL",
     "NKAI_AI_WORKER_INTERNAL_URL": "AI_WORKER_INTERNAL_URL",
     "NKAI_AI_WORKER_API_TOKEN": "AI_WORKER_API_TOKEN",
@@ -110,7 +109,8 @@ def build_space_secrets(env: Mapping[str, str], repo_id: str) -> dict[str, str]:
     if len(worker_token) < 32:
         raise ValueError("NKAI_AI_WORKER_API_TOKEN must be at least 32 characters.")
 
-    require_https_url(env["NKAI_GROK_AUTH_ISSUER"].strip(), "NKAI_GROK_AUTH_ISSUER")
+    if not env["NKAI_GOOGLE_CLIENT_ID"].strip() or not env["NKAI_GOOGLE_CLIENT_SECRET"].strip():
+        raise ValueError("Configure both Google OAuth client credentials.")
     require_https_url(env["NKAI_AI_WORKER_INTERNAL_URL"].strip(), "NKAI_AI_WORKER_INTERNAL_URL")
     db_url = env["NKAI_DATABASE_URL"].strip()
     if not db_url.startswith(("postgres://", "postgresql://")):
