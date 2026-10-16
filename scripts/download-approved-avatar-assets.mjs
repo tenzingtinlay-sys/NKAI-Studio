@@ -9,16 +9,6 @@ const maxBytes = 50 * 1024 * 1024;
 
 const assets = [
   {
-    id: "mpfb-sample",
-    file: "mpfb.glb",
-    sourceUrl: "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/mpfb.glb",
-    sourceRepository: "https://github.com/met4citizen/TalkingHead",
-    sourcePath: "avatars/mpfb.glb",
-    creator: "MPFB / Blender human character ecosystem",
-    license: "CC0 1.0 (as documented by the upstream TalkingHead README; re-check upstream terms before redistribution)",
-    maxBytes,
-  },
-  {
     id: "ready-player-me-brunette-sample",
     file: "brunette.glb",
     sourceUrl: "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/brunette.glb",
@@ -64,4 +54,4 @@ for (const asset of assets) {
   console.log(`Licence: ${asset.license}`);
 }
 
-console.log("Avatar assets downloaded. The Ready Player Me brunette sample must not be used commercially unless separate rights are obtained.");
+console.log("Avatar assets downloaded. The MPFB CC0 sample is loaded from its upstream URL to avoid exceeding Cloudflare asset limits. The Ready Player Me brunette sample must not be used commercially unless separate rights are obtained.");
