@@ -206,6 +206,23 @@
         "TTS configuration"
       ],
       "notes": "NKAI UI uses the same-origin /api/livetalking/ route. Configure LIVETALKING_INTERNAL_URL on the server. LiveTalking must run on a private GPU host; WebRTC media still requires reachable ICE/UDP networking."
+    },
+    {
+      "id": "duix-avatar",
+      "label": "Duix Avatar offline talking-human video generation",
+      "kind": "self-hosted-gpu-video-generation",
+      "sourceUrl": "https://github.com/duixcom/Duix-Avatar",
+      "sourcePath": "vendor/duix-avatar/source/Duix-Avatar-main",
+      "license": "DUIX.COM Community License; retain LICENSE, NOTICE, agreement, and required Built with DUIX.COM attribution; audit model, voice, and dependency licences separately",
+      "commercialUse": "not-authorized-for-current-research-only-use; commercial license required if the upstream agreement's >1,000 monthly active user condition is met",
+      "features": [
+        "offline talking-human video generation",
+        "appearance and voice cloning",
+        "text-driven avatar video",
+        "self-hosted Docker GPU services"
+      ],
+      "integrationStatus": "source-extracted-on-main; standalone Electron/Vue app and Docker GPU services are not yet connected to the NKAI web runtime; live generation unverified",
+      "defaultEnabled": false
     }
   ]
 }
