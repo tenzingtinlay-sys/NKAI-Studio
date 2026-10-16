@@ -32,7 +32,7 @@ The `language` field is metadata for the caller; this adapter passes the text to
 
 ## Connect to NKAI Studio
 
-Configure the app's **server-side** TTS worker URL to this service's private HTTPS origin through the existing same-origin AI gateway. Keep the worker token on the server; never put it in browser code. The current app's worker integration expects `POST /tts` with a JSON body and a response containing `audio_base64` and `mime_type`.
+Configure `AI_TTS_INTERNAL_URL` to this service's private HTTPS origin and `AI_TTS_API_TOKEN` to the matching `WORKER_API_TOKEN` in the app host's server-side environment. The existing same-origin `/api/ai/tts` gateway routes to this dedicated TTS service while chat remains on `AI_WORKER_INTERNAL_URL`. Keep both values on the server; never put them in browser code. The gateway expects `POST /tts` with a JSON body and a response containing `audio_base64` and `mime_type`.
 
 After deployment, verify `/health`, `/capabilities`, and a real `/tts` request from the Studio gateway. This guide and adapter do not themselves deploy the service or prove that a live host is running.
 
