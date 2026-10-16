@@ -22,6 +22,11 @@ jobs:
           lfs: true
           submodules: recursive
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Verify repository archive and available disk
         shell: bash
         run: |
@@ -51,8 +56,7 @@ jobs:
           find build/repo-assets/duix-avatar -maxdepth 3 -type f | sort | head -n 200
 
       - name: Download approved small avatar assets
-        run: |
-          node scripts/download-approved-avatar-assets.mjs
+        run: node scripts/download-approved-avatar-assets.mjs
 
       - name: Verify downloaded GLB asset
         shell: bash
