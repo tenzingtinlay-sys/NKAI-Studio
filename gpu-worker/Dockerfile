@@ -10,4 +10,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app.py .
 
 EXPOSE 7860
-CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT}"]
+# Public/container deployments must not start without a server-side token.
+CMD ["sh", "-c", ": \"${WORKER_API_TOKEN:?WORKER_API_TOKEN must be configured as a deployment secret}\"; exec uvicorn app:app --host 0.0.0.0 --port \"${PORT}\""]
