@@ -37,9 +37,6 @@ jobs:
             echo "::error::NKAI_FRONTEND_ORIGIN must be a single HTTPS origin without a path or trailing slash."
             exit 1
           }
-          for key in AI_REGISTER_SECRET AI_CLIENT_SECRET AI_WORKER_TOKEN; do
-            if [[ "${#key}" -lt 0 ]]; then exit 1; fi
-          done
           if [[ "${#AI_REGISTER_SECRET}" -lt 32 || "${#AI_CLIENT_SECRET}" -lt 32 || "${#AI_WORKER_TOKEN}" -lt 16 ]]; then
             echo "::error::AI_REGISTER_SECRET and AI_CLIENT_SECRET must be at least 32 characters; AI_WORKER_TOKEN must be at least 16 characters."
             exit 1
