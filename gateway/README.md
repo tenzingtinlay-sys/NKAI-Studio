@@ -80,3 +80,22 @@ The existing `BACKENDS` KV namespace ID in `wrangler.toml` must exist in that Cl
 Then open **GitHub → Actions → Deploy Cloudflare Live Avatar Gateway → Run workflow**. On success, the job logs the public `workers.dev` URL and verifies its health response. Keep the URL for the next setup step. If the workflow fails, use the first failing step's logs to correct the account/token/namespace configuration; do not paste token or secret values into issues or chat.
 
 The initial health response may correctly show `servers: []`: this means the gateway is up, but no GPU host is registered yet. Live avatar streaming is not ready until a permitted host registers and a real browser WebRTC session receives audio and video.
+
+
+## Connect the Google Colab Qwen worker
+
+The AI proxy code must be deployed before the Colab worker can register. The manual gateway workflow now installs these additional Cloudflare Worker secrets from GitHub repository Actions secrets:
+
+- `NKAI_AI_REGISTER_SECRET`: random secret of at least 32 characters. Enter this same value into the Colab registration helper when prompted.
+- `NKAI_AI_CLIENT_SECRET`: a separate random secret of at least 32 characters. Used by trusted server-side callers of the AI proxy; never expose it in browser code.
+- `NKAI_AI_WORKER_TOKEN`: must exactly match the Colab worker's existing `WORKER_API_TOKEN`.
+
+Keep the existing `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `NKAI_GATEWAY_REGISTER_SECRET`, and `NKAI_FRONTEND_ORIGIN` secrets too. Do not paste any secret into chat or commit it to the repository.
+
+1. Add the three `NKAI_AI_*` secrets under **Settings → Secrets and variables → Actions**.
+2. Run **Actions → Deploy Cloudflare Live Avatar Gateway → Run workflow**. Wait for a successful deployment. This updates the deployed Worker code and installs the secrets; it does not start Colab.
+3. In the running Colab notebook, ensure the Qwen worker and its `cloudflared` quick tunnel are both running. The current public tunnel URL may have changed since the last session.
+4. Run the helper from a checkout of this repository in Colab, or copy `gateway/register_ai_worker.py` into a cell/file and execute it. It prompts for the current tunnel URL and the two gateway AI secrets without echoing the secrets, registers the worker, checks capabilities, runs a chat smoke test, and renews the registration every 25 seconds.
+5. Keep the helper cell running. The registration expires after 90 seconds without heartbeats; a Colab restart or tunnel URL change requires re-running the helper.
+
+The helper's smoke test uses `/api/ai/capabilities` and `/api/ai/chat`. A successful result verifies gateway-to-Colab chat, not the separate Studio UI integration or LiveTalking/WebRTC video. The Studio server still needs to call the gateway using `NKAI_AI_CLIENT_SECRET` server-side before chat is available through the Studio UI.
