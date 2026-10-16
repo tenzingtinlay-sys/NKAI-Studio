@@ -9,7 +9,7 @@ export const Route = createFileRoute("/api/ai/tts-capabilities")({
       const value = worker.capabilities as Record<string, unknown> | undefined;
       return { worker: worker.id, ...(value || {}) };
     });
-    const first = capabilities[0] || {};
+    const first = (capabilities[0] || {}) as Record<string, unknown>;
     return Response.json({
       status: ready.length ? "ready" : "degraded",
       workers: workers.map(({ id, platform, healthy, status }) => ({ id, platform, healthy, status })),
