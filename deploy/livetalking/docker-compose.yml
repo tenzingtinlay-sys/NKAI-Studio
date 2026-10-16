@@ -1,0 +1,21 @@
+# Run on a Linux host with NVIDIA Container Toolkit installed.
+# See README.md before starting: model checkpoints/avatar assets are not included.
+services:
+  livetalking:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        LIVETALKING_REF: ${LIVETALKING_REF:-main}
+    image: nkai-livetalking:local
+    container_name: nkai-livetalking
+    restart: unless-stopped
+    # Host networking is the simplest option for LiveTalking's WebRTC media ports.
+    # Do not expose this machine directly to untrusted networks; use the NKAI gateway/tunnel.
+    network_mode: host
+    gpus: all
+    volumes:
+      - ${LIVETALKING_MODELS_DIR:-./models}:/opt/LiveTalking/models:ro
+      - ${LIVETALKING_AVATARS_DIR:-./avatars}:/opt/LiveTalking/data/avatars:ro
+    environment:
+      PYTHONUNBUFFERED: "1"
