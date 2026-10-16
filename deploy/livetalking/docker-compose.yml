@@ -1,12 +1,10 @@
-# Run on a Linux host with NVIDIA Container Toolkit installed.
-# See README.md before starting: model checkpoints/avatar assets are not included.
+# Run from this directory on a Linux host with NVIDIA Container Toolkit installed.
+# Source is built from ../../vendor/livetalking/source/LiveTalking-main.
 services:
   livetalking:
     build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        LIVETALKING_REF: ${LIVETALKING_REF:-main}
+      context: ../..
+      dockerfile: deploy/livetalking/Dockerfile
     image: nkai-livetalking:local
     container_name: nkai-livetalking
     restart: unless-stopped
