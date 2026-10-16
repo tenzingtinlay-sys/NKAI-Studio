@@ -33,6 +33,7 @@ export function AvatarLandingPage() {
   const [cameraError, setCameraError] = useState("");
   const [gpuOpen, setGpuOpen] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -134,22 +135,63 @@ export function AvatarLandingPage() {
     window.speechSynthesis.speak(utterance);
   }
 
+  async function speakGpuVoice(textToSpeak: string) {
+    try {
+      const response = await fetch("/api/ai/tts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: textToSpeak.slice(0, 500), language: code }),
+      });
+      const payload = await response.json() as { audio_base64?: string; mime_type?: string; error?: string; detail?: string };
+      if (!response.ok || !payload.audio_base64) throw new Error(payload.error || payload.detail || "GPU voice is unavailable");
+      const binary = atob(payload.audio_base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: payload.mime_type || "audio/wav" });
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      audio.onplay = () => setSpeaking(true);
+      audio.onended = audio.onerror = () => {
+        setSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      await audio.play();
+    } catch {
+      // TTS is optional on a worker; keep the conversation usable with browser speech.
+      speak(textToSpeak);
+    }
+  }
+
   async function sendMessage(value = text) {
     const prompt = value.trim();
-    if (!prompt) return;
+    if (!prompt || aiBusy) return;
     setText("");
     setSessionStarted(true);
+    setCameraError("");
+    setAiBusy(true);
     setMessages((old) => [...old, { role: "you", text: prompt, time: stamp() }]);
-    const low = prompt.toLowerCase();
-    let reply = `I heard you say “${prompt.slice(0, 150)}”. Let’s explore that together. What would a useful outcome look like for you?`;
-    if (/hello|hi|hey|namaste|नमस्ते|வணக்கம்/i.test(low)) reply = language === "Hindi" ? "नमस्ते! आज मैं आपकी किस तरह मदद कर सकती हूँ?" : `Hello! I’m ${avatar.name}. What would you like to talk about today?`;
-    else if (/language|speak|accent|pronounce/i.test(low)) reply = `We can practise ${language} together. Say a short sentence and I’ll help you keep the conversation going.`;
-    else if (/career|job|interview|resume/i.test(low)) reply = "Let’s make this practical. What role are you aiming for, and what is the biggest challenge you want to solve first?";
-    else if (/help|what can you do|capabilities/i.test(low)) reply = "I can practise conversations with you, speak responses aloud in your selected language, and preview a camera-based call layout. For a fully generated real-time digital-human stream, connect a configured LiveTalking GPU worker.";
-    setTimeout(() => {
+    try {
+      const history = messages.slice(-8).map((item) => ({
+        role: item.role === "you" ? "user" : "assistant",
+        text: item.text,
+      }));
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: prompt, language: code, history }),
+      });
+      const payload = await response.json() as { reply?: string; error?: string; detail?: string; code?: string };
+      if (!response.ok || typeof payload.reply !== "string" || !payload.reply.trim()) {
+        throw new Error(payload.error || payload.detail || (response.status === 401 ? "Sign in to use the GPU AI avatar." : "The NKAI GPU worker did not return a reply."));
+      }
+      const reply = payload.reply.trim();
       setMessages((old) => [...old, { role: "avatar", text: reply, time: stamp() }]);
-      speak(reply);
-    }, 320);
+      await speakGpuVoice(reply);
+    } catch (cause) {
+      setCameraError(cause instanceof Error ? cause.message : "Could not reach the NKAI GPU worker.");
+    } finally {
+      setAiBusy(false);
+    }
   }
 
   const availableVoices = voices.filter((v) => v.lang.toLowerCase().startsWith(code.slice(0, 2).toLowerCase()));
@@ -216,7 +258,7 @@ export function AvatarLandingPage() {
               <div className="nkai-call-controls"><button className={micOn ? "nkai-control active" : "nkai-control"} onClick={() => void toggleMic()}><span>{micOn ? <Mic size={17} /> : <MicOff size={17} />}</span><small>{micOn ? "Listening…" : "Mic"}</small></button><button className={cameraOn ? "nkai-control active" : "nkai-control"} onClick={() => void toggleCamera()}><span>{cameraOn ? <Camera size={17} /> : <VideoOff size={17} />}</span><small>{cameraOn ? "Camera on" : "Camera"}</small></button><button className="nkai-control" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }}><span><VolumeX size={17} /></span><small>Mute voice</small></button><button className="nkai-control nkai-control-settings" onClick={() => setTab("voices")}><span><Settings2 size={17} /></span><small>Settings</small></button><button className="nkai-end-call" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); setSessionStarted(false); if (recognitionRef.current) recognitionRef.current.stop(); setMicOn(false); }}><Phone size={17} /> End</button></div>
               <div className="nkai-call-footnote"><CircleHelp size={14} /> Camera and microphone require browser permission. This is a local preview; GPU-generated video is available when the LiveTalking worker is configured.</div>
             </section>
-            <aside className="nkai-chat-column"><div className="nkai-chat-head"><div><span className="nkai-chat-avatar"><img src={avatar.image} alt="" /></span><span><b>{avatar.name}</b><small>{sessionStarted ? "Conversation started" : "Ready when you are"}</small></span></div><span className="nkai-chat-dots">•••</span></div><div className="nkai-chat-meta"><span><Languages size={13} /> {language}</span><span><span className="nkai-status-dot" /> {speaking ? "Speaking" : "Voice ready"}</span></div><div className="nkai-messages" aria-live="polite">{messages.map((m, i) => <div className={m.role === "you" ? "nkai-message you" : "nkai-message"} key={i}><span className="nkai-message-author">{m.role === "you" ? "YOU" : avatar.name.toUpperCase()} <time>{m.time}</time></span><p>{m.text}</p>{m.role === "avatar" && <button className="nkai-replay" onClick={() => speak(m.text)}><Volume2 size={12} /> Listen</button>}</div>)}</div><form className="nkai-composer" onSubmit={(e) => { e.preventDefault(); void sendMessage(); }}><input value={text} onChange={(e) => setText(e.target.value)} placeholder={`Message ${avatar.name}…`} aria-label="Message your avatar" /><button type="submit" disabled={!text.trim()} aria-label="Send message"><Send size={16} /></button></form><div className="nkai-chat-disclaimer">AI preview · responses are a local demo, not a connected LLM</div></aside>
+            <aside className="nkai-chat-column"><div className="nkai-chat-head"><div><span className="nkai-chat-avatar"><img src={avatar.image} alt="" /></span><span><b>{avatar.name}</b><small>{sessionStarted ? "Conversation started" : "Ready when you are"}</small></span></div><span className="nkai-chat-dots">•••</span></div><div className="nkai-chat-meta"><span><Languages size={13} /> {language}</span><span><span className="nkai-status-dot" /> {aiBusy ? "GPU thinking…" : speaking ? "Speaking" : "GPU voice ready"}</span></div><div className="nkai-messages" aria-live="polite">{messages.map((m, i) => <div className={m.role === "you" ? "nkai-message you" : "nkai-message"} key={i}><span className="nkai-message-author">{m.role === "you" ? "YOU" : avatar.name.toUpperCase()} <time>{m.time}</time></span><p>{m.text}</p>{m.role === "avatar" && <button className="nkai-replay" onClick={() => speak(m.text)}><Volume2 size={12} /> Listen</button>}</div>)}</div><form className="nkai-composer" onSubmit={(e) => { e.preventDefault(); void sendMessage(); }}><input value={text} onChange={(e) => setText(e.target.value)} placeholder={aiBusy ? "The GPU avatar is thinking…" : `Message ${avatar.name}…`} aria-label="Message your avatar" disabled={aiBusy} /><button type="submit" disabled={!text.trim() || aiBusy} aria-label="Send message">{aiBusy ? <span className="nkai-pulse" /> : <Send size={16} />}</button></form><div className="nkai-chat-disclaimer">Replies use the connected NKAI GPU AI worker. Spoken audio uses GPU TTS when available, with browser voice as fallback.</div></aside>
           </div>}
 
           {tab === "voices" && <div className="nkai-tool-panel"><div className="nkai-tool-intro"><div className="nkai-tool-icon"><AudioLines size={22} /></div><div><h3>Voice lab</h3><p>Use voices installed in your browser. Availability varies by operating system and language.</p></div></div><div className="nkai-settings-grid"><label>Speech language<select value={language} onChange={(e) => { setLanguage(e.target.value); setVoiceName(""); }}><option value={language}>{language}</option>{LANGUAGES.filter((l) => l !== language).map((l) => <option key={l} value={l}>{l}</option>)}</select></label><label>Voice presentation<select value={voiceGender} onChange={(e) => { setVoiceGender(e.target.value as typeof voiceGender); setVoiceName(""); }}><option>Any</option><option>Female</option><option>Male</option></select></label><label className="nkai-span-two">Installed voice<select value={currentVoice} onChange={(e) => setVoiceName(e.target.value)}>{genderFilteredVoices.length ? genderFilteredVoices.map((v) => <option key={v.name} value={v.name}>{v.name} · {v.lang}</option>) : <option value="Browser default">Browser default (voice list may be limited)</option>}</select></label></div><div className="nkai-voice-preview"><div className="nkai-voice-wave">{Array.from({length:30},(_,i)=><i key={i} style={{height:`${10+((i*17)%25)}px`}} />)}</div><div><b>{currentVoice}</b><small>{code} · {speaking ? "Playing preview" : "Ready to preview"}</small></div><button className="nkai-button-primary" onClick={() => speak(language === "Hindi" ? "नमस्ते, मैं आपकी एआई साथी हूँ। आज मैं आपकी कैसे मदद कर सकती हूँ?" : `Hello, I’m ${avatar.name}, your AI conversation partner. Let’s talk in ${language}.`)}><Volume2 size={16} /> Preview voice</button></div><p className="nkai-note">Gender labels are estimated from voice names where possible; your browser may offer different voices. This setting selects speech output and does not change the avatar's appearance.</p></div>}
