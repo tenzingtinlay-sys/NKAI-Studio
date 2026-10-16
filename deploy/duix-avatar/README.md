@@ -2,7 +2,7 @@
 
 ## Current status
 
-This is a deployment plan, not a claim that Duix is running. The archive is stored in Git LFS at `vendor/duix-avatar/Duix-Avatar-main.zip`. The upstream project is a Docker-backed offline avatar/video generation stack; NKAI Studio's existing LiveTalking adapter is a separate integration and is not automatically compatible with Duix endpoints.
+This is a research deployment plan, not a claim that Duix is running. The ZIP has now been extracted into [`vendor/duix-avatar/source/Duix-Avatar-main`](../../vendor/duix-avatar/source/Duix-Avatar-main), and the original archive remains in Git LFS at `vendor/duix-avatar/Duix-Avatar-main.zip`. The extracted upstream project is a standalone Electron/Vue desktop application plus a Docker-backed offline avatar/video-generation stack; it is not a React component that can simply be imported into the NKAI web Studio. NKAI Studio's existing LiveTalking adapter is a separate integration and is not compatible with Duix endpoints.
 
 ## Target architecture
 
@@ -80,7 +80,7 @@ For Colab, use an authenticated HTTPS tunnel only after the backend is running a
 
 ## Licensing and attribution
 
-Keep the upstream licence and required attribution with the research integration. Research intent does not itself waive licence terms. Review the current upstream `LICENSE` before redistribution or wider deployment.
+Keep the upstream licence and required attribution with the research integration. The extracted source retains `LICENSE` and both language versions of the model community licensing agreement, and includes the required `NOTICE` text file. The app UI must prominently display **Built with DUIX.COM** when distributing or making the integration available. Research intent does not waive these terms. This repository's current intended use is research-only/non-commercial; do not deploy commercially or exceed the licence's 1,000 monthly-active-user condition without the required separate commercial grant. Review model, voice, Docker-image, and bundled dependency terms separately.
 
 ## Acceptance checklist
 
@@ -99,3 +99,11 @@ Keep the upstream licence and required attribution with the research integration
 - Upstream repository: https://github.com/duixcom/Duix-Avatar
 - Upstream compose file: https://github.com/duixcom/Duix-Avatar/blob/main/deploy/docker-compose.yml
 - Google Colab FAQ: https://research.google.com/colaboratory/faq.html
+
+
+## Extraction result
+
+- Source directory: `vendor/duix-avatar/source/Duix-Avatar-main`
+- GitHub Actions extraction run: https://github.com/tenzingtinlay-sys/NKAI-Studio/actions/runs/38932831040
+- Extraction workflow result: successful; source was committed to `main`.
+- The source extraction is **not** a successful runtime deployment. The Duix Docker services, GPU models, and NKAI web adapter have not yet been launched or verified.
