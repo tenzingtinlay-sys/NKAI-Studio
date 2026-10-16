@@ -1,4 +1,4 @@
-import { defineEventHandler, getRequestURL, getRouterParam, readBody, setResponseStatus } from "h3";
+import { defineEventHandler, getRequestURL, getRouterParam, readBody, setResponseStatus, type H3Event } from "h3";
 
 const DEFAULT_GATEWAY = "https://nkai-avatar-gateway.tenzingtinlay.workers.dev";
 const WINDOW_MS = 60_000;
@@ -7,7 +7,7 @@ const requests = new Map<string, { count: number; resetAt: number }>();
 
 type ChatTurn = { role: "user" | "assistant"; text: string };
 
-function fail(event: Parameters<Parameters<typeof defineEventHandler>[0]>[0], status: number, error: string) {
+function fail(event: H3Event, status: number, error: string) {
   setResponseStatus(event, status);
   return { error };
 }
