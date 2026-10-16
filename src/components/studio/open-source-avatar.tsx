@@ -262,8 +262,11 @@ export function OpenSourceAvatarPanel() {
       || window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith(speechLanguage.slice(0, 2).toLowerCase()));
     if (voice) utterance.voice = voice;
     const voiceProfile = VOICE_PROFILES.find((profile) => profile.id === voiceProfileId) || VOICE_PROFILES[0];
-    utterance.pitch = voiceProfile.pitch;
-    utterance.rate = (useStudio.getState().vp?.rate || 1) * voiceProfile.rate;
+    // Browser speech APIs expose pitch/rate, not true vocal age or timbre synthesis.
+    const agePitch = perceivedAge === "young-adult" ? 1.04 : perceivedAge === "mature" ? 0.92 : 1;
+    const ageRate = perceivedAge === "mature" ? 0.94 : 1;
+    utterance.pitch = Math.min(2, Math.max(0.5, voiceProfile.pitch * agePitch));
+    utterance.rate = (useStudio.getState().vp?.rate || 1) * voiceProfile.rate * ageRate;
     utterance.onstart = () => setStatus("Speaking · device/browser voice");
     utterance.onend = () => setStatus("Ready · 3D viewer remains active");
     utterance.onerror = () => setStatus("Text response ready · speech could not play");
