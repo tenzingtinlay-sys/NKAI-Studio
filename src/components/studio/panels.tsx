@@ -1862,6 +1862,7 @@ export const PANELS = {
   voice: VoicePanel,
   agents: AgentsPanel,
   live: LivePanel,
+  "liveavatar-cloud": LiveAvatarCloudPanel,
   projects: ProjectsPanel,
   templates: TemplatesPanel,
   scenes: ScenesPanel,
