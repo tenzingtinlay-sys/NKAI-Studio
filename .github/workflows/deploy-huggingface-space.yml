@@ -23,9 +23,8 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
           NKAI_BETTER_AUTH_SECRET: ${{ secrets.NKAI_BETTER_AUTH_SECRET }}
-          NKAI_GROK_AUTH_ISSUER: ${{ secrets.NKAI_GROK_AUTH_ISSUER }}
-          NKAI_GROK_AUTH_CLIENT_ID: ${{ secrets.NKAI_GROK_AUTH_CLIENT_ID }}
-          NKAI_GROK_AUTH_CLIENT_SECRET: ${{ secrets.NKAI_GROK_AUTH_CLIENT_SECRET }}
+          NKAI_GOOGLE_CLIENT_ID: ${{ secrets.NKAI_GOOGLE_CLIENT_ID }}
+          NKAI_GOOGLE_CLIENT_SECRET: ${{ secrets.NKAI_GOOGLE_CLIENT_SECRET }}
           NKAI_DATABASE_URL: ${{ secrets.NKAI_DATABASE_URL }}
           NKAI_AI_WORKER_INTERNAL_URL: ${{ secrets.NKAI_AI_WORKER_INTERNAL_URL }}
           NKAI_AI_WORKER_API_TOKEN: ${{ secrets.NKAI_AI_WORKER_API_TOKEN }}
