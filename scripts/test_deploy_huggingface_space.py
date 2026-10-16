@@ -60,10 +60,28 @@ class DeployHuggingFaceSpaceTests(unittest.TestCase):
         self.assertEqual(mapped["AI_WORKER_API_TOKEN"], env["NKAI_AI_WORKER_API_TOKEN"])
         self.assertNotIn("AI_TTS_INTERNAL_URL", mapped)
 
-    def test_rejects_missing_required_secrets(self):
+    def test_allows_browser_only_deployment_without_worker_secrets(self):
+        env = valid_env()
+        del env["NKAI_AI_WORKER_INTERNAL_URL"]
+        del env["NKAI_AI_WORKER_API_TOKEN"]
+        env["NKAI_BROWSER_ONLY_DEPLOYMENT"] = "true"
+        mapped = build_space_secrets(env, "owner/nkai-studio")
+        self.assertNotIn("AI_WORKER_INTERNAL_URL", mapped)
+        self.assertNotIn("AI_WORKER_API_TOKEN", mapped)
+        self.assertEqual(mapped["BETTER_AUTH_URL"], "https://owner-nkai-studio.hf.space")
+
+    def test_rejects_partial_worker_configuration(self):
         env = valid_env()
         del env["NKAI_AI_WORKER_API_TOKEN"]
-        with self.assertRaisesRegex(ValueError, "NKAI_AI_WORKER_API_TOKEN"):
+        with self.assertRaisesRegex(ValueError, "Configure both NKAI_AI_WORKER_INTERNAL_URL"):
+            build_space_secrets(env, "owner/nkai-studio")
+
+    def test_can_require_worker_instead_of_browser_only(self):
+        env = valid_env()
+        del env["NKAI_AI_WORKER_INTERNAL_URL"]
+        del env["NKAI_AI_WORKER_API_TOKEN"]
+        env["NKAI_BROWSER_ONLY_DEPLOYMENT"] = "false"
+        with self.assertRaisesRegex(ValueError, "No AI worker is configured"):
             build_space_secrets(env, "owner/nkai-studio")
 
     def test_rejects_short_auth_and_worker_secrets(self):
