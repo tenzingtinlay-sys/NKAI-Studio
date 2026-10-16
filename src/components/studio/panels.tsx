@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { OpenSourceAvatarPanel } from "@/components/studio/open-source-avatar";
+import { DuixAvatarCreator } from "@/components/studio/duix-avatar-creator";
 import { REFERENCES } from "@/lib/studio/references";
 import { studioChat, studioDesign, studioHealth, studioImage, studioScript } from "@/lib/studio/ai";
 import { paintArt, pickFile, renderClip, renderScenes, shrinkFile } from "@/lib/studio/media";
@@ -52,7 +53,14 @@ async function say(text: string) {
 }
 
 export function AvatarsPanel() {
-  return <OpenSourceAvatarPanel />;
+  return (
+    <>
+      <div className="mf-canvas">
+        <DuixAvatarCreator />
+      </div>
+      <OpenSourceAvatarPanel />
+    </>
+  );
 }
 
 function studioLocalReply(message: string) {

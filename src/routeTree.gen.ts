@@ -11,6 +11,16 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DeploymentRouteImport } from './routes/deployment'
+import { Route as VisualAiRouteImport } from './routes/visual-ai'
+import { Route as AiGatewayRouteImport } from './routes/api.ai-gateway'
+import { Route as AiHealthRouteImport } from './routes/api.ai.health'
+import { Route as AiStreamRouteImport } from './routes/api.ai.stream'
+import { Route as AiTtsRouteImport } from './routes/api.ai.tts'
+import { Route as AiTtsCapabilitiesRouteImport } from './routes/api.ai.tts-capabilities'
+import { Route as DuixCreateAvatarRouteImport } from './routes/api/duix.create-avatar'
+import { Route as LiveTalkingOfferRouteImport } from './routes/api.livetalking.offer'
+import { Route as LiveTalkingHumanRouteImport } from './routes/api.livetalking.human'
+import { Route as LiveTalkingInterruptRouteImport } from './routes/api.livetalking.interrupt'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +32,121 @@ const DeploymentRoute = DeploymentRouteImport.update({
   path: '/deployment',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VisualAiRoute = VisualAiRouteImport.update({
+  id: '/visual-ai',
+  path: '/visual-ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiGatewayRoute = AiGatewayRouteImport.update({
+  id: '/api/ai-gateway',
+  path: '/api/ai-gateway',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiHealthRoute = AiHealthRouteImport.update({
+  id: '/api/ai/health',
+  path: '/api/ai/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiStreamRoute = AiStreamRouteImport.update({
+  id: '/api/ai/stream',
+  path: '/api/ai/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiTtsRoute = AiTtsRouteImport.update({
+  id: '/api/ai/tts',
+  path: '/api/ai/tts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiTtsCapabilitiesRoute = AiTtsCapabilitiesRouteImport.update({
+  id: '/api/ai/tts-capabilities',
+  path: '/api/ai/tts-capabilities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DuixCreateAvatarRoute = DuixCreateAvatarRouteImport.update({
+  id: '/api/duix/create-avatar',
+  path: '/api/duix/create-avatar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveTalkingOfferRoute = LiveTalkingOfferRouteImport.update({
+  id: '/api/livetalking/offer',
+  path: '/api/livetalking/offer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveTalkingHumanRoute = LiveTalkingHumanRouteImport.update({
+  id: '/api/livetalking/human',
+  path: '/api/livetalking/human',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveTalkingInterruptRoute = LiveTalkingInterruptRouteImport.update({
+  id: '/api/livetalking/interrupt',
+  path: '/api/livetalking/interrupt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/visual-ai': typeof VisualAiRoute
+  '/api/ai-gateway': typeof AiGatewayRoute
+  '/api/ai/health': typeof AiHealthRoute
+  '/api/ai/stream': typeof AiStreamRoute
+  '/api/ai/tts': typeof AiTtsRoute
+  '/api/ai/tts-capabilities': typeof AiTtsCapabilitiesRoute
+  '/api/duix/create-avatar': typeof DuixCreateAvatarRoute
+  '/api/livetalking/offer': typeof LiveTalkingOfferRoute
+  '/api/livetalking/human': typeof LiveTalkingHumanRoute
+  '/api/livetalking/interrupt': typeof LiveTalkingInterruptRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/visual-ai': typeof VisualAiRoute
+  '/api/ai-gateway': typeof AiGatewayRoute
+  '/api/ai/health': typeof AiHealthRoute
+  '/api/ai/stream': typeof AiStreamRoute
+  '/api/ai/tts': typeof AiTtsRoute
+  '/api/ai/tts-capabilities': typeof AiTtsCapabilitiesRoute
+  '/api/duix/create-avatar': typeof DuixCreateAvatarRoute
+  '/api/livetalking/offer': typeof LiveTalkingOfferRoute
+  '/api/livetalking/human': typeof LiveTalkingHumanRoute
+  '/api/livetalking/interrupt': typeof LiveTalkingInterruptRoute 
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/visual-ai': typeof VisualAiRoute
+  '/api/ai-gateway': typeof AiGatewayRoute
+  '/api/ai/health': typeof AiHealthRoute
+  '/api/ai/stream': typeof AiStreamRoute
+  '/api/ai/tts': typeof AiTtsRoute
+  '/api/ai/tts-capabilities': typeof AiTtsCapabilitiesRoute
+  '/api/duix/create-avatar': typeof DuixCreateAvatarRoute
+  '/api/livetalking/offer': typeof LiveTalkingOfferRoute
+  '/api/livetalking/human': typeof LiveTalkingHumanRoute
+  '/api/livetalking/interrupt': typeof LiveTalkingInterruptRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deployment'
+  fullPaths: '/' | '/deployment' | '/visual-ai' | '/api/ai-gateway' | '/api/ai/health' | '/api/ai/stream' | '/api/ai/tts' | '/api/ai/tts-capabilities' | '/api/duix/create-avatar' | '/api/livetalking/offer' | '/api/livetalking/human' | '/api/livetalking/interrupt'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deployment'
-  id: '__root__' | '/' | '/deployment'
+  to: '/' | '/deployment' | '/visual-ai' | '/api/ai-gateway' | '/api/ai/health' | '/api/ai/stream' | '/api/ai/tts' | '/api/ai/tts-capabilities' | '/api/duix/create-avatar' | '/api/livetalking/offer' | '/api/livetalking/human' | '/api/livetalking/interrupt'
+  id: '__root__' | '/' | '/deployment' | '/visual-ai' | '/api/ai-gateway' | '/api/ai/health' | '/api/ai/stream' | '/api/ai/tts' | '/api/ai/tts-capabilities' | '/api/duix/create-avatar' | '/api/livetalking/offer' | '/api/livetalking/human' | '/api/livetalking/interrupt'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeploymentRoute: typeof DeploymentRoute
+  VisualAiRoute: typeof VisualAiRoute
+  AiGatewayRoute: typeof AiGatewayRoute
+  AiHealthRoute: typeof AiHealthRoute
+  AiStreamRoute: typeof AiStreamRoute
+  AiTtsRoute: typeof AiTtsRoute
+  AiTtsCapabilitiesRoute: typeof AiTtsCapabilitiesRoute
+  DuixCreateAvatarRoute: typeof DuixCreateAvatarRoute
+  LiveTalkingOfferRoute: typeof LiveTalkingOfferRoute
+  LiveTalkingHumanRoute: typeof LiveTalkingHumanRoute
+  LiveTalkingInterruptRoute: typeof LiveTalkingInterruptRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +165,92 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeploymentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/visual-ai': {
+      id: '/visual-ai'
+      path: '/visual-ai'
+      fullPath: '/visual-ai'
+      preLoaderRoute: typeof VisualAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai-gateway': {
+      id: '/api/ai-gateway'
+      path: '/api/ai-gateway'
+      fullPath: '/api/ai-gateway'
+      preLoaderRoute: typeof AiGatewayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/health': {
+      id: '/api/ai/health'
+      path: '/api/ai/health'
+      fullPath: '/api/ai/health'
+      preLoaderRoute: typeof AiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/stream': {
+      id: '/api/ai/stream'
+      path: '/api/ai/stream'
+      fullPath: '/api/ai/stream'
+      preLoaderRoute: typeof AiStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/tts': {
+      id: '/api/ai/tts'
+      path: '/api/ai/tts'
+      fullPath: '/api/ai/tts'
+      preLoaderRoute: typeof AiTtsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/tts-capabilities': {
+      id: '/api/ai/tts-capabilities'
+      path: '/api/ai/tts-capabilities'
+      fullPath: '/api/ai/tts-capabilities'
+      preLoaderRoute: typeof AiTtsCapabilitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/duix/create-avatar': {
+      id: '/api/duix/create-avatar'
+      path: '/api/duix/create-avatar'
+      fullPath: '/api/duix/create-avatar'
+      preLoaderRoute: typeof DuixCreateAvatarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/livetalking/offer': {
+      id: '/api/livetalking/offer'
+      path: '/api/livetalking/offer'
+      fullPath: '/api/livetalking/offer'
+      preLoaderRoute: typeof LiveTalkingOfferRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/livetalking/human': {
+      id: '/api/livetalking/human'
+      path: '/api/livetalking/human'
+      fullPath: '/api/livetalking/human'
+      preLoaderRoute: typeof LiveTalkingHumanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/livetalking/interrupt': {
+      id: '/api/livetalking/interrupt'
+      path: '/api/livetalking/interrupt'
+      fullPath: '/api/livetalking/interrupt'
+      preLoaderRoute: typeof LiveTalkingInterruptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeploymentRoute: DeploymentRoute,
+  VisualAiRoute: VisualAiRoute,
+  AiGatewayRoute: AiGatewayRoute,
+  AiHealthRoute: AiHealthRoute,
+  AiStreamRoute: AiStreamRoute,
+  AiTtsRoute: AiTtsRoute,
+  AiTtsCapabilitiesRoute: AiTtsCapabilitiesRoute,
+  DuixCreateAvatarRoute: DuixCreateAvatarRoute,
+  LiveTalkingOfferRoute: LiveTalkingOfferRoute,
+  LiveTalkingHumanRoute: LiveTalkingHumanRoute,
+  LiveTalkingInterruptRoute: LiveTalkingInterruptRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

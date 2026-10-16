@@ -60,3 +60,18 @@ This is worker code, not a promise that any notebook tier permits or will keep a
 ## Hardware
 
 A T4-class GPU is a reasonable starting point for this 1.5B model in FP16. CPU fallback is supported for testing but can be slow. Initial model download and load take time.
+
+
+## NKAI common gateway and provider switching
+
+The Studio now has a same-origin gateway. Configure the Studio server (not the browser) with:
+
+- `AI_WORKER_INTERNAL_URL=https://your-worker-host`
+- `AI_WORKER_API_TOKEN=<same value as WORKER_API_TOKEN on the worker>`
+- Optional: `AI_WORKER_PLATFORM=lightning-ai`
+
+For multiple workers, use `AI_GPU_WORKERS` as a JSON array of `id`, `platform`, `baseUrl`, `token`, and `priority` entries. Lower priority numbers are preferred. See [AI GPU Gateway](../docs/AI_GPU_GATEWAY.md).
+
+The avatar panel calls the Studio's same-origin endpoints. It does not receive the worker URL or token. When no GPU worker is healthy, the panel attempts browser-local model inference and device speech. This is graceful fallback, not a guarantee of identical performance.
+
+The gateway probes health and routes new requests to a ready worker. It cannot transfer an active WebRTC session to another GPU. Before exposing inference to the public internet, require a verified user session and add durable per-user rate limits. Do not assume origin checks alone prevent scripted abuse.
