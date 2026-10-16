@@ -24,7 +24,7 @@ jobs:
           ref: main
           persist-credentials: true
 
-      - name: Validate and extract source archive
+      - name: Validate archive, then extract against latest main
         shell: bash
         run: |
           set -euo pipefail
@@ -48,6 +48,12 @@ jobs:
           test -f "$source_dir/app.py" || { echo "Archive did not contain app.py at its source root"; find "$RUNNER_TEMP/livetalking-unpack" -maxdepth 3 -name app.py -print; exit 1; }
           test -f "$source_dir/requirements.txt" || { echo "Archive did not contain requirements.txt"; exit 1; }
           test -f "$source_dir/LICENSE" || test -f "$source_dir/LICENSE.txt" || echo "Warning: no top-level LICENSE file detected; verify upstream notices."
+
+          # Other commits can land on main while the extraction job is running.
+          # Refresh the checkout before writing so we don't push a stale parent SHA.
+          git fetch origin main
+          git reset --hard origin/main
+          test -f "$archive" || { echo "Archive is no longer present on latest main"; exit 1; }
           mkdir -p "$destination"
           cp -a "$source_dir"/. "$destination"/
           rm -f "$archive"
