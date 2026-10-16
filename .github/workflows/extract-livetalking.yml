@@ -1,0 +1,59 @@
+name: Extract LiveTalking source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/extract-livetalking.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extract-livetalking-main
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Validate and extract source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="LiveTalking-main.zip"
+          destination="vendor/livetalking/source/LiveTalking-main"
+          test -f "$archive" || { echo "Missing $archive"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/livetalking-unpack"
+          # Reject absolute paths and traversal entries before extracting.
+          while IFS= read -r entry; do
+            case "$entry" in
+              /*|../*|*/../*|*/..) echo "Unsafe ZIP path: $entry"; exit 1 ;;
+            esac
+          done < <(unzip -Z1 "$archive")
+          unzip -q "$archive" -d "$RUNNER_TEMP/livetalking-unpack"
+          mapfile -t roots < <(find "$RUNNER_TEMP/livetalking-unpack" -mindepth 1 -maxdepth 1)
+          if [[ "${#roots[@]}" -eq 1 && -d "${roots[0]}" ]]; then
+            source_dir="${roots[0]}"
+          else
+            source_dir="$RUNNER_TEMP/livetalking-unpack"
+          fi
+          test -f "$source_dir/app.py" || { echo "Archive did not contain app.py at its source root"; find "$RUNNER_TEMP/livetalking-unpack" -maxdepth 3 -name app.py -print; exit 1; }
+          test -f "$source_dir/requirements.txt" || { echo "Archive did not contain requirements.txt"; exit 1; }
+          test -f "$source_dir/LICENSE" || test -f "$source_dir/LICENSE.txt" || echo "Warning: no top-level LICENSE file detected; verify upstream notices."
+          mkdir -p "$destination"
+          cp -a "$source_dir"/. "$destination"/
+          rm -f "$archive"
+          git add "$destination" "$archive"
+          git diff --cached --quiet && { echo "No extracted source changes to commit."; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Extract LiveTalking source into vendor workspace"
+          git push origin HEAD:main
