@@ -882,3 +882,72 @@
     transition: none;
   }
 }
+
+/* Consistent, visible scrollbars across every Studio page and scrollable panel.
+   Keep both axes available so wide content can be reached instead of clipped. */
+html {
+  overflow-x: auto;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: #59636d #111418;
+}
+
+body {
+  overflow-x: auto;
+  scrollbar-width: auto;
+  scrollbar-color: #59636d #111418;
+}
+
+* {
+  scrollbar-width: auto;
+  scrollbar-color: #59636d #111418;
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #111418;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #59636d;
+  border: 3px solid #111418;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #82909d;
+}
+
+*::-webkit-scrollbar-corner {
+  background: #111418;
+}
+
+/* The main workspace, side navigation, inspector and timeline each scroll
+   independently when their own content exceeds the available space. */
+.mf-canvas,
+.mf-side,
+.mf-right,
+.mf-tracks,
+.mf-msgs {
+  scrollbar-width: auto;
+  scrollbar-color: #59636d #111418;
+}
+
+@media (max-width: 899px) {
+  .mf {
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .mf-canvas,
+  .mf-timeline {
+    min-width: 0;
+    overflow-x: auto;
+  }
+}
+
