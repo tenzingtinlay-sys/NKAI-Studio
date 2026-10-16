@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { StudioApp } from "@/components/studio/app";
+import { AvatarLandingPage } from "@/components/studio/avatar-landing";
 
 export const Route = createFileRoute("/")({
-  component: StudioApp,
+  component: AvatarLandingPage,
 });
