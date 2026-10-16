@@ -1,36 +1,85 @@
-
-name: Extract ZIP in Repository
+name: Extract Duix Avatar ZIP into repository
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "vendor/duix-avatar/Duix-Avatar-main.zip"
+      - ".github/workflows/unzip.yml"
 
 permissions:
   contents: write
+
+concurrency:
+  group: extract-duix-avatar-main
+  cancel-in-progress: false
 
 jobs:
   extract:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout main and fetch Git LFS objects
         uses: actions/checkout@v4
+        with:
+          ref: main
+          lfs: true
+          fetch-depth: 0
 
-      - name: Extract ZIP
+      - name: Install ZIP and Git LFS tools
         run: |
-          ZIP_FILE="$(find . -maxdepth 2 -type f -name 'grok-workspace.zip' | head -n 1)"
-          if [ -z "$ZIP_FILE" ]; then
-            echo "grok-workspace.zip was not found in the repository."
+          sudo apt-get update
+          sudo apt-get install -y unzip git-lfs
+          git lfs install --local
+
+      - name: Verify and extract Duix archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP_FILE="vendor/duix-avatar/Duix-Avatar-main.zip"
+          DEST="vendor/duix-avatar/source"
+
+          test -f "$ZIP_FILE" || { echo "::error::Duix ZIP is missing."; exit 1; }
+          if head -c 200 "$ZIP_FILE" | grep -q '^version https://git-lfs.github.com/spec/v1'; then
+            echo "::error::The ZIP is still an LFS pointer. Git LFS did not download the archive object."
             exit 1
           fi
-          mkdir -p extracted
-          unzip -o "$ZIP_FILE" -d extracted
-          rm -f "$ZIP_FILE"
-          cp -a extracted/. .
-          rm -rf extracted
+          unzip -t "$ZIP_FILE"
+          rm -rf "$DEST"
+          mkdir -p "$DEST"
+          unzip -q "$ZIP_FILE" -d "$DEST"
 
-      - name: Commit extracted files
+          test -n "$(find "$DEST" -type f -print -quit)" || {
+            echo "::error::The archive extracted no files."
+            exit 1
+          }
+
+          echo "Extracted file count: $(find "$DEST" -type f | wc -l)"
+          echo "Licence/notice files found:"
+          find "$DEST" -type f \( -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'NOTICE*' -o -iname 'COPYING*' \) -print || true
+
+      - name: Track extracted large assets with Git LFS
+        shell: bash
         run: |
+          set -euo pipefail
+          while IFS= read -r -d '' file; do
+            relative="${file#./}"
+            git lfs track "$relative"
+          done < <(find vendor/duix-avatar/source -type f -size +90M -print0)
+          git add .gitattributes
+
+      - name: Commit and push extracted source to main
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Extract grok-workspace ZIP" || echo "No changes to commit"
-          git push
+          git add vendor/duix-avatar/source .gitattributes
+          if git diff --cached --quiet; then
+            echo "No extraction changes to commit."
+            exit 0
+          fi
+          git commit -m "Extract Duix Avatar source into repository"
+          git lfs push origin main
+          git push origin HEAD:main
