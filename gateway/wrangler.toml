@@ -4,7 +4,7 @@ compatibility_date = "2026-10-16"
 
 [[kv_namespaces]]
 binding = "BACKENDS"
-id = "PASTE_THE_ID_FROM_wrangler_kv_namespace_create"
+id = "648fd065c02a401ebc8f3c7596183f6b"
 
 [vars]
 # Comma-separated exact frontend origins, e.g. https://your-site.pages.dev
