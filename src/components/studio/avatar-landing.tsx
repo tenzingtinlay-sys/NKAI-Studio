@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Camera, CameraOff, Check, ChevronDown, CircleHelp, Globe2, Languages, Mic, MicOff, MonitorPlay, Phone, Radio, Search, Send, Settings2, Sparkles, Volume2, VolumeX, Video, VideoOff, WandSparkles } from "lucide-react";
 import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
+import { LiveAvatarCloudPanel } from "@/components/studio/liveavatar-cloud-panel";
 
 type Avatar = { id: string; name: string; role: string; gender: "Woman" | "Man" | "Androgynous"; languages: string[]; tone: string; accent: string };
 const AVATARS: Avatar[] = [
@@ -20,7 +21,7 @@ export function AvatarLandingPage() {
   const [avatarId, setAvatarId] = useState("maya");
   const [language, setLanguage] = useState("English (India)");
   const [gender, setGender] = useState("All");
-  const [tab, setTab] = useState<"call" | "voices" | "languages" | "gallery">("call");
+  const [tab, setTab] = useState<"call" | "voices" | "languages" | "gallery" | "liveavatar">("call");
   const [query, setQuery] = useState("");
   const [text, setText] = useState("");
   const [messages, setMessages] = useState<Message[]>([{ role: "avatar", text: "Hi, I’m Maya. Choose a language, say hello, or ask me to help you practise a conversation.", time: stamp() }]);
@@ -207,6 +208,7 @@ export function AvatarLandingPage() {
           <button className={tab === "voices" ? "selected" : ""} onClick={() => setTab("voices")}>Voices</button>
           <button className={tab === "languages" ? "selected" : ""} onClick={() => setTab("languages")}>Languages</button>
           <button className={tab === "gallery" ? "selected" : ""} onClick={() => setTab("gallery")}>Avatar gallery</button>
+          <button className={tab === "liveavatar" ? "selected" : ""} onClick={() => setTab("liveavatar")}>HeyGen LiveAvatar</button>
         </nav>
         <div className="nkai-nav-actions"><a className="nkai-secondary-link" href="/features">Features</a><a className="nkai-secondary-link" href="/help">Help</a><a className="nkai-studio-link" href="/studio">Open full studio <span>↗</span></a></div>
       </header>
@@ -229,14 +231,17 @@ export function AvatarLandingPage() {
         </section>
 
         <section className="nkai-workspace" id="nkai-call-stage">
-          <div className="nkai-section-heading"><div><span className="nkai-eyebrow">YOUR PERSONAL AVATAR ROOM</span><h2>{tab === "call" ? "The conversation room" : tab === "voices" ? "Find your voice" : tab === "languages" ? "Speak your language" : "Meet the avatars"}</h2><p>{tab === "call" ? "A familiar side-by-side call layout, with your camera and your AI together." : tab === "voices" ? "Choose a voice profile and preview it before you start." : tab === "languages" ? "Switch the language for voice playback and speech recognition." : "Browse people by presentation style and choose who you want to talk to."}</p></div><div className="nkai-live-badge"><span className="nkai-status-dot" /> LOCAL PREVIEW</div></div>
+          <div className="nkai-section-heading"><div><span className="nkai-eyebrow">YOUR PERSONAL AVATAR ROOM</span><h2>{tab === "call" ? "The conversation room" : tab === "voices" ? "Find your voice" : tab === "languages" ? "Speak your language" : tab === "liveavatar" ? "HeyGen LiveAvatar" : "Meet the avatars"}</h2><p>{tab === "call" ? "A familiar side-by-side call layout, with your camera and your AI together." : tab === "voices" ? "Choose a voice profile and preview it before you start." : tab === "languages" ? "Switch the language for voice playback and speech recognition." : tab === "liveavatar" ? "Choose a provider avatar, voice, tone and language for a real-time hosted video session." : "Browse people by presentation style and choose who you want to talk to."}</p></div><div className="nkai-live-badge"><span className="nkai-status-dot" /> LOCAL PREVIEW</div></div>
 
           <div className="nkai-tab-strip" role="tablist" aria-label="Avatar workspace">
             <button role="tab" aria-selected={tab === "call"} className={tab === "call" ? "active" : ""} onClick={() => setTab("call")}><Video size={15} /> Live call</button>
             <button role="tab" aria-selected={tab === "voices"} className={tab === "voices" ? "active" : ""} onClick={() => setTab("voices")}><AudioLines size={15} /> Voice lab</button>
             <button role="tab" aria-selected={tab === "languages"} className={tab === "languages" ? "active" : ""} onClick={() => setTab("languages")}><Languages size={15} /> Languages</button>
             <button role="tab" aria-selected={tab === "gallery"} className={tab === "gallery" ? "active" : ""} onClick={() => setTab("gallery")}><Sparkles size={15} /> Avatar gallery</button>
+            <button role="tab" aria-selected={tab === "liveavatar"} className={tab === "liveavatar" ? "active" : ""} onClick={() => setTab("liveavatar")}><Video size={15} /> HeyGen LiveAvatar</button>
           </div>
+
+          {tab === "liveavatar" && <LiveAvatarCloudPanel />}
 
           {tab === "call" && <div className="nkai-call-layout">
             <section className="nkai-call-column">
