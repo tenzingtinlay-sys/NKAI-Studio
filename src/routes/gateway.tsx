@@ -91,7 +91,7 @@ function CloudflareGatewayPage() {
           <label htmlFor="gateway-url" style={{ display: "block", color: "#c7cfdb", fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Cloudflare Worker URL</label>
           <input id="gateway-url" value={gatewayUrl} onChange={(event) => setGatewayUrl(event.target.value)} spellCheck={false} style={{ width: "100%", boxSizing: "border-box", border: "1px solid #3a4353", background: "#080b10", color: "#f5f7fa", borderRadius: 10, padding: "13px 14px", font: "inherit" }} />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
-            <button onClick={() => void runHealthCheck()} disabled={result.state === "checking"} style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid #5b8df7", background: "#2458b8", color: "#fff", cursor: result.state === "checking" ? "wait" : "pointer", fontWeight: 800 }}>
+            <button aria-label="Run Cloudflare gateway health check" onClick={() => void runHealthCheck()} disabled={result.state === "checking"} style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid #5b8df7", background: "#2458b8", color: "#fff", cursor: result.state === "checking" ? "wait" : "pointer", fontWeight: 800 }}>
               {result.state === "checking" ? "Checking…" : "Run gateway health check"}
             </button>
             <a href={WORKFLOW_URL} target="_blank" rel="noreferrer" style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid #3a4353", color: "#fff", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>Open deployment workflow ↗</a>
