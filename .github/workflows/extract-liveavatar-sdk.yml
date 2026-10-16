@@ -1,0 +1,69 @@
+name: Extract LiveAvatar Web SDK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/extract-liveavatar-sdk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extract-liveavatar-sdk-main
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Validate archive and extract SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="liveavatar-web-sdk-master.zip"
+          destination="vendor/liveavatar-web-sdk"
+          test -f "$archive" || { echo "Missing $archive on main"; exit 1; }
+
+          mkdir -p "$RUNNER_TEMP/liveavatar-unpack"
+          while IFS= read -r entry; do
+            case "$entry" in
+              /*|../*|*/../*|*/..) echo "Unsafe ZIP path: $entry"; exit 1 ;;
+            esac
+          done < <(unzip -Z1 "$archive")
+
+          unzip -q "$archive" -d "$RUNNER_TEMP/liveavatar-unpack"
+          mapfile -t roots < <(find "$RUNNER_TEMP/liveavatar-unpack" -mindepth 1 -maxdepth 1)
+          if [[ "${#roots[@]}" -eq 1 && -d "${roots[0]}" ]]; then
+            source_dir="${roots[0]}"
+          else
+            source_dir="$RUNNER_TEMP/liveavatar-unpack"
+          fi
+
+          test -f "$source_dir/package.json" || { echo "Archive is missing its root package.json"; exit 1; }
+          test -d "$source_dir/packages" || { echo "Archive is missing packages/"; exit 1; }
+          test -d "$source_dir/apps" || { echo "Archive is missing apps/"; exit 1; }
+          test -f "$source_dir/README.md" || { echo "Archive is missing README.md"; exit 1; }
+
+          # Refresh before committing so the extraction is based on the latest main.
+          git fetch origin main
+          git reset --hard origin/main
+          test -f "$archive" || { echo "Archive is no longer present on latest main"; exit 1; }
+
+          mkdir -p "$destination"
+          cp -a "$source_dir"/. "$destination"/
+          rm -f "$archive"
+
+          git add "$destination" "$archive"
+          git diff --cached --quiet && { echo "No extracted source changes to commit."; exit 0; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Extract LiveAvatar Web SDK into vendor workspace"
+          git push origin HEAD:main
