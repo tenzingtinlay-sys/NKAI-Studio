@@ -37,11 +37,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/gateway': typeof GatewayRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/gateway': typeof GatewayRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
