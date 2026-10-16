@@ -41,6 +41,11 @@ jobs:
         run: |
           WORKER_API_TOKEN=ci-placeholder CORS_ORIGINS=http://localhost:8080 docker compose -f docker-compose.ai-workers.yml config --quiet
 
+      - name: Validate Duix GPU Docker stack configuration
+        run: |
+          bash -n scripts/run-duix-docker.sh
+          docker compose --env-file deploy/duix-avatar/.env.example -f deploy/duix-avatar/docker-compose.yml config --quiet
+
       - name: Validate JSON metadata and deployment config
         run: |
           node -e "JSON.parse(require('node:fs').readFileSync('src/data/avatar-catalog.json', 'utf8'))"
