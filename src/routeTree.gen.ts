@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DeploymentRouteImport } from './routes/deployment'
+import { Route as VisualAiRouteImport } from './routes/visual-ai'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const DeploymentRoute = DeploymentRouteImport.update({
   path: '/deployment',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VisualAiRoute = VisualAiRouteImport.update({
+  id: '/visual-ai',
+  path: '/visual-ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/visual-ai': typeof VisualAiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/visual-ai': typeof VisualAiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/visual-ai': typeof VisualAiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deployment'
+  fullPaths: '/' | '/deployment' | '/visual-ai'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deployment'
-  id: '__root__' | '/' | '/deployment'
+  to: '/' | '/deployment' | '/visual-ai'
+  id: '__root__' | '/' | '/deployment' | '/visual-ai'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeploymentRoute: typeof DeploymentRoute
+  VisualAiRoute: typeof VisualAiRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeploymentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/visual-ai': {
+      id: '/visual-ai'
+      path: '/visual-ai'
+      fullPath: '/visual-ai'
+      preLoaderRoute: typeof VisualAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeploymentRoute: DeploymentRoute,
+  VisualAiRoute: VisualAiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
