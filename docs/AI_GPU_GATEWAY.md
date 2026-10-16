@@ -22,7 +22,7 @@ JSON request examples:
 
 The gateway strips `action` before forwarding the body and uses a server-side bearer token for the worker.
 
-Supported actions are `chat`, `tts`, `capabilities`, `health`, `live-offer`, `live-human`, and `live-interrupt`. A worker must implement the corresponding endpoint. The LiveTalking action paths are an adapter contract, not proof that an upstream LiveTalking server exposes those exact paths natively.
+Supported generic gateway actions are `chat`, `tts`, `capabilities`, and `health`. LiveTalking uses a separate adapter configured with `LIVETALKING_INTERNAL_URL`, because it is a distinct WebRTC service rather than a chat-worker endpoint.
 
 ## Multi-provider routing
 
