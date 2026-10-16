@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const body = await readBody<{ mode?: unknown; avatar_id?: unknown; voice_id?: unknown; language?: unknown; tone?: unknown }>(event).catch(() => ({}));
+    const body = await readBody<{ mode?: unknown; avatar_id?: unknown; voice_id?: unknown; language?: unknown; tone?: unknown }>(event).catch(() => ({} as { mode?: unknown; avatar_id?: unknown; voice_id?: unknown; language?: unknown; tone?: unknown }));
     if (body?.mode !== "FULL") {
       setResponseStatus(event, 400);
       return { error: "Only FULL LiveAvatar sessions are supported." };
