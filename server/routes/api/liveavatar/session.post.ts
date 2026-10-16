@@ -87,6 +87,13 @@ export default defineEventHandler(async (event) => {
       return { error: "That avatar is unavailable to this LiveAvatar account. Reload the catalogue and choose another." };
     }
 
+    const sandbox = process.env.LIVEAVATAR_IS_SANDBOX !== "false";
+    const sandboxAvatarId = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a";
+    if (sandbox && avatarId !== sandboxAvatarId) {
+      setResponseStatus(event, 400);
+      return { error: "LiveAvatar sandbox mode only supports the Wayne test avatar. To use your selected avatar from the full catalogue, set LIVEAVATAR_IS_SANDBOX=false on the server; production sessions may consume account credits." };
+    }
+
     const contextsResponse = await fetch(API_URL + "/v1/contexts?page_size=100", {
       headers: { "X-API-KEY": apiKey, Accept: "application/json" },
       signal: AbortSignal.timeout(12000),
@@ -123,7 +130,7 @@ export default defineEventHandler(async (event) => {
           language,
           context_id: contextId,
         },
-        is_sandbox: process.env.LIVEAVATAR_IS_SANDBOX !== "false",
+        is_sandbox: sandbox,
       }),
       signal: AbortSignal.timeout(15000),
     });
@@ -133,7 +140,7 @@ export default defineEventHandler(async (event) => {
       setResponseStatus(event, response.ok ? 502 : response.status);
       return { error: payload?.error || payload?.message || "LiveAvatar did not return a session token." };
     }
-    return { session_token: token };
+    return { session_token: token, sandbox };
   } catch (cause) {
     setResponseStatus(event, 502);
     return { error: cause instanceof Error ? cause.message : "Could not reach the LiveAvatar API." };
