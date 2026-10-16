@@ -55,7 +55,7 @@ def load_tts():
             if tts_engine is None:
                 # Import from the model's downloaded repository snapshot.
                 from huggingface_hub import snapshot_download
-                model_path = snapshot_download(repo_id=MODEL_ID)
+                model_path = snapshot_download(repo_id=MODEL_ID, ignore_patterns=[".gitattributes"])
                 import sys
                 if model_path not in sys.path:
                     sys.path.insert(0, model_path)
