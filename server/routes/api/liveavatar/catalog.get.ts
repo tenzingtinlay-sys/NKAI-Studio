@@ -18,7 +18,7 @@ async function getPage(url: URL, key: string): Promise<Page> {
 }
 
 async function collect(path: string, key: string): Promise<Item[]> {
-  const first = new URL(API + path);
+  const first = new URL(API + "/" + path.replace(/^\/+/, ""));
   first.searchParams.set("page_size", "100");
   const output: Item[] = [];
   const seenPages = new Set<string>();
