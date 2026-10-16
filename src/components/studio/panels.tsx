@@ -576,7 +576,53 @@ export function VoicePanel() {
         </div>
         <div className="mf-card">
           <b>Saved voices</b>
-          {voices.length === 0 && <small>None yet.</small>}
+          <div className="mf-bar" style={{ marginTop: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            <button
+              className="mf-ghost"
+              type="button"
+              onClick={() => {
+                const payload = {
+                  format: "nkai-voice-backup",
+                  version: 1,
+                  exportedAt: new Date().toISOString(),
+                  selectedVoice: useStudio.getState().vp,
+                  voices: useStudio.getState().voices,
+                };
+                const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "nkai-voice-backup.json";
+                a.click();
+                window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+              }}
+            >
+              Export voice backup
+            </button>
+            <button
+              className="mf-ghost"
+              type="button"
+              onClick={async () => {
+                const f = await pickFile(".json,application/json");
+                if (!f) return;
+                try {
+                  const data = JSON.parse(await f.text()) as { format?: string; voices?: Array<{ name: string; voice: string; rate: number; pitch: number; neural?: string }>; selectedVoice?: { name: string; voice: string; rate: number; pitch: number; neural?: string } | null };
+                  if (data.format !== "nkai-voice-backup" || !Array.isArray(data.voices)) throw new Error("bad");
+                  const valid = data.voices.filter((v) => v && typeof v.name === "string" && typeof v.voice === "string" && Number.isFinite(v.rate) && Number.isFinite(v.pitch));
+                  useStudio.setState({
+                    voices: [...useStudio.getState().voices, ...valid],
+                    ...(data.selectedVoice && typeof data.selectedVoice.name === "string" ? { vp: data.selectedVoice } : {}),
+                  });
+                  useStudio.getState().persist();
+                  useStudio.getState().flash(`Imported ${valid.length} saved voice preset(s)`);
+                } catch {
+                  useStudio.getState().flash("Not a valid NKAI voice backup JSON");
+                }
+              }}
+            >
+              Import voice backup
+            </button>
+          </div>
+          {voices.length === 0 && <small>None yet. Save a preset first, then export a backup.</small>}
           {voices.map((v, i) => (
             <div className="mf-bar" key={`${v.name}-${i}`}>
               <span style={{ flex: 1 }}>
@@ -644,6 +690,9 @@ export function VoicePanel() {
           </div>
           {sample && (
             <>
+              <div className="mf-bar" style={{ marginTop: 8 }}>
+                <a className="mf-ghost" href={sample} download="nkai-recorded-voice-sample.webm">Download recorded voice sample</a>
+              </div>
               <audio controls src={sample} style={{ width: "100%" }} />
               <div className="mf-chips">
                 {[
