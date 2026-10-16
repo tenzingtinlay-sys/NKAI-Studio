@@ -513,7 +513,42 @@ export function pickFile(accept: string) {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = accept;
-    input.onchange = () => resolve(input.files?.[0] ?? null);
-    input.click();
+    input.tabIndex = -1;
+    input.setAttribute("aria-hidden", "true");
+    input.style.position = "fixed";
+    input.style.left = "-10000px";
+    document.body.appendChild(input);
+
+    let settled = false;
+    let focusTimer: number | undefined;
+
+    const finish = (file: File | null) => {
+      if (settled) return;
+      settled = true;
+      if (focusTimer !== undefined) window.clearTimeout(focusTimer);
+      window.removeEventListener("focus", onWindowFocus);
+      input.removeEventListener("change", onChange);
+      input.removeEventListener("cancel", onCancel);
+      input.remove();
+      resolve(file);
+    };
+    const onChange = () => finish(input.files?.[0] ?? null);
+    const onCancel = () => finish(null);
+    const onWindowFocus = () => {
+      // Some browsers do not dispatch the input "cancel" event. Wait briefly
+      // for "change" before treating the dialog closing as a cancellation.
+      focusTimer = window.setTimeout(() => {
+        if (!input.files?.length) finish(null);
+      }, 500);
+    };
+
+    input.addEventListener("change", onChange);
+    input.addEventListener("cancel", onCancel);
+    window.addEventListener("focus", onWindowFocus, { once: true });
+    try {
+      input.click();
+    } catch {
+      finish(null);
+    }
   });
 }
