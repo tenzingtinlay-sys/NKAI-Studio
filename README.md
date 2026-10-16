@@ -28,6 +28,10 @@ NKAI Studio includes an open-source avatar chat panel with local-first AI option
 
 The core studio must not depend on paid inference APIs, prepaid API credits, or a paid API billing balance. Use browser-local inference or open-weight models on the selected permitted compute platform. Do not add a paid API as a silent fallback. If all eligible free workers are unavailable or over quota, explain that service is temporarily unavailable and allow retry/provider failover. Free platforms can still impose compute, session, queue, storage and usage limits; this project does not claim unlimited free GPU uptime. Hosting tokens such as `HF_TOKEN` are deployment credentials, not paid inference credits, and must remain private.
 
+## Optional Indic-Speak multilingual voice worker
+
+The app now has a separate worker adapter for the Hindi voice model successfully tested in Colab: [Indic-Speak worker setup](gpu-worker/indic-speak/README.md). It is isolated from the existing chat/MMS worker because it requires Transformers v5, while the existing worker pins Transformers below v5. The new adapter is code only; the several-gigabyte model still must be downloaded on an authorized GPU host, and the host must be configured in the app's server-side TTS gateway before the app can use it. The model is gated, so set a private Hugging Face token after accepting its current access conditions. Confirm the current model licence and access terms before public or commercial use. Indic-Speak covers English and Indian languages; it does not replace all global-language voice providers. Full streaming audio and live GPU deployment are not yet verified.
+
 ## Optional LiveTalking gateway
 
 For self-hosted real-time WebRTC avatar streaming, start with [the ordered live-avatar guide](LIVE-AVATAR.md) and [Cloudflare gateway setup](gateway/README.md). This path is optional: browser-local avatar/chat remains available without a GPU host. Live video is not considered working until a real browser WebRTC session receives audio/video from a running LiveTalking host.
@@ -59,7 +63,6 @@ npm run build
 - Run `npm run assets:rocketbox` to download Microsoft's MIT-licensed Rocketbox collection into `downloads/third-party/Microsoft-Rocketbox/`. It contains FBX assets rather than browser-ready GLB files; use the [Blender conversion guide](docs/ROCKETBOX_CONVERSION.md) to export one character or run `npm run assets:rocketbox:all` to batch-convert the downloaded library into an ignored local GLB cache and inspect per-character morph-target reports. The collection is ignored by Git so large binaries are not committed.
 - Review the [AI avatar ecosystem and build blueprint](docs/AI_AVATAR_ECOSYSTEM.md), [product parity matrix](docs/PRODUCT_PARITY_MATRIX.md), and [avatar/voice registry](src/data/avatar-catalog.json) before bundling or redistributing assets.
 - Optional multilingual voice cloning worker: [OpenVoice V2 setup](gpu-worker/OPENVOICE_SETUP.md)
-- In-app real-time streaming workspace: [LiveTalking integration and deployment guide](docs/LIVETALKING_AND_TALKINGAVATAR.md). Configure the private `LIVETALKING_INTERNAL_URL` server variable; the UI contains no outbound launch links. A compatible GPU service and model assets are still required., [container deployment](gpu-worker/OPENVOICE_DOCKER.md). For Indian-language speech with a separate voice library and Apache-2.0 model card, see the gated [Indic Parler-TTS worker setup](gpu-worker/INDIC_PARLER_SETUP.md). The [checkpoint download script](gpu-worker/download_openvoice_checkpoints.sh) automates retrieval of the official model archive on the target host, and [smoke_test_openvoice.py](gpu-worker/smoke_test_openvoice.py) verifies worker health and actual generated WAV audio after deployment. It still requires Python dependencies, a running host, and an authorized reference recording; it is not automatically installed with the default worker.
 - The TalkingHead library is MIT, but its sample avatars do not all share that licence. Some examples are non-commercial or CC BY-NC. Do not bundle them in a commercial app without permission.
 - The current MMS-TTS voice worker supports the languages listed in the registry, but those checkpoints are generally CC-BY-NC 4.0. Commercial deployments need an appropriately licensed TTS engine/checkpoint, such as a separately audited OpenVoice V2 setup for its supported languages.
 
@@ -82,6 +85,6 @@ The local browser model can provide AI responses without an inference API key, b
 - [Transformers.js](https://github.com/huggingface/transformers.js) — in-browser open model inference.
 - [Qwen2.5-0.5B-Instruct ONNX](https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct) — optional local browser language model.
 
-
 ## Unified runtime
+
 See `docs/UNIFIED_AI_RUNTIME.md` for the server-side timed worker-pool design.
