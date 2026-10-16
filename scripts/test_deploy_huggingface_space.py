@@ -16,9 +16,8 @@ from deploy_huggingface_space import (
 def valid_env():
     return {
         "NKAI_BETTER_AUTH_SECRET": "a" * 40,
-        "NKAI_GROK_AUTH_ISSUER": "https://auth.example.com",
-        "NKAI_GROK_AUTH_CLIENT_ID": "nkai-client-id",
-        "NKAI_GROK_AUTH_CLIENT_SECRET": "client-secret-long-enough",
+        "NKAI_GOOGLE_CLIENT_ID": "nkai-test-client.apps.googleusercontent.com",
+        "NKAI_GOOGLE_CLIENT_SECRET": "google-client-secret-long-enough",
         "NKAI_DATABASE_URL": "postgresql://user:password@db.example.com/nkai",
         "NKAI_AI_WORKER_INTERNAL_URL": "https://worker.example.com",
         "NKAI_AI_WORKER_API_TOKEN": "w" * 40,
