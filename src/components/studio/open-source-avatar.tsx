@@ -7,6 +7,20 @@ const AVATARS = [
   { label: "Brunette human · CC BY-NC 4.0 (non-commercial only)", url: "/assets/avatars/brunette.glb", body: "F" },
 ];
 const DEFAULT_MODEL = AVATARS[0].url;
+const AI_CHARACTERS = [
+  { id: "wise-guide", label: "Wise Guide", focus: "A thoughtful, balanced general-purpose guide. Explain clearly, ask clarifying questions when needed, and help the user make sound decisions." },
+  { id: "career-strategist", label: "Career Strategist", focus: "A senior career and leadership strategist skilled in career transitions, hiring, leadership, communication, negotiation, and professional growth." },
+  { id: "empathetic-companion", label: "Empathetic Companion", focus: "A warm, non-judgmental companion. Listen carefully, acknowledge feelings without pretending to have human experiences, and help the user find manageable next steps." },
+  { id: "analytical-solver", label: "Analytical Problem Solver", focus: "A rigorous analytical problem solver. Structure ambiguous problems, identify assumptions and root causes, compare options, and give actionable steps." },
+  { id: "creative-mentor", label: "Creative Mentor", focus: "A curious creative mentor who helps brainstorm, teach, explain difficult topics, plan projects, and improve ideas." },
+] as const;
+const VOICE_PROFILES = [
+  { id: "natural", label: "Natural / balanced", pitch: 1, rate: 1 },
+  { id: "feminine-light", label: "Feminine / lighter", pitch: 1.15, rate: 1 },
+  { id: "masculine-deep", label: "Masculine / deeper", pitch: 0.82, rate: 0.96 },
+  { id: "warm-calm", label: "Warm / calm", pitch: 0.94, rate: 0.9 },
+  { id: "bright-energetic", label: "Bright / energetic", pitch: 1.08, rate: 1.08 },
+] as const;
 const LANGUAGES = [
   { label: "English (India)", code: "en-IN" }, { label: "English (US)", code: "en-US" },
   { label: "Hindi", code: "hi-IN" }, { label: "Tamil", code: "ta-IN" }, { label: "Telugu", code: "te-IN" },
@@ -67,6 +81,9 @@ export function OpenSourceAvatarPanel() {
   const [voiceConsent, setVoiceConsent] = useState(false);
   const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
   const [selectedVoice, setSelectedVoice] = useState("");
+  const [characterId, setCharacterId] = useState<(typeof AI_CHARACTERS)[number]["id"]>("wise-guide");
+  const [voiceProfileId, setVoiceProfileId] = useState<(typeof VOICE_PROFILES)[number]["id"]>("natural");
+  const [perceivedAge, setPerceivedAge] = useState("adult");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("3D viewer · browser-rendered");
@@ -244,7 +261,9 @@ export function OpenSourceAvatarPanel() {
       || window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase() === speechLanguage.toLowerCase())
       || window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith(speechLanguage.slice(0, 2).toLowerCase()));
     if (voice) utterance.voice = voice;
-    utterance.rate = useStudio.getState().vp?.rate || 1;
+    const voiceProfile = VOICE_PROFILES.find((profile) => profile.id === voiceProfileId) || VOICE_PROFILES[0];
+    utterance.pitch = voiceProfile.pitch;
+    utterance.rate = (useStudio.getState().vp?.rate || 1) * voiceProfile.rate;
     utterance.onstart = () => setStatus("Speaking · device/browser voice");
     utterance.onend = () => setStatus("Ready · 3D viewer remains active");
     utterance.onerror = () => setStatus("Text response ready · speech could not play");
@@ -336,7 +355,16 @@ export function OpenSourceAvatarPanel() {
             const response = await fetch(endpoint.toString(), {
               method: "POST",
               headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
-              body: JSON.stringify({ message: prompt, language: speechLanguage, history: history.slice(0, -1).slice(-10), app: "NKAI-Studio" }),
+              body: JSON.stringify({
+                message: prompt,
+                language: speechLanguage,
+                history: history.slice(0, -1).slice(-10),
+                app: "NKAI-Studio",
+                character: characterId,
+                voice_profile: voiceProfileId,
+                perceived_age: perceivedAge,
+                system_prompt: buildCharacterPrompt(characterId, speechLanguage, perceivedAge),
+              }),
               signal: controller.signal,
             });
             if (!response.ok) {
@@ -391,7 +419,7 @@ export function OpenSourceAvatarPanel() {
       try {
         setStatus("Generating with local open-source model in this browser…");
         const messages = [
-          { role: "system" as const, content: "You are NKAI Studio's practical, friendly AI avatar. Give useful, direct answers. Reply in " + (LANGUAGES.find((item) => item.code === speechLanguage)?.label || speechLanguage) + " unless the user explicitly asks for another language." },
+          { role: "system" as const, content: buildCharacterPrompt(characterId, speechLanguage, perceivedAge) },
           ...history.slice(-10).map((turn) => ({ role: turn.role, content: turn.text })),
         ];
         const generated = await localGeneratorRef.current(messages, { max_new_tokens: 180, do_sample: true, temperature: 0.7, return_full_text: false });
@@ -490,7 +518,23 @@ export function OpenSourceAvatarPanel() {
           </div>
         </section>
         <section className="mf-card" style={{ minHeight: 600, display: "flex", flexDirection: "column" }}>
-          <h3 style={{ marginTop: 0 }}>Voice and language</h3>
+          <h3 style={{ marginTop: 0 }}>Choose your AI character</h3>
+          <p style={{ opacity: .75, marginTop: 0 }}>Choose the assistant's approach separately from its 3D appearance. Every character aims to be helpful, thoughtful, respectful, and practical.</p>
+          <div className="mf-bar" style={{ marginBottom: 12 }}>
+            <label style={{ flex: 1, minWidth: 180 }}>AI character
+              <select value={characterId} onChange={(e) => setCharacterId(e.target.value as typeof characterId)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                {AI_CHARACTERS.map((character) => <option key={character.id} value={character.id}>{character.label}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: 1, minWidth: 150 }}>Perceived voice age
+              <select value={perceivedAge} onChange={(e) => setPerceivedAge(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                <option value="young-adult">Young adult</option>
+                <option value="adult">Adult</option>
+                <option value="mature">Mature / experienced</option>
+              </select>
+            </label>
+          </div>
+          <h3>Voice and language</h3>
           <div className="mf-bar" style={{ marginBottom: 10 }}>
             <label style={{ flex: 1, minWidth: 150 }}>Language
               <select value={speechLanguage} onChange={(e) => { setSpeechLanguage(e.target.value); const match = voiceOptions.find((voice) => voice.lang.toLowerCase() === e.target.value.toLowerCase()); setSelectedVoice(match?.name || ""); }} style={{ display: "block", width: "100%", marginTop: 6 }}>
@@ -509,17 +553,22 @@ export function OpenSourceAvatarPanel() {
                 <option value="af_bella">Bella · feminine</option>
               </select>
             </label>}
-            <label style={{ flex: 1, minWidth: 150 }}>AI voice style · Indic Parler
+            <label style={{ flex: 1, minWidth: 170 }}>Voice tone / texture
+              <select value={voiceProfileId} onChange={(e) => setVoiceProfileId(e.target.value as typeof voiceProfileId)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                {VOICE_PROFILES.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: 1, minWidth: 170 }}>Indic neural style (when supported)
               <select value={indicVoiceStyle} onChange={(e) => setIndicVoiceStyle(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
                 <option value="default">Language default</option>
                 <option value="A female speaker">Female</option>
                 <option value="A male speaker">Male</option>
-                <option value="A warm, expressive female speaker">Warm and expressive</option>
-                <option value="A deep, calm male speaker">Deep and calm</option>
+                <option value="A warm, expressive female speaker">Warm and expressive female</option>
+                <option value="A deep, calm male speaker">Deep and calm male</option>
               </select>
             </label>
           </div>
-          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>No voice API key is needed for browser speech. English neural speech can run locally through HeadTTS when enabled; other languages use voices installed in your browser or operating system. The voice and language available depend on your device. Hosted TTS workers are optional and are not required for the base avatar.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>Language selection chooses the speech language where supported. Gender, age, and timbre are preferences, not guaranteed traits: installed browser voices determine actual gender/accent, browser pitch only approximates lighter/deeper delivery, and true age/timbre control requires a TTS worker that supports those controls. The current Indic-Speak adapter does not yet map every UI profile to a distinct voice.</small>
           <div className="mf-bar" style={{ marginBottom: 12 }}>
             <button className="mf-ghost" type="button" onClick={() => { const code = speechLanguage.toLowerCase().split("-")[0]; void speak(VOICE_TEST_PHRASES[code] || VOICE_TEST_PHRASES.en); }}>Test selected voice</button>
             <small style={{ opacity: .72 }}>Tests neural worker first, then local neural or installed browser voice.</small>
@@ -612,4 +661,24 @@ function estimateVisemes(text: string, durationSeconds: number) {
   });
   const step = visemes.length ? (durationSeconds * 1000) / visemes.length : 100;
   return { visemes, vtimes: visemes.map((_, index) => Math.round(index * step)), vdurations: visemes.map(() => Math.max(35, Math.round(step))) };
+}
+
+/** Shared persona prompt for local inference and server workers that accept system_prompt. */
+function buildCharacterPrompt(characterId: string, speechLanguage: string, perceivedAge: string) {
+  const character = AI_CHARACTERS.find((item) => item.id === characterId) || AI_CHARACTERS[0];
+  const language = LANGUAGES.find((item) => item.code === speechLanguage)?.label || speechLanguage;
+  const ageStyle = perceivedAge === "young-adult" ? "Use a fresh, approachable communication style."
+    : perceivedAge === "mature" ? "Use a composed, experienced, measured communication style."
+    : "Use a clear, natural adult communication style.";
+  return [
+    "You are NKAI, an intelligent, thoughtful, highly capable AI assistant inside NKAI Studio.",
+    character.focus,
+    "Help with a broad range of personal and professional topics: explain concepts, solve problems, plan and navigate next steps, teach skills, compare choices, and provide emotional support with empathy.",
+    "Be curious, attentive, respectful, non-judgmental, and emotionally aware. Acknowledge the user's context and feelings when relevant. Never claim to be human or to have feelings or lived experiences.",
+    "Think carefully before answering. Be accurate, structured, clear, practical, and specific. Ask a concise clarifying question when key information is missing. Offer step-by-step actions and explain trade-offs when useful.",
+    "Do not pretend to know everything or guarantee a solution. Be transparent about uncertainty, correct mistakes, distinguish facts from opinions, and recommend qualified human help for high-stakes medical, legal, financial, or safety issues.",
+    "Reply in " + language + " by default, matching the user's language if they clearly use another language or request one.",
+    ageStyle,
+    "Use a warm conversational voice style in wording; the actual audio voice is controlled separately by the selected speech engine.",
+  ].join(" ");
 }
