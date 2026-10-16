@@ -11,6 +11,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DeploymentRouteImport } from './routes/deployment'
 import { Route as GatewayRouteImport } from './routes/gateway'
 import { Route as StudioRouteImport } from './routes/studio'
+import { Route as FeaturesRouteImport } from './routes/features'
+import { Route as HelpRouteImport } from './routes/help'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -32,12 +34,24 @@ const StudioRoute = StudioRouteImport.update({
   path: '/studio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeaturesRoute = FeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
   '/gateway': typeof GatewayRoute
   '/studio': typeof StudioRoute
+  '/features': typeof FeaturesRoute
+  '/help': typeof HelpRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,10 +68,10 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deployment' | '/gateway' | '/studio'
+  fullPaths: '/' | '/deployment' | '/gateway' | '/studio' | '/features' | '/help'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deployment' | '/gateway' | '/studio'
-  id: '__root__' | '/' | '/deployment' | '/gateway' | '/studio'
+  to: '/' | '/deployment' | '/gateway' | '/studio' | '/features' | '/help'
+  id: '__root__' | '/' | '/deployment' | '/gateway' | '/studio' | '/features' | '/help'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -65,6 +79,8 @@ export interface RootRouteChildren {
   DeploymentRoute: typeof DeploymentRoute
   GatewayRoute: typeof GatewayRoute
   StudioRoute: typeof StudioRoute
+  FeaturesRoute: typeof FeaturesRoute
+  HelpRoute: typeof HelpRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -97,6 +113,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/features': {
+      id: '/features'
+      path: '/features'
+      fullPath: '/features'
+      preLoaderRoute: typeof FeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -105,6 +135,8 @@ const rootRouteChildren: RootRouteChildren = {
   DeploymentRoute,
   GatewayRoute,
   StudioRoute,
+  FeaturesRoute,
+  HelpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
