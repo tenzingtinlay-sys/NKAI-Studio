@@ -640,6 +640,20 @@ export function OpenSourceAvatarPanel() {
           </div>
           <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Configure LIVETALKING_INTERNAL_URL on the backend and deploy the open-source LiveTalking GPU service with compatible model checkpoints and reachable WebRTC media ports. Browser build success alone does not mean a GPU stream is online.</small>
           <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Local mode does not depend on the hosted worker. Browser speech synthesis is provided by your device and does not guarantee a neural voice for every language. Remote LiveTalking streaming remains optional and needs its own running server.</small>
+          <section aria-label="Duix Avatar research integration" style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, padding: 14, margin: "8px 0 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>Duix Avatar · Research integration</h3>
+              <span style={{ fontSize: 12, border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 999, padding: "4px 8px" }}>Source extracted · GPU runtime pending</span>
+            </div>
+            <p style={{ margin: "8px 0" }}>Built with DUIX.COM</p>
+            <p style={{ opacity: .78, margin: "8px 0" }}>The Duix desktop source and licence documents are now in this repository. The upstream project is a separate Electron/Vue app with Docker GPU services; it is not yet connected to this browser studio for live video generation.</p>
+            <div className="mf-bar">
+              <a className="mf-ghost" href="https://github.com/tenzingtinlay-sys/NKAI-Studio/tree/main/vendor/duix-avatar/source/Duix-Avatar-main" target="_blank" rel="noreferrer">Browse extracted source</a>
+              <a className="mf-ghost" href="https://github.com/tenzingtinlay-sys/NKAI-Studio/blob/main/vendor/duix-avatar/source/Duix-Avatar-main/LICENSE" target="_blank" rel="noreferrer">Read licence</a>
+              <a className="mf-ghost" href="/deploy/duix-avatar/README.md" target="_blank" rel="noreferrer">Deployment notes</a>
+            </div>
+            <small style={{ opacity: .72, display: "block", marginTop: 8 }}>Research-only/non-commercial integration. Keep required attribution and legal notices. A compatible GPU runtime and a separately tested NKAI service adapter are still required before generation can be enabled.</small>
+          </section>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
             {turns.map((turn, i) => <div key={i} style={{ alignSelf: turn.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%", padding: "10px 12px", borderRadius: 12, background: turn.role === "user" ? "rgba(88,166,255,.18)" : "rgba(127,127,127,.12)" }}><small style={{ display: "block", opacity: .7, marginBottom: 4 }}>{turn.role === "user" ? "You" : "NKAI Avatar"}</small><span>{turn.text}</span></div>)}
           </div>
