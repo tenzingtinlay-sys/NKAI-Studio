@@ -21,6 +21,12 @@ export const Route = createFileRoute("/api/duix/create-avatar")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const origin = request.headers.get("origin");
+        if (origin) {
+          try {
+            if (new URL(origin).origin !== new URL(request.url).origin) return json({ error: "Cross-origin requests are not allowed." }, 403);
+          } catch { return json({ error: "Invalid Origin header." }, 403); }
+        }
         const token = process.env.DUIX_API_TOKEN;
         if (!token) return json({ error: "Duix is not configured on this deployment. Set the server-side DUIX_API_TOKEN secret." }, 503);
         const contentType = request.headers.get("content-type") || "";
