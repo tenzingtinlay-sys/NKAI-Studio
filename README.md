@@ -28,6 +28,10 @@ NKAI Studio includes an open-source avatar chat panel with local-first AI option
 
 The core studio must not depend on paid inference APIs, prepaid API credits, or a paid API billing balance. Use browser-local inference or open-weight models on the selected permitted compute platform. Do not add a paid API as a silent fallback. If all eligible free workers are unavailable or over quota, explain that service is temporarily unavailable and allow retry/provider failover. Free platforms can still impose compute, session, queue, storage and usage limits; this project does not claim unlimited free GPU uptime. Hosting tokens such as `HF_TOKEN` are deployment credentials, not paid inference credits, and must remain private.
 
+## Optional LiveTalking gateway
+
+For self-hosted real-time WebRTC avatar streaming, start with [the ordered live-avatar guide](LIVE-AVATAR.md) and [Cloudflare gateway setup](gateway/README.md). This path is optional: browser-local avatar/chat remains available without a GPU host. Live video is not considered working until a real browser WebRTC session receives audio/video from a running LiveTalking host.
+
 ## Deploy the AI worker
 
 See [Lightning AI worker deployment and end-to-end test guide](gpu-worker/LIGHTNING_AI_DEPLOYMENT.md) for the chat worker, optional natural-speech worker, and LiveTalking deployment boundaries.
