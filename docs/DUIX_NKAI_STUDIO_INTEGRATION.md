@@ -10,7 +10,7 @@ The proxy sends a POST request to:
 
 `https://app.duix.ai/duix-openapi-v2/sdk/v2/createAvatar`
 
-It forwards only the documented fields `conversationId`, `ttsName`, `name`, `greetings`, and `profile`. The API request uses the `token` header. The provided Duix page excerpt does not document a separate avatar-library identifier, photo-upload payload, token-acquisition endpoint, or the meaning of its language selector, so the UI does not invent those fields. Photo upload is a preview-only UI path and creation is intentionally disabled until Duix's current API schema for photo upload is confirmed.
+It forwards only the documented fields `conversationId`, `ttsName`, `name`, `greetings`, and `profile`. The API request uses the `token` header. The language selector in the UI is a preference only because the provided example does not document a language request field. The provided Duix page excerpt does not document a separate avatar-library identifier, photo-upload payload, token-acquisition endpoint, or the meaning of its language selector, so the UI does not invent those fields. Photo upload is a preview-only UI path and creation is intentionally disabled until Duix's current API schema for photo upload is confirmed.
 
 ## Before enabling for users
 
