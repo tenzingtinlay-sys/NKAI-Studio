@@ -435,6 +435,7 @@ export function OpenSourceAvatarPanel() {
       }
       if (!reply) setStatus(`All GPU workers offline · fallback active (${failures.join("; ")})`);
     }
+    if (!reply && !localGeneratorRef.current) await loadLocalModel();
     if (!reply && localGeneratorRef.current) {
       try {
         setStatus("Generating with local open-source model in this browser…");
@@ -484,12 +485,12 @@ export function OpenSourceAvatarPanel() {
   return (
     <div className="mf-canvas">
       <div className="mf-head">
-        <div><h1>Open-source AI Avatar</h1><p>Browser-rendered 3D avatar, local open-source chat model, and device speech — no API key, avatar ID, Space ID, or paid inference service required.</p></div>
+        <div><h1>Open-source AI Avatar</h1><p>Browser-rendered 3D avatar with local AI fallback and an optional same-origin GPU gateway that can switch between healthy open-source workers.</p></div>
         <div className="mf-bar"><span className="mf-pill">Local-first · no API keys</span></div>
       </div>
       <section className="mf-card" style={{ marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}>Launch an avatar engine inside NKAI Studio</h2>
-        <p style={{ opacity: .75 }}>The standard avatar and chat run in this app. The first local AI launch downloads open model weights to your browser; no API key or hosted worker is used.</p>
+        <p style={{ opacity: .75 }}>The 3D avatar runs in the browser. Chat and neural speech try the NKAI GPU gateway first when a worker is configured, then fall back to browser-local open models and device speech.</p>
         <div className="mf-bar" style={{ flexWrap: "wrap" }}>
           <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); setStatus("3D avatar viewer active"); }}>Launch 3D Avatar</button>
           <button className="mf-ghost" type="button" onClick={() => { setModelError(false); setTalkingEnabled(true); setStatus("Starting TalkingHead lip-sync engine…"); }}>Launch TalkingHead Lip-Sync</button>
