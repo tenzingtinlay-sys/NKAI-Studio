@@ -1,0 +1,74 @@
+name: nkai-duix-avatar
+
+services:
+  duix-avatar-tts:
+    image: guiji2025/fish-speech-ziming
+    container_name: nkai-duix-avatar-tts
+    restart: unless-stopped
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: ${DUIX_NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: compute,graphics,utility,video,display
+    ports:
+      - "127.0.0.1:${DUIX_TTS_PORT:-18180}:8080"
+    volumes:
+      - ${DUIX_DATA_DIR:-./data}/voice/data:/code/data
+    command: /bin/bash -lc "/opt/conda/envs/python310/bin/python3 tools/api_server.py --listen 0.0.0.0:8080"
+    networks: [duix-internal]
+    shm_size: "2g"
+    security_opt:
+      - no-new-privileges:true
+
+  duix-avatar-asr:
+    image: guiji2025/fun-asr
+    container_name: nkai-duix-avatar-asr
+    restart: unless-stopped
+    runtime: nvidia
+    privileged: true
+    working_dir: /workspace/FunASR/runtime
+    environment:
+      NVIDIA_VISIBLE_DEVICES: ${DUIX_NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility,video
+    ports:
+      - "127.0.0.1:${DUIX_ASR_PORT:-10095}:10095"
+    command: sh /run.sh
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks: [duix-internal]
+    shm_size: "2g"
+
+  duix-avatar-gen-video:
+    image: guiji2025/duix.avatar
+    container_name: nkai-duix-avatar-gen-video
+    restart: unless-stopped
+    runtime: nvidia
+    privileged: true
+    environment:
+      NVIDIA_VISIBLE_DEVICES: ${DUIX_NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: compute,graphics,utility,video,display
+      PYTORCH_CUDA_ALLOC_CONF: max_split_size_mb:512
+    volumes:
+      - ${DUIX_DATA_DIR:-./data}/face2face:/code/data
+    ports:
+      - "127.0.0.1:${DUIX_VIDEO_PORT:-8383}:8383"
+    command: python /code/app_local.py
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks: [duix-internal]
+    shm_size: "8g"
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  duix-internal:
+    driver: bridge
