@@ -58,6 +58,8 @@ export interface FileRoutesByTo {
   '/deployment': typeof DeploymentRoute
   '/gateway': typeof GatewayRoute
   '/studio': typeof StudioRoute
+  '/features': typeof FeaturesRoute
+  '/help': typeof HelpRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -65,6 +67,8 @@ export interface FileRoutesById {
   '/deployment': typeof DeploymentRoute
   '/gateway': typeof GatewayRoute
   '/studio': typeof StudioRoute
+  '/features': typeof FeaturesRoute
+  '/help': typeof HelpRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
