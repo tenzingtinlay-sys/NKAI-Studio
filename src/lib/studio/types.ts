@@ -6,6 +6,7 @@ export type ViewId =
   | "voice"
   | "agents"
   | "live"
+  | "liveavatar-cloud"
   | "projects"
   | "templates"
   | "scenes"
