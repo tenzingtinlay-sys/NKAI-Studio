@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEPLOY_DIR="$REPO_ROOT/deploy/duix-avatar"
+cd "$DEPLOY_DIR"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "ERROR: Docker CLI is not installed." >&2; exit 1
@@ -31,7 +32,7 @@ set -a
 source .env
 set +a
 DATA_DIR="${DUIX_DATA_DIR:-./data}"
-if [[ "$DATA_DIR" != /* ]]; then DATA_DIR="$ROOT/$DATA_DIR"; fi
+if [[ "$DATA_DIR" != /* ]]; then DATA_DIR="$DEPLOY_DIR/$DATA_DIR"; fi
 mkdir -p "$DATA_DIR/voice/data" "$DATA_DIR/face2face"
 export DUIX_DATA_DIR="$DATA_DIR"
 
