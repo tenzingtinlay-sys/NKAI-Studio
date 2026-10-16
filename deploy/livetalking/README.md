@@ -1,9 +1,10 @@
 # NKAI Studio — LiveTalking runtime
 
-This folder adds a containerized deployment path for the **actual LiveTalking engine** used by NKAI Studio's existing same-origin WebRTC adapter. It builds from upstream open-source source code and keeps the engine behind NKAI's own UI/API; it does not copy a third-party website.
+This folder provides the containerized **LiveTalking engine** used by NKAI Studio's existing same-origin WebRTC adapter. The upstream source archive is committed at `vendor/livetalking/source/LiveTalking-main`; the Docker build copies that local source into the image and does not clone a separate runtime copy or copy a third-party hosted website.
 
 - Upstream: https://github.com/lipku/LiveTalking
-- Upstream licence: Apache License 2.0; preserve licence and notices when redistributing.
+- Upstream code licence: Apache License 2.0; preserve licence and notices when redistributing.
+- Vendored source: `../../vendor/livetalking/source/LiveTalking-main`
 - NKAI browser adapter: `src/components/studio/livetalking-native-panel.tsx`
 - NKAI server-side URL: `LIVETALKING_INTERNAL_URL`, configured server-side (never a public `VITE_*` variable).
 
@@ -23,13 +24,13 @@ The three compute options are the PC, Lightning AI, and Kaggle. Cloudflare is th
 - LiveTalking-compatible model checkpoint and avatar data from sources whose terms permit your intended use.
 - Running NKAI Studio server and its authenticated `/api/livetalking/*` adapter.
 
-**Model weights and avatar recordings are not included.** Upstream excludes these assets from source control; they have separate download/access/licensing requirements. Do not commit gated assets or bundle them into a public image.
+**Model weights and avatar recordings are not included.** They have separate download/access/licensing requirements. Do not commit gated assets or bundle them into a public image.
 
 ## Prepare and start
 
 From this directory on the GPU host:
 
-1. Copy `.env.example` to `.env` and review `LIVETALKING_REF`. Pin a reviewed upstream commit for reproducibility.
+1. Copy `.env.example` to `.env`.
 2. Create the directories configured by `LIVETALKING_MODELS_DIR` and `LIVETALKING_AVATARS_DIR`.
 3. Place the compatible `wav2lip.pth` checkpoint in the models directory and the complete `wav2lip256_avatar1` avatar directory in the avatars directory. Verify these names against upstream instructions; adjust the launch command for a different supported model/avatar.
 4. Start:
@@ -39,7 +40,7 @@ docker compose --env-file .env up --build -d
 docker compose --env-file .env logs -f livetalking
 ```
 
-The default launch command is `python app.py --transport webrtc --model wav2lip --avatar_id wav2lip256_avatar1`. Check the upstream README for current Python/CUDA/PyTorch requirements before using this configuration; dependencies can change.
+The default launch command is `python app.py --transport webrtc --model wav2lip --avatar_id wav2lip256_avatar1`. Check the vendored upstream README for current Python/CUDA/PyTorch requirements before using this configuration; dependencies can change.
 
 ## Connect it to NKAI
 
@@ -56,9 +57,9 @@ Do not expose LiveTalking directly to the public internet. Host networking is se
 
 ## What this change does and does not do
 
-- Provides a container build path for the upstream engine.
+- Builds from the source extracted into this repository.
 - Keeps large/separately licensed model files out of Git and the image.
-- Connects conceptually to NKAI's existing embedded video panel and backend adapter.
+- Uses NKAI's embedded video panel and backend adapter.
 - Does **not** provision GPUs, fetch gated assets, guarantee free compute, configure TURN, or prove a live session before acceptance testing.
 
 ## Verify
