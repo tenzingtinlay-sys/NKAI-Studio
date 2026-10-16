@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DeploymentRouteImport } from './routes/deployment'
+import { Route as GatewayRouteImport } from './routes/gateway'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,10 +23,16 @@ const DeploymentRoute = DeploymentRouteImport.update({
   path: '/deployment',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GatewayRoute = GatewayRouteImport.update({
+  id: '/gateway',
+  path: '/gateway',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/gateway': typeof GatewayRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -38,15 +45,16 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deployment'
+  fullPaths: '/' | '/deployment' | '/gateway'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deployment'
-  id: '__root__' | '/' | '/deployment'
+  to: '/' | '/deployment' | '/gateway'
+  id: '__root__' | '/' | '/deployment' | '/gateway'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeploymentRoute: typeof DeploymentRoute
+  GatewayRoute: typeof GatewayRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +73,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeploymentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gateway': {
+      id: '/gateway'
+      path: '/gateway'
+      fullPath: '/gateway'
+      preLoaderRoute: typeof GatewayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeploymentRoute: DeploymentRoute,
+  GatewayRoute: GatewayRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
