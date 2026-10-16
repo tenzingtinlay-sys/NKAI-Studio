@@ -205,9 +205,45 @@ export function OpenSourceAvatarPanel() {
 
   async function speak(text: string) {
     const tts = headTtsRef.current;
-    // Try configured neural TTS workers for every language, including English.
-    // This allows OpenVoice voice conversion and the default multilingual MMS worker
-    // to be used instead of silently bypassing them when local English TTS is ready.
+
+    // Prefer authenticated NKAI server proxy for GPU-generated speech. Secrets stay server-side.
+    try {
+      setStatus("Requesting GPU-generated speech…");
+      const response = await fetch("/api/avatar-ai/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.slice(0, 500), language: speechLanguage }),
+      });
+      const data = await response.json() as { audio_base64?: string; mime_type?: string; error?: string; detail?: string; model?: string; provider?: string };
+      if (response.ok && data.audio_base64) {
+        const binary = window.atob(data.audio_base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        if (talkingHeadRef.current) {
+          const audioContext = new AudioContext();
+          try {
+            const audioBuffer = await audioContext.decodeAudioData(bytes.buffer.slice(0));
+            talkingHeadRef.current.speakAudio({ audio: audioBuffer, ...estimateVisemes(text, audioBuffer.duration) });
+          } finally {
+            void audioContext.close();
+          }
+        } else {
+          const objectUrl = URL.createObjectURL(new Blob([bytes], { type: data.mime_type || "audio/wav" }));
+          const audio = new Audio(objectUrl);
+          const cleanup = () => URL.revokeObjectURL(objectUrl);
+          audio.addEventListener("ended", cleanup, { once: true });
+          audio.addEventListener("error", cleanup, { once: true });
+          try { await audio.play(); } catch (error) { cleanup(); throw error; }
+        }
+        setStatus("GPU-generated speech" + (data.model ? " · " + data.model : ""));
+        return;
+      }
+      setStatus("GPU TTS unavailable" + (data.error || data.detail ? " · " + (data.error || data.detail) : "") + " · trying local/browser voice");
+    } catch {
+      setStatus("GPU TTS unreachable · trying local/browser voice");
+    }
+
+    // Try any explicitly configured alternate neural TTS workers.
     for (const candidate of orderedEndpoints) {
       try {
         const endpoint = new URL(candidate, window.location.origin);
@@ -534,18 +570,13 @@ export function OpenSourceAvatarPanel() {
           </div>
         </section>
         <section className="mf-card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Duix real-human avatar downloads</h2>
-          <p style={{ opacity: .78 }}>These are the four official public Duix Mobile avatar packages. They contain Duix SDK model assets, not browser-ready GLB files, so this web viewer cannot render the ZIP files directly. Download them for the supported Duix Android/iOS SDK, or load a compatible GLB above for this browser viewer.</p>
-          <div className="mf-grid two">
-            <a className="mf-ghost" href="https://github.com/duixcom/Duix.mobile/releases/download/v2.0.1/Leo.zip" target="_blank" rel="noreferrer">Download Leo avatar (.zip)</a>
-            <a className="mf-ghost" href="https://github.com/duixcom/Duix.mobile/releases/download/v2.0.1/Oliver.zip" target="_blank" rel="noreferrer">Download Oliver avatar (.zip)</a>
-            <a className="mf-ghost" href="https://github.com/duixcom/Duix.mobile/releases/download/v2.0.1/Sofia.zip" target="_blank" rel="noreferrer">Download Sofia avatar (.zip)</a>
-            <a className="mf-ghost" href="https://github.com/duixcom/Duix.mobile/releases/download/v2.0.1/Lily.zip" target="_blank" rel="noreferrer">Download Lily avatar (.zip)</a>
-          </div>
+          <h2 style={{ marginTop: 0 }}>Real-time talking avatar</h2>
+          <p style={{ opacity: .82 }}>Use the browser-rendered 3D avatar above for an interactive session: enable real lip-sync, then type or use your microphone. Responses use the NKAI GPU chat worker; GPU speech is attempted first, with local neural or browser speech as a fallback.</p>
           <div className="mf-bar" style={{ marginTop: 12 }}>
-            <a className="mf-ghost" href="https://github.com/duixcom/Duix-Mobile" target="_blank" rel="noreferrer">Duix Mobile SDK and integration guide</a>
-            <a className="mf-ghost" href="https://github.com/duixcom/Duix-Avatar" target="_blank" rel="noreferrer">Duix Avatar offline toolkit</a>
+            <button className="mf-primary" type="button" disabled={talkingEnabled} onClick={() => { setModelError(false); setTalkingEnabled(true); setStatus("Loading browser avatar and lip-sync engine…"); talkingContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>Enable browser talking avatar</button>
+            <a className="mf-ghost" href="https://github.com/duixcom/Duix-Mobile" target="_blank" rel="noreferrer">Duix mobile SDK documentation</a>
           </div>
+          <p style={{ opacity: .68, fontSize: 12, marginBottom: 0 }}>Duix Leo, Oliver, Sofia and Lily ZIPs are native mobile SDK packages, not web-ready avatar streams. They are intentionally not presented as live browser avatars. A true Duix session requires deploying its compatible runtime and integrating its actual API; downloading a ZIP alone cannot enable real-time web conversation.</p>
         </section>
         <section className="mf-card" style={{ minHeight: 600, display: "flex", flexDirection: "column" }}>
           <h3 style={{ marginTop: 0 }}>Choose your AI character</h3>
