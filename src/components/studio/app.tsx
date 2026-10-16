@@ -33,19 +33,19 @@ const NAV: { id: ViewId; label: string; icon: typeof Video; group: string }[] = 
   { id: "studio", label: "Studio", icon: Video, group: "Create" },
   { id: "avatars", label: "Avatars", icon: UserRound, group: "Create" },
   { id: "video", label: "Video", icon: Clapperboard, group: "Create" },
-  { id: "images", label: "Images", icon: ImageIcon, group: "Create" },
+  { id: "images", label: "Images", icon: ImageIcon, group: "More tools" },
   { id: "voice", label: "Voice", icon: AudioLines, group: "Create" },
-  { id: "agents", label: "Agents", icon: Bot, group: "Create" },
+  { id: "agents", label: "Agents", icon: Bot, group: "More tools" },
   { id: "live", label: "Live Avatar", icon: Radio, group: "Create" },
-  { id: "liveavatar-cloud", label: "LiveAvatar Cloud", icon: Radio, group: "Create" },
+  { id: "liveavatar-cloud", label: "LiveAvatar Cloud", icon: Radio, group: "More tools" },
   { id: "projects", label: "Projects", icon: FolderKanban, group: "Workspace" },
-  { id: "templates", label: "Templates", icon: LayoutTemplate, group: "Workspace" },
+  { id: "templates", label: "Templates", icon: LayoutTemplate, group: "More tools" },
   { id: "scenes", label: "Scenes", icon: Clapperboard, group: "Workspace" },
-  { id: "brand", label: "Brand Kit", icon: Palette, group: "Workspace" },
-  { id: "director", label: "AI Director", icon: Sparkles, group: "Intelligence" },
-  { id: "memory", label: "Memory", icon: Brain, group: "Intelligence" },
-  { id: "design", label: "DesignForge", icon: PenTool, group: "Intelligence" },
-  { id: "integrations", label: "Integrations", icon: Plug, group: "System" },
+  { id: "brand", label: "Brand Kit", icon: Palette, group: "More tools" },
+  { id: "director", label: "AI Director", icon: Sparkles, group: "More tools" },
+  { id: "memory", label: "Memory", icon: Brain, group: "More tools" },
+  { id: "design", label: "DesignForge", icon: PenTool, group: "More tools" },
+  { id: "integrations", label: "Integrations", icon: Plug, group: "More tools" },
   { id: "settings", label: "Settings", icon: Settings, group: "System" },
 ];
 
@@ -138,7 +138,7 @@ export function StudioApp() {
       </header>
       <div className={`mf-body ${view === "studio" ? "is-studio" : ""}`}>
         <aside className="mf-side">
-          {["Create", "Workspace", "Intelligence", "System"].map((group) => (
+          {["Create", "Workspace", "System"].map((group) => (
             <div key={group}>
               <div className="mf-navlabel">{group}</div>
               <nav className="mf-nav">
@@ -219,8 +219,14 @@ export function StudioApp() {
                   {n.label}
                 </button>
               ))}
+              <button className="mf-ghost" onClick={() => window.location.assign("/deployment")}>
+                Deployment status
+              </button>
               <button className="mf-ghost" onClick={() => window.location.assign("/gateway")}>
                 Cloudflare Gateway Test Lab
+              </button>
+              <button className="mf-ghost" onClick={() => window.location.assign("/features")}>
+                Product guide
               </button>
             </div>
           </div>
