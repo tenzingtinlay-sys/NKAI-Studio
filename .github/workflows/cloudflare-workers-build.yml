@@ -46,6 +46,7 @@ jobs:
             const c = JSON.parse(readFileSync(".output/server/wrangler.json", "utf8"));
             if (!c.main || !c.assets?.directory) throw new Error("Missing Worker entrypoint or static asset directory");
             if (!c.compatibility_flags?.includes("nodejs_compat")) throw new Error("nodejs_compat is not enabled");
+            if (!c.compatibility_flags?.includes("nodejs_compat_populate_process_env")) throw new Error("process.env population is not enabled");
             console.log(JSON.stringify({name:c.name, main:c.main, assets:c.assets.directory, compatibility_date:c.compatibility_date, compatibility_flags:c.compatibility_flags}, null, 2));
           '
 
