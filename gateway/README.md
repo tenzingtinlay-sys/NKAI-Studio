@@ -62,3 +62,21 @@ The browser-facing signalling routes require the requesting Origin to be listed 
 - STUN may be enough on a home network; restrictive NAT/firewalls may require TURN or another supported media-relay setup. Free TURN capacity is not guaranteed.
 - Free GPU sessions are temporary and quota-limited. No host means no live video; the bundled local avatar remains available.
 - Test on a single machine/network before adding more hosts.
+
+
+## Deploy from GitHub Actions
+
+The repository includes a manual workflow at [Deploy Cloudflare Live Avatar Gateway](../.github/workflows/deploy-cloudflare-gateway.yml). It deploys the Worker, installs the registration secret, checks `/health`, and verifies the configured origin's CORS header. It does not create a GPU host.
+
+Before running it, add these repository secrets under **Settings → Secrets and variables → Actions**:
+
+- `CLOUDFLARE_API_TOKEN`: scoped token with permission to edit Workers Scripts and Workers KV for the target account.
+- `CLOUDFLARE_ACCOUNT_ID`: the Cloudflare account ID for that token.
+- `NKAI_GATEWAY_REGISTER_SECRET`: a long random secret shared only with the host registration agent.
+- `NKAI_FRONTEND_ORIGIN`: the exact public HTTPS origin of the deployed NKAI Studio, with no path or trailing slash (for example `https://your-app.example`). Do not use a wildcard.
+
+The existing `BACKENDS` KV namespace ID in `wrangler.toml` must exist in that Cloudflare account. If it does not, create a KV namespace named `BACKENDS` in the account and update `wrangler.toml` with the returned ID before deploying.
+
+Then open **GitHub → Actions → Deploy Cloudflare Live Avatar Gateway → Run workflow**. On success, the job logs the public `workers.dev` URL and verifies its health response. Keep the URL for the next setup step. If the workflow fails, use the first failing step's logs to correct the account/token/namespace configuration; do not paste token or secret values into issues or chat.
+
+The initial health response may correctly show `servers: []`: this means the gateway is up, but no GPU host is registered yet. Live avatar streaming is not ready until a permitted host registers and a real browser WebRTC session receives audio and video.
