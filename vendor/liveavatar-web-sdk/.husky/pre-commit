@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# Skip during rebase / detached HEAD (Graphite restack, gt modify, gt sync, etc.)
+if [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
+  exit 0
+fi
+
+branch_name=$(git branch --show-current)
+
+if [ "$branch_name" = "master" ]; then
+  echo "🚫 Direct commits to $branch_name are not allowed!"
+  exit 1
+fi
+
+pnpm prettier $(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|json|md)$') --write --ignore-unknown
+git update-index --again
+
+pnpm run lint
+pnpm run typecheck
+pnpm run test
