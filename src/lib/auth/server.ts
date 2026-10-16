@@ -74,16 +74,19 @@ const env = (key: string): string | undefined => {
 // provisions auth; set it to "false" to force auth off everywhere (dev user).
 const authDisabled = env("VITE_AUTH_ENABLED") === "false";
 
-// Broker federation creds: the deployer injects a per-app client when deployed;
-// otherwise fall back to the shared live-preview client, which the broker accepts
-// for any `*.grok-sandbox.com` callback (see `./preview`).
-const grokIssuer = env("GROK_AUTH_ISSUER") ?? GROK_ISSUER_DEFAULT;
-const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
-const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
+// Direct Google OAuth is used by the public deployment. The Grok broker
+// remains available only for the embedded live preview (or when explicitly
+// configured), so production does not depend on broker credentials.
+const googleClientId = env("GOOGLE_CLIENT_ID");
+const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
+const isFixedOriginDeployment = Boolean(env("BETTER_AUTH_URL"));
+const grokIssuer = env("GROK_AUTH_ISSUER") ?? (isFixedOriginDeployment ? undefined : GROK_ISSUER_DEFAULT);
+const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? (isFixedOriginDeployment ? undefined : PREVIEW_CLIENT_ID);
+const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? (isFixedOriginDeployment ? undefined : PREVIEW_CLIENT_SECRET);
 
-/** True when federated sign-in is active (real auth is enforced). */
+/** True when at least one real sign-in provider is configured. */
 export const authConfigured =
-  !authDisabled && Boolean(grokClientId && grokClientSecret);
+  !authDisabled && (Boolean(googleClientId && googleClientSecret) || Boolean(grokIssuer && grokClientId && grokClientSecret));
 
 // This app's own Better Auth origin. When deployed the deployer injects the
 // public URL. In the sandbox live preview there's no fixed URL (each preview gets
@@ -131,10 +134,10 @@ const databaseUrl = env("DATABASE_URL");
 // Discovery would cost an extra network hop to the broker before the popup can
 // even redirect to Google/X — the live-preview popup felt stuck on the app for
 // that whole round-trip. These paths match the broker's discovery document.
-const issuerBase = grokIssuer.replace(/\/+$/, "");
-const grokAuthorizationUrl = `${issuerBase}/api/auth/oauth2/authorize`;
-const grokTokenUrl = `${issuerBase}/api/auth/oauth2/token`;
-const grokUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
+const issuerBase = grokIssuer?.replace(/\/+$/, "");
+const grokAuthorizationUrl = issuerBase ? `${issuerBase}/api/auth/oauth2/authorize` : "";
+const grokTokenUrl = issuerBase ? `${issuerBase}/api/auth/oauth2/token` : "";
+const grokUserInfoUrl = issuerBase ? `${issuerBase}/api/auth/oauth2/userinfo` : "";
 
 // Real Postgres when `DATABASE_URL` is set (deployed apps), else the app's
 // embedded PGLite (preview) via a Kysely dialect — so Better Auth persists to the
@@ -150,7 +153,7 @@ export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
 
 // Built separately so the `betterAuth({...})` call stays easy to edit without
 // breaking brackets (models often trip on the conditional plugin spread).
-const grokOAuthPlugin = authConfigured
+const grokOAuthPlugin = !authDisabled && grokIssuer && grokClientId && grokClientSecret
   ? genericOAuth({
       config: GROK_PROVIDERS.map(({ providerId, idp }) => ({
         providerId,
@@ -174,6 +177,9 @@ const grokOAuthPlugin = authConfigured
 
 export const auth = betterAuth({
   baseURL,
+  ...(googleClientId && googleClientSecret
+    ? { socialProviders: { google: { clientId: googleClientId, clientSecret: googleClientSecret } } }
+    : {}),
   // Deployed apps inject BETTER_AUTH_SECRET. Preview: process-stable secret on
   // globalThis so HMR doesn't invalidate PGLite-backed sessions (see above).
   secret: env("BETTER_AUTH_SECRET") ?? previewAuthSecret(),
@@ -196,6 +202,7 @@ export const auth = betterAuth({
       enabled: true,
       trustedProviders: [
         ...GROK_PROVIDERS.map((p) => p.providerId),
+        ...(googleClientId && googleClientSecret ? ["google"] : []),
         GATE_PROVIDER_ID,
       ],
       // X's synthetic email is never "verified", so don't gate linking on the
