@@ -11,6 +11,23 @@ This is a research deployment plan, not a claim that Duix is running. The ZIP ha
 - **Studio backend:** add a dedicated Duix adapter only after the real service request/response contracts have been tested. Do not point `LIVETALKING_INTERNAL_URL` at Duix: the existing route and browser panel expect LiveTalking's offer/human/interrupt API and WebRTC behavior.
 - **Secrets:** keep `WORKER_API_TOKEN` and any new internal service tokens in runtime secrets, never in committed notebook output, source files or browser code.
 
+## Run the Docker services on a compatible NVIDIA Linux host
+
+A Linux-host Docker Compose stack is provided in this directory. It defines the upstream Duix ASR, TTS and video-generation containers, uses configurable persistent data paths, and binds ports to loopback so they are not directly exposed to the public internet.
+
+**Requirements:** NVIDIA GPU and driver, Docker Engine with Compose v2, NVIDIA Container Toolkit, adequate disk (upstream guidance recommends 100 GB+ free; images/model downloads may be tens of GB). A normal Google Colab notebook runtime is not a supported Docker host; do not stop or alter the working Qwen Colab worker to try this.
+
+From the repository root on that Linux host:
+
+```bash
+cd deploy/duix-avatar
+cp .env.example .env
+# Edit .env and set DUIX_DATA_DIR to an absolute persistent directory with enough disk space.
+./../../scripts/run-duix-docker.sh
+```
+
+The script checks Docker daemon and GPU passthrough before downloading images, then pulls and starts all three services. It is deliberately fail-fast: if Docker/GPU access is unavailable, it exits before pulling large images. To inspect services, run `docker compose --env-file .env ps` and `docker compose --env-file .env logs -f`; stop them with `docker compose --env-file .env down`. First boot can download tens of GB and may take a long time. These containers are **not yet connected to NKAI's web runtime**, and their endpoints are loopback-only.
+
 ## Step 1 — preflight the active Colab runtime
 
 Run this before downloading any model or Docker image:
