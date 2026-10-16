@@ -32,7 +32,7 @@ LiveTalking's default WebRTC configuration uses HTTP signalling plus media trans
 
 - `/api/livetalking/offer` — WebRTC offer/answer signalling
 - `/api/livetalking/human` — avatar speech command
-- `/api/livetalking/interrupt_talk` — interrupt current speech
+- `/api/livetalking/interrupt` — interrupt current speech
 
 The app's same-origin adapter protects the upstream base URL and allowlists the paths. Its HTTP proxy does not relay UDP media; browser-to-ICE/TURN networking still has to work.
 
