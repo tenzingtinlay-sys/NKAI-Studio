@@ -1,3 +1,5 @@
+import { handleAi } from "./ai.js";
+
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 
 function json(data, status = 200, headers = {}) {
@@ -11,7 +13,7 @@ function corsHeaders(request, env) {
   if (allowed.includes(origin)) return {
     "access-control-allow-origin": origin,
     "access-control-allow-methods": "GET, POST, OPTIONS",
-    "access-control-allow-headers": "content-type",
+    "access-control-allow-headers": "content-type, authorization",
     "access-control-max-age": "86400",
     "vary": "Origin",
   };
@@ -73,6 +75,20 @@ export default {
 
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ gateway: true, servers: await listBackends(env) }, 200, cors);
+    }
+
+    if (url.pathname.startsWith("/api/ai/")) {
+      if (!isAllowedOrigin(request, env)) {
+        return json({ error: "Origin is not allowed" }, 403, cors);
+      }
+      const response = await handleAi(request, env, url);
+      const headers = new Headers(response.headers);
+      for (const [key, value] of Object.entries(cors)) headers.set(key, value);
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
     }
 
     if (url.pathname === "/register" && request.method === "POST") {
