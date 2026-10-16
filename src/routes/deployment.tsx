@@ -26,8 +26,8 @@ function DeploymentPage() {
     const results: Check[] = [{ label: "NKAI app", state: "ready", detail: "The application page is running." }];
     const probes = [
       { label: "Private AI chat worker", url: "/api/ai/health", expected: "AI worker" },
-      { label: "Multilingual voice capabilities", url: "/api/ai/capabilities", expected: "voice capability" },
-      { label: "Live avatar streaming", url: "/api/livetalking/", expected: "live avatar service" },
+      { label: "Neural voice capabilities", url: "/api/ai/tts-capabilities", expected: "voice capability" },
+      { label: "Live avatar streaming", url: "/api/livetalking/status", expected: "live avatar service" },
     ];
     for (const probe of probes) {
       try {
@@ -37,7 +37,7 @@ function DeploymentPage() {
         if (response.ok) {
           let detail = "Endpoint responded successfully.";
           if (probe.url.endsWith("/health")) detail = `Worker status: ${String(body?.status || "reachable")}; model: ${String(body?.model || "not reported")}; GPU: ${String(body?.cuda ?? "not reported")}.`;
-          else if (probe.url.endsWith("/capabilities")) {
+          else if (probe.url.includes("capabilities")) {
             const tts = body?.tts as { provider?: string; readyLanguages?: string[]; languages?: unknown[] } | undefined;
             const chat = body?.chat as { model?: string; ready?: boolean } | undefined;
             const langs = tts?.readyLanguages || [];
@@ -87,7 +87,7 @@ function DeploymentPage() {
         <section style={{ marginTop: 22, border: "1px solid #34313a", background: "#141218", borderRadius: 16, padding: 20 }}>
           <h2 style={{ marginTop: 0, fontSize: 18 }}>What deployment needs</h2>
           <ul style={{ color: "#b8bdc8", lineHeight: 1.8, paddingLeft: 20 }}>
-            <li>Deploy this full-stack app to a server runtime such as Vercel; GitHub Pages alone cannot execute the private API routes.</li>
+            <li>Deploy this full-stack app as a Docker Space on Hugging Face Spaces; GitHub Pages alone cannot execute the private API routes.</li>
             <li>Set <code>AI_WORKER_INTERNAL_URL</code> and, if enabled, <code>AI_WORKER_API_TOKEN</code> in the deployment's server-side environment variables.</li>
             <li>Set <code>LIVETALKING_INTERNAL_URL</code> for the streaming service. WebRTC still needs correctly configured public ICE/STUN/TURN and media ports.</li>
             <li>Run a real conversation, test the selected language's generated audio, and confirm the avatar's mouth moves with playback.</li>

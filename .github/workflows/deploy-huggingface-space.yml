@@ -1,0 +1,39 @@
+name: Deploy NKAI Studio to Hugging Face Spaces
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout NKAI Studio
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Hugging Face Hub client
+        run: python -m pip install --upgrade huggingface_hub
+      - name: Upload app, configure private secrets, and verify runtime
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+          NKAI_BETTER_AUTH_SECRET: ${{ secrets.NKAI_BETTER_AUTH_SECRET }}
+          NKAI_GOOGLE_CLIENT_ID: ${{ secrets.NKAI_GOOGLE_CLIENT_ID }}
+          NKAI_GOOGLE_CLIENT_SECRET: ${{ secrets.NKAI_GOOGLE_CLIENT_SECRET }}
+          NKAI_DATABASE_URL: ${{ secrets.NKAI_DATABASE_URL }}
+          NKAI_AI_WORKER_INTERNAL_URL: ${{ secrets.NKAI_AI_WORKER_INTERNAL_URL }}
+          NKAI_AI_WORKER_API_TOKEN: ${{ secrets.NKAI_AI_WORKER_API_TOKEN }}
+          NKAI_TTS_INTERNAL_URL: ${{ secrets.NKAI_TTS_INTERNAL_URL }}
+          NKAI_TTS_API_TOKEN: ${{ secrets.NKAI_TTS_API_TOKEN }}
+          NKAI_LIVETALKING_INTERNAL_URL: ${{ secrets.NKAI_LIVETALKING_INTERNAL_URL }}
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE_ID" ]; then
+            echo "::error::Configure repository secrets HF_TOKEN and HF_SPACE_ID first."
+            exit 1
+          fi
+          python scripts/deploy_huggingface_space.py

@@ -45,6 +45,10 @@ jobs:
         run: |
           node -e "JSON.parse(require('node:fs').readFileSync('src/data/avatar-catalog.json', 'utf8'))"
           node -e "JSON.parse(require('node:fs').readFileSync('vercel.json', 'utf8'))"
+          node --check scripts/smoke-ai-worker.mjs
+          node --check scripts/smoke-ai-worker-utils.mjs
+          python -m py_compile scripts/deploy_huggingface_space.py
+          python -m unittest discover -s scripts -p "test_deploy_huggingface_space.py"
 
       - name: TypeScript check
         run: npm run typecheck
@@ -54,3 +58,45 @@ jobs:
 
       - name: Build application
         run: npm run build
+
+      - name: Build the production Hugging Face Docker image
+        run: docker build --pull --tag nkai-studio:ci .
+
+      - name: Smoke-test the production Docker container
+        run: |
+          set -eu
+          docker run --detach --name nkai-studio-ci --publish 7860:7860 nkai-studio:ci
+          cleanup() {
+            docker logs nkai-studio-ci || true
+            docker rm --force nkai-studio-ci >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:7860/deployment -o /tmp/nkai-deployment.html; then
+              if grep -qi "deployment" /tmp/nkai-deployment.html; then
+                ready=1
+                break
+              fi
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "Production container did not serve /deployment within 120 seconds."
+            exit 1
+          fi
+          echo "PASS: production container serves /deployment."
+
+          status=$(curl --silent --output /tmp/nkai-unauth.json --write-out "%{http_code}" \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "Origin: http://127.0.0.1:7860" \
+            --data '{}' \
+            http://127.0.0.1:7860/api/ai/chat)
+          if [ "$status" != "401" ]; then
+            echo "Expected unauthenticated AI inference to return 401, got HTTP $status."
+            cat /tmp/nkai-unauth.json
+            exit 1
+          fi
+          echo "PASS: production AI inference rejects unauthenticated requests."

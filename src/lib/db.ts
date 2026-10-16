@@ -137,11 +137,19 @@ async function createPgliteSql(): Promise<Sql> {
   // passes serialized on a global chain so concurrent callers never
   // double-apply.
   const migrate = async (): Promise<void> => {
-    const migrations = import.meta.glob("/migrations/*.sql", {
+    const rootMigrations = import.meta.glob("/migrations/*.sql", {
       query: "?raw",
       import: "default",
       eager: true,
     }) as Record<string, string>;
+    const authMigrations = process.env.VITE_AUTH_ENABLED === "false"
+      ? {}
+      : import.meta.glob("/migrations/auth/*.sql", {
+          query: "?raw",
+          import: "default",
+          eager: true,
+        }) as Record<string, string>;
+    const migrations = { ...rootMigrations, ...authMigrations };
     const doneRows = await pg.query<{ name: string }>(
       "select name from _migrations",
     );
@@ -183,8 +191,8 @@ async function createSql(): Promise<Sql> {
  * Get the shared, **server-only** SQL client. Neon when `DATABASE_URL` is set,
  * otherwise the local PGLite fallback. Memoized — safe to call per request.
  *
- * Schema comes from `migrations/*.sql`, auto-applied before the first query on
- * both backends — define tables there, never inline in server functions.
+ * Schema comes from `migrations/*.sql`; the opt-in auth schema under
+ * `migrations/auth/*.sql` is also applied when `VITE_AUTH_ENABLED` is not false.
  */
 export function getSql(): Promise<Sql> {
   sqlPromise ??= createSql().catch((err) => {

@@ -1,10 +1,37 @@
 import { useEffect, useRef, useState } from "react";
 import { useStudio } from "@/lib/studio/store";
+import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
 
 const AVATARS = [
-  { label: "MPFB sample · verify licence/rig", url: "/assets/avatars/mpfb.glb", body: "M" },
+  { label: "MPFB human · CC0 sample", url: "/assets/avatars/mpfb.glb", body: "M" },
+  { label: "Brunette human · CC BY-NC 4.0 (non-commercial only)", url: "/assets/avatars/brunette.glb", body: "F" },
 ];
 const DEFAULT_MODEL = AVATARS[0].url;
+const AI_CHARACTERS = [
+  { id: "wise-guide", label: "Wise Guide", focus: "A thoughtful, balanced general-purpose guide. Explain clearly, ask clarifying questions when needed, and help the user make sound decisions." },
+  { id: "career-strategist", label: "Career Strategist", focus: "A senior career and leadership strategist skilled in career transitions, hiring, leadership, communication, negotiation, and professional growth." },
+  { id: "empathetic-companion", label: "Empathetic Companion", focus: "A warm, non-judgmental companion. Listen carefully, acknowledge feelings without pretending to have human experiences, and help the user find manageable next steps." },
+  { id: "analytical-solver", label: "Analytical Problem Solver", focus: "A rigorous analytical problem solver. Structure ambiguous problems, identify assumptions and root causes, compare options, and give actionable steps." },
+  { id: "creative-mentor", label: "Creative Mentor", focus: "A curious creative mentor who helps brainstorm, teach, explain difficult topics, plan projects, and improve ideas." },
+] as const;
+const VOICE_PROFILES = [
+  { id: "natural", label: "Natural / balanced", pitch: 1, rate: 1 },
+  { id: "feminine-light", label: "Feminine / lighter", pitch: 1.15, rate: 1 },
+  { id: "masculine-deep", label: "Masculine / deeper", pitch: 0.82, rate: 0.96 },
+  { id: "warm-calm", label: "Warm / calm", pitch: 0.94, rate: 0.9 },
+  { id: "bright-energetic", label: "Bright / energetic", pitch: 1.08, rate: 1.08 },
+] as const;
+const INTERACTION_MODES = [
+  { id: "balanced", label: "Balanced everyday assistant", guidance: "Adapt naturally between listening, explaining, planning, and action." },
+  { id: "professional", label: "Professional / executive", guidance: "Be concise, polished, structured, tactful, and oriented toward outcomes and trade-offs." },
+  { id: "teacher", label: "Teacher / explainer", guidance: "Teach step by step, define unfamiliar terms, use examples, and check understanding." },
+  { id: "coach", label: "Coach / accountability partner", guidance: "Help set realistic goals, reflect on obstacles, and identify achievable next actions without shaming." },
+  { id: "empathetic", label: "Empathetic support", guidance: "Listen first, validate the user's expressed feelings without assuming them, and respond gently and practically." },
+  { id: "playful", label: "Casual / playful", guidance: "Use relaxed, friendly language and light humor when appropriate; do not trivialize serious issues." },
+  { id: "romantic-adult", label: "Romantic companion (adults only)", guidance: "For adult users only, offer affectionate, respectful, non-explicit romantic roleplay or companionship. Be transparent that you are an AI, respect boundaries, avoid dependency-building, and never engage in romantic or sexual content with minors." },
+  { id: "creative", label: "Creative / brainstorming", guidance: "Offer multiple imaginative possibilities, then help assess feasibility and improve the strongest ideas." },
+  { id: "critical", label: "Critical thinking / debate", guidance: "Test assumptions respectfully, offer counterarguments, distinguish evidence from speculation, and revise conclusions when warranted." },
+] as const;
 const LANGUAGES = [
   { label: "English (India)", code: "en-IN" }, { label: "English (US)", code: "en-US" },
   { label: "Hindi", code: "hi-IN" }, { label: "Tamil", code: "ta-IN" }, { label: "Telugu", code: "te-IN" },
@@ -19,7 +46,7 @@ const LANGUAGES = [
   { label: "Sindhi", code: "sd-IN" },
 ];
 const DEFAULT_GREETING =
-  "Hi, I’m your NKAI avatar. Load the local Qwen model or connect an open-source GPU worker for generated conversations.";
+  "Hi, I’m your NKAI avatar. I can run with a browser-local open-source AI model and your device’s speech voices. No API key, avatar ID, or paid inference service is required.";
 const VOICE_TEST_PHRASES: Record<string, string> = {
   en: "Hello! This is a voice test for NKAI Studio.",
   hi: "नमस्ते! यह NKAI Studio की आवाज़ का परीक्षण है।",
@@ -65,6 +92,11 @@ export function OpenSourceAvatarPanel() {
   const [voiceConsent, setVoiceConsent] = useState(false);
   const [voiceOptions, setVoiceOptions] = useState<Array<{ name: string; lang: string }>>([]);
   const [selectedVoice, setSelectedVoice] = useState("");
+  const [characterId, setCharacterId] = useState<(typeof AI_CHARACTERS)[number]["id"]>("wise-guide");
+  const [voiceProfileId, setVoiceProfileId] = useState<(typeof VOICE_PROFILES)[number]["id"]>("natural");
+  const [perceivedAge, setPerceivedAge] = useState("adult");
+  const [interactionMode, setInteractionMode] = useState<(typeof INTERACTION_MODES)[number]["id"]>("balanced");
+  const [appearanceAgeGroup, setAppearanceAgeGroup] = useState("adult");
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("3D viewer · browser-rendered");
@@ -109,8 +141,9 @@ export function OpenSourceAvatarPanel() {
     return () => { if ("speechSynthesis" in window) window.speechSynthesis.removeEventListener("voiceschanged", updateVoices); };
   }, [speechLanguage]);
 
-  // Inference always uses same-origin server routes; worker secrets remain server-side.
-  const orderedEndpoints = ["/api/ai/chat"];
+  // Default mode is fully browser-local. No worker URL, token, Space ID, or API key is needed.
+  // Hosted GPU workers remain optional; basic avatar use must not depend on them.
+  const orderedEndpoints: string[] = [];
 
   useEffect(() => {
     if (!talkingEnabled || !talkingContainerRef.current || talkingHeadRef.current) return;
@@ -241,7 +274,12 @@ export function OpenSourceAvatarPanel() {
       || window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase() === speechLanguage.toLowerCase())
       || window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith(speechLanguage.slice(0, 2).toLowerCase()));
     if (voice) utterance.voice = voice;
-    utterance.rate = useStudio.getState().vp?.rate || 1;
+    const voiceProfile = VOICE_PROFILES.find((profile) => profile.id === voiceProfileId) || VOICE_PROFILES[0];
+    // Browser speech APIs expose pitch/rate, not true vocal age or timbre synthesis.
+    const agePitch = perceivedAge === "young-adult" ? 1.04 : perceivedAge === "mature" ? 0.92 : 1;
+    const ageRate = perceivedAge === "mature" ? 0.94 : 1;
+    utterance.pitch = Math.min(2, Math.max(0.5, voiceProfile.pitch * agePitch));
+    utterance.rate = (useStudio.getState().vp?.rate || 1) * voiceProfile.rate * ageRate;
     utterance.onstart = () => setStatus("Speaking · device/browser voice");
     utterance.onend = () => setStatus("Ready · 3D viewer remains active");
     utterance.onerror = () => setStatus("Text response ready · speech could not play");
@@ -250,14 +288,14 @@ export function OpenSourceAvatarPanel() {
 
   async function checkWorkerCapabilities() {
     if (!orderedEndpoints.length) {
-      flash("Private inference route is unavailable.");
+      setStatus("Browser-local mode active · no hosted voice worker is configured or required.");
       return;
     }
-    setStatus("Reading configured worker capabilities…");
+    setStatus("Checking neural voice worker capabilities…");
     for (const candidate of orderedEndpoints) {
       try {
         const endpoint = new URL(candidate, window.location.origin);
-        endpoint.pathname = endpoint.pathname.replace(/\/$/, "").replace(/\/chat$/, "") + "/capabilities";
+        endpoint.pathname = "/api/ai/tts-capabilities";
         endpoint.search = "";
         const response = await fetch(endpoint.toString(), {
           method: "GET",
@@ -281,7 +319,7 @@ export function OpenSourceAvatarPanel() {
         // Continue through the configured endpoint order.
       }
     }
-    setStatus("No worker capabilities endpoint responded · check HTTPS, CORS and worker readiness");
+    setStatus("No neural voice capabilities endpoint responded · check TTS worker configuration and readiness");
   }
 
   async function loadLocalModel() {
@@ -315,36 +353,80 @@ export function OpenSourceAvatarPanel() {
     setTurns(history);
     setDraft("");
     setBusy(true);
-    setStatus("Connecting to NKAI private inference worker…");
+    setStatus("Preparing free browser-local AI…");
+    if (!localGeneratorRef.current) await loadLocalModel();
     let reply = "";
     const endpoints = orderedEndpoints;
     if (endpoints.length) {
       const failures: string[] = [];
       for (let index = 0; index < endpoints.length && !reply; index++) {
         try {
-          const endpoint = new URL(endpoints[index], window.location.origin);
+          const endpoint = new URL("/api/ai/stream", window.location.origin);
           if (endpoint.protocol !== "https:" && endpoint.hostname !== "localhost" && endpoint.hostname !== "127.0.0.1") {
             throw new Error("NKAI private inference route must use HTTPS outside local development.");
           }
           const controller = new AbortController();
-          const timeout = window.setTimeout(() => controller.abort(), 45000);
+          const timeout = window.setTimeout(() => controller.abort(), 120000);
           try {
             const response = await fetch(endpoint.toString(), {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ message: prompt, language: speechLanguage, history: history.slice(0, -1).slice(-10), app: "NKAI-Studio" }),
+              headers: { "Content-Type": "application/json", "Accept": "text/event-stream" },
+              body: JSON.stringify({
+                message: prompt,
+                language: speechLanguage,
+                history: history.slice(0, -1).slice(-10),
+                app: "NKAI-Studio",
+                character: characterId,
+                voice_profile: voiceProfileId,
+                perceived_age: perceivedAge,
+                system_prompt: buildCharacterPrompt(characterId, speechLanguage, perceivedAge, interactionMode),
+              }),
               signal: controller.signal,
             });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json() as { reply?: string; response?: string; text?: string };
-            reply = data.reply || data.response || data.text || "";
-            if (!reply) throw new Error("Missing reply field");
-            setStatus(`Connected · GPU worker ${index + 1}/${endpoints.length}`);
+            if (!response.ok) {
+              const detail = await response.text().catch(() => "");
+              throw new Error(`HTTP ${response.status}${detail ? ": " + detail.slice(0, 160) : ""}`);
+            }
+            if (!response.body) throw new Error("Streaming response body is unavailable");
+            setStatus(`Streaming · GPU worker ${index + 1}/${endpoints.length}`);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let completed = false;
+            setTurns([...history, { role: "assistant", text: "" }]);
+            const consumeEvent = (event: string) => {
+              for (const line of event.split("\n")) {
+                if (!line.startsWith("data:")) continue;
+                const data = line.slice(5).trim();
+                if (!data) continue;
+                if (data === "[DONE]") { completed = true; continue; }
+                let item: { token?: string; error?: string };
+                try { item = JSON.parse(data) as { token?: string; error?: string }; }
+                catch { continue; }
+                if (item.error) throw new Error(item.error);
+                if (item.token) {
+                  reply += item.token;
+                  setTurns([...history, { role: "assistant", text: reply }]);
+                }
+              }
+            };
+            while (!completed) {
+              const { value, done } = await reader.read();
+              buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+              const events = buffer.split("\n\n");
+              buffer = events.pop() || "";
+              for (const event of events) consumeEvent(event);
+              if (done) break;
+            }
+            if (buffer.trim()) consumeEvent(buffer);
+            if (!reply.trim()) throw new Error("Worker stream completed without generated text");
+            setStatus(`Streaming complete · GPU worker ${index + 1}/${endpoints.length}`);
           } finally {
             window.clearTimeout(timeout);
           }
         } catch (error) {
           failures.push(`${index + 1}: ${error instanceof Error ? error.message : "offline"}`);
+          if (reply) setStatus("Stream interrupted · keeping the partial generated response");
         }
       }
       if (!reply) setStatus(`All GPU workers offline · fallback active (${failures.join("; ")})`);
@@ -353,7 +435,7 @@ export function OpenSourceAvatarPanel() {
       try {
         setStatus("Generating with local open-source model in this browser…");
         const messages = [
-          { role: "system" as const, content: "You are NKAI Studio's practical, friendly AI avatar. Give useful, direct answers. Reply in " + (LANGUAGES.find((item) => item.code === speechLanguage)?.label || speechLanguage) + " unless the user explicitly asks for another language." },
+          { role: "system" as const, content: buildCharacterPrompt(characterId, speechLanguage, perceivedAge, interactionMode) },
           ...history.slice(-10).map((turn) => ({ role: turn.role, content: turn.text })),
         ];
         const generated = await localGeneratorRef.current(messages, { max_new_tokens: 180, do_sample: true, temperature: 0.7, return_full_text: false });
@@ -367,7 +449,7 @@ export function OpenSourceAvatarPanel() {
     }
     if (!reply) {
       reply = localReply(prompt);
-      if (!localModelReady) reply = "NKAI private AI worker is unavailable and the local AI model is not ready. This is an offline fallback, not a generated AI answer. " + reply;
+      if (!localGeneratorRef.current) reply = "The browser-local AI model could not load. This is an offline fallback, not a generated AI answer. Check your connection, browser WebGPU/WASM support, and available memory. " + reply;
     }
     setTurns([...history, { role: "assistant", text: reply }]);
     setBusy(false);
@@ -398,16 +480,16 @@ export function OpenSourceAvatarPanel() {
   return (
     <div className="mf-canvas">
       <div className="mf-head">
-        <div><h1>Open-source AI Avatar</h1><p>3D character viewer, browser voice, and optional self-hosted GPU inference — no paid AI API key required.</p></div>
-        <div className="mf-bar"><span className="mf-pill">API-key-free architecture</span></div>
+        <div><h1>Open-source AI Avatar</h1><p>Browser-rendered 3D avatar, local open-source chat model, and device speech — no API key, avatar ID, Space ID, or paid inference service required.</p></div>
+        <div className="mf-bar"><span className="mf-pill">Local-first · no API keys</span></div>
       </div>
       <section className="mf-card" style={{ marginBottom: 16 }}>
         <h2 style={{ marginTop: 0 }}>Launch an avatar engine inside NKAI Studio</h2>
-        <p style={{ opacity: .75 }}>These controls switch between in-app experiences. They do not open an external website.</p>
+        <p style={{ opacity: .75 }}>The standard avatar and chat run in this app. The first local AI launch downloads open model weights to your browser; no API key or hosted worker is used.</p>
         <div className="mf-bar" style={{ flexWrap: "wrap" }}>
           <button className="mf-ghost" type="button" onClick={() => { setTalkingEnabled(false); setTalkingReady(false); setStatus("3D avatar viewer active"); }}>Launch 3D Avatar</button>
           <button className="mf-ghost" type="button" onClick={() => { setModelError(false); setTalkingEnabled(true); setStatus("Starting TalkingHead lip-sync engine…"); }}>Launch TalkingHead Lip-Sync</button>
-          <button className="mf-ghost" type="button" onClick={() => { streamingContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); setStatus("Opening embedded LiveTalking workspace…"); }}>Launch LiveTalking Workspace</button>
+          <button className="mf-ghost" type="button" onClick={() => { streamingContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); setStatus("Remote LiveTalking is optional; local avatar mode does not need it."); }}>Remote Streaming (Optional)</button>
           <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI Ready" : "Launch Local AI"}</button>
         </div>
       </section>
@@ -452,7 +534,41 @@ export function OpenSourceAvatarPanel() {
           </div>
         </section>
         <section className="mf-card" style={{ minHeight: 600, display: "flex", flexDirection: "column" }}>
-          <h3 style={{ marginTop: 0 }}>Voice and language</h3>
+          <h3 style={{ marginTop: 0 }}>Choose your AI character</h3>
+          <p style={{ opacity: .75, marginTop: 0 }}>Choose the assistant's approach separately from its 3D appearance. Every character aims to be helpful, thoughtful, respectful, and practical.</p>
+          <div className="mf-bar" style={{ marginBottom: 12 }}>
+            <label style={{ flex: 1, minWidth: 180 }}>AI character
+              <select value={characterId} onChange={(e) => setCharacterId(e.target.value as typeof characterId)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                {AI_CHARACTERS.map((character) => <option key={character.id} value={character.id}>{character.label}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: 1, minWidth: 150 }}>Perceived voice age
+              <select value={perceivedAge} onChange={(e) => setPerceivedAge(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                <option value="young-adult">Young adult</option>
+                <option value="adult">Adult</option>
+                <option value="mature">Mature / experienced</option>
+              </select>
+            </label>
+          </div>
+          <div className="mf-bar" style={{ marginBottom: 12 }}>
+            <label style={{ flex: 1, minWidth: 180 }}>Conversation / behaviour style
+              <select value={interactionMode} onChange={(e) => setInteractionMode(e.target.value as typeof interactionMode)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                {INTERACTION_MODES.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: 1, minWidth: 180 }}>Desired avatar age appearance
+              <select value={appearanceAgeGroup} onChange={(e) => setAppearanceAgeGroup(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                <option value="child">Child</option>
+                <option value="teen">Teenager</option>
+                <option value="young-adult">Young adult</option>
+                <option value="adult">Adult</option>
+                <option value="older-adult">Older adult</option>
+                <option value="elderly">Elderly</option>
+              </select>
+            </label>
+          </div>
+          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Conversation style changes the assistant's response behaviour. The age appearance selector records your preference only; it does not generate a new face. The current bundled library contains only the listed sample models, so child-to-elderly faces, wardrobe, and facial diversity require additional licensed avatar assets.</small>
+          <h3>Voice and language</h3>
           <div className="mf-bar" style={{ marginBottom: 10 }}>
             <label style={{ flex: 1, minWidth: 150 }}>Language
               <select value={speechLanguage} onChange={(e) => { setSpeechLanguage(e.target.value); const match = voiceOptions.find((voice) => voice.lang.toLowerCase() === e.target.value.toLowerCase()); setSelectedVoice(match?.name || ""); }} style={{ display: "block", width: "100%", marginTop: 6 }}>
@@ -471,17 +587,22 @@ export function OpenSourceAvatarPanel() {
                 <option value="af_bella">Bella · feminine</option>
               </select>
             </label>}
-            <label style={{ flex: 1, minWidth: 150 }}>AI voice style · Indic Parler
+            <label style={{ flex: 1, minWidth: 170 }}>Voice tone / texture
+              <select value={voiceProfileId} onChange={(e) => setVoiceProfileId(e.target.value as typeof voiceProfileId)} style={{ display: "block", width: "100%", marginTop: 6 }}>
+                {VOICE_PROFILES.map((profile) => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
+              </select>
+            </label>
+            <label style={{ flex: 1, minWidth: 170 }}>Indic neural style (when supported)
               <select value={indicVoiceStyle} onChange={(e) => setIndicVoiceStyle(e.target.value)} style={{ display: "block", width: "100%", marginTop: 6 }}>
                 <option value="default">Language default</option>
                 <option value="A female speaker">Female</option>
                 <option value="A male speaker">Male</option>
-                <option value="A warm, expressive female speaker">Warm and expressive</option>
-                <option value="A deep, calm male speaker">Deep and calm</option>
+                <option value="A warm, expressive female speaker">Warm and expressive female</option>
+                <option value="A deep, calm male speaker">Deep and calm male</option>
               </select>
             </label>
           </div>
-          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>HeadTTS neural speech is currently English-only. For generated multilingual audio, connect a running worker that implements POST /tts. OpenVoice V2 supports English, Spanish, French, Chinese, Japanese and Korean; the optional gated Indic Parler worker covers Indian languages with model-provided voice styles. Hindi and other Indian languages otherwise need a matching browser voice or TTS checkpoint. The included MMS-TTS checkpoints are CC-BY-NC 4.0; use them for non-commercial testing only unless separately licensed.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 14 }}>Language selection chooses the speech language where supported. Gender, age, and timbre are preferences, not guaranteed traits: installed browser voices determine actual gender/accent, browser pitch only approximates lighter/deeper delivery, and true age/timbre control requires a TTS worker that supports those controls. The current Indic-Speak adapter does not yet map every UI profile to a distinct voice.</small>
           <div className="mf-bar" style={{ marginBottom: 12 }}>
             <button className="mf-ghost" type="button" onClick={() => { const code = speechLanguage.toLowerCase().split("-")[0]; void speak(VOICE_TEST_PHRASES[code] || VOICE_TEST_PHRASES.en); }}>Test selected voice</button>
             <small style={{ opacity: .72 }}>Tests neural worker first, then local neural or installed browser voice.</small>
@@ -490,20 +611,21 @@ export function OpenSourceAvatarPanel() {
             <input type="checkbox" checked={voiceConsent} onChange={(e) => setVoiceConsent(e.target.checked)} style={{ marginTop: 2 }} />
             <span>I own or have permission to use the configured reference voice for voice cloning. Required only for OpenVoice voice-cloning workers.</span>
           </label>
-          <h3>Private inference worker</h3>
-          <p style={{ opacity: .75 }}>Chat, speech generation, health checks and capability discovery use NKAI Studio's own backend routes. Private worker URLs and access tokens stay on the server; no external worker website is opened from this panel.</p>
+          <h3>Optional hosted worker (not required)</h3>
+          <p style={{ opacity: .75 }}>The default chat and speech path runs in your browser/device. These diagnostics are only for optional self-hosted workers; you do not need to configure them to use the local avatar.</p>
           <div className="mf-bar" style={{ marginTop: 10, marginBottom: 14 }}>
-            <button className="mf-ghost" type="button" onClick={async () => { setStatus("Checking NKAI private inference worker…"); try { const response = await fetch("/api/ai/health", { cache: "no-store" }); const data = await response.json() as { status?: string; model?: string; error?: string }; if (!response.ok) throw new Error(data.error || "HTTP " + response.status); setStatus("Private worker " + (data.status || "reachable") + (data.model ? " · " + data.model : "")); } catch (error) { setStatus("Private AI worker unavailable · " + (error instanceof Error ? error.message : "check server configuration")); } }}>Check connection</button>
+            <button className="mf-ghost" type="button" onClick={async () => { setStatus("Checking optional hosted worker…"); try { const response = await fetch("/api/ai/health", { cache: "no-store" }); const data = await response.json() as { status?: string; model?: string; error?: string }; if (!response.ok) throw new Error(data.error || "HTTP " + response.status); setStatus("Optional hosted worker " + (data.status || "reachable") + (data.model ? " · " + data.model : "")); } catch (error) { setStatus("Optional hosted worker unavailable · local mode remains available"); } }}>Check connection</button>
             <button className="mf-ghost" type="button" onClick={() => void checkWorkerCapabilities()}>Check voice capabilities</button>
             <button className="mf-ghost" type="button" disabled={localModelReady || localModelLoading} onClick={() => void loadLocalModel()}>{localModelLoading ? "Loading local AI…" : localModelReady ? "Local AI ready" : "Load local AI (no API)"}</button>
           </div>
-          <div ref={streamingContainerRef} />\n          <h3>Real-time avatar streaming</h3>
-          <p style={{ opacity: .75 }}>The streaming workspace is embedded in NKAI Studio. It connects only through the app's same-origin backend route; the GPU streaming service must be configured by the deployment operator. No third-party launch links are shown here.</p>
-          <div style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, overflow: "hidden", background: "#101318", minHeight: 360 }}>
-            <iframe title="NKAI real-time avatar streaming workspace" src="/api/livetalking/" style={{ width: "100%", minHeight: 360, height: 520, border: 0, background: "#101318" }} allow="camera; microphone; autoplay; fullscreen; display-capture" />
+          <div ref={streamingContainerRef} />
+          <h3>Optional remote real-time streaming</h3>
+          <p style={{ opacity: .75 }}>The local 3D avatar works without a streaming server. Remote WebRTC streaming is an advanced optional mode and requires a running compatible LiveTalking service; it is not needed for local chat or device speech.</p>
+          <div style={{ border: "1px solid var(--mf-border, rgba(127,127,127,.25))", borderRadius: 12, padding: 14, background: "#101318", minHeight: 360 }}>
+            <LiveTalkingNativePanel />
           </div>
-          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>If the stream workspace is unavailable, configure LIVETALKING_INTERNAL_URL on the backend and deploy the LiveTalking GPU service with its model checkpoints and permitted WebRTC network ports. Browser build success alone does not mean a GPU stream is online.</small>
-          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>If the private worker is offline, browser-local Qwen can answer after you load it. Browser speech synthesis is a device fallback and does not guarantee a neural voice for every language.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Configure LIVETALKING_INTERNAL_URL on the backend and deploy the open-source LiveTalking GPU service with compatible model checkpoints and reachable WebRTC media ports. Browser build success alone does not mean a GPU stream is online.</small>
+          <small style={{ opacity: .72, display: "block", marginBottom: 12 }}>Local mode does not depend on the hosted worker. Browser speech synthesis is provided by your device and does not guarantee a neural voice for every language. Remote LiveTalking streaming remains optional and needs its own running server.</small>
           <div role="log" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 220, maxHeight: 360, overflowY: "auto", padding: "18px 0" }}>
             {turns.map((turn, i) => <div key={i} style={{ alignSelf: turn.role === "user" ? "flex-end" : "flex-start", maxWidth: "94%", padding: "10px 12px", borderRadius: 12, background: turn.role === "user" ? "rgba(88,166,255,.18)" : "rgba(127,127,127,.12)" }}><small style={{ display: "block", opacity: .7, marginBottom: 4 }}>{turn.role === "user" ? "You" : "NKAI Avatar"}</small><span>{turn.text}</span></div>)}
           </div>
@@ -516,7 +638,7 @@ export function OpenSourceAvatarPanel() {
             <button className="mf-ghost" type="button" onClick={() => { if ("speechSynthesis" in window) window.speechSynthesis.cancel(); setStatus("Voice stopped"); }}>Stop voice</button>
             <button className="mf-ghost" type="button" onClick={() => setTurns([{ role: "assistant", text: DEFAULT_GREETING }])}>Clear chat</button>
           </div>
-          <small style={{ opacity: .7, marginTop: 12 }}>For AI without any server/API, select “Load local AI (no API)”. It downloads a quantized Qwen model into browser runtime (first load is large and needs a capable desktop). The optional GPU worker remains the higher-capacity route. Free cloud GPU sessions may expire.</small>
+          <small style={{ opacity: .7, marginTop: 12 }}>NKAI defaults to browser-local inference. The quantized Qwen model downloads on first use and needs network access for that download plus enough RAM/VRAM; after loading, inference runs on your device. No API key, token, Space ID, avatar ID, or paid cloud inference is required. Remote GPU/WebRTC services are optional only.</small>
         </section>
       </div>
     </div>
@@ -545,10 +667,10 @@ function createModelViewer(src: string, onError: () => void) {
 function localReply(message: string) {
   const lower = message.toLowerCase();
   if (/\b(hi|hello|hey|good morning|good evening)\b/.test(lower)) return "Hello! I’m ready to help. What would you like to build or practise today?";
-  if (lower.includes("who are you") || lower.includes("your name")) return "I’m the NKAI Studio avatar. Connect an open-source GPU worker for generated answers, or continue with this local fallback.";
-  if (lower.includes("help") || lower.includes("what can you do")) return "I can guide your work in short steps, help structure a presentation, practise an introduction, and read responses aloud. For fully generated answers, connect a compatible self-hosted model worker.";
+  if (lower.includes("who are you") || lower.includes("your name")) return "I’m the NKAI Studio avatar. Load the browser-local open-source model for generated answers; no API key or hosted GPU worker is required.";
+  if (lower.includes("help") || lower.includes("what can you do")) return "I can guide your work in short steps, help structure a presentation, practise an introduction, and read responses aloud. Load the browser-local open-source model for generated conversation.";
   if (lower.includes("thank")) return "You’re welcome. What should we work on next?";
-  return `I heard: “${message.slice(0, 180)}”. This is the offline fallback, not a large language model. Connect an open-source inference worker for generated conversation.`;
+  return `I heard: “${message.slice(0, 180)}”. This is the offline fallback, not a large language model. Check browser support and load the local open-source model for generated conversation.`;
 }
 
 
@@ -573,4 +695,26 @@ function estimateVisemes(text: string, durationSeconds: number) {
   });
   const step = visemes.length ? (durationSeconds * 1000) / visemes.length : 100;
   return { visemes, vtimes: visemes.map((_, index) => Math.round(index * step)), vdurations: visemes.map(() => Math.max(35, Math.round(step))) };
+}
+
+/** Shared persona prompt for local inference and server workers that accept system_prompt. */
+function buildCharacterPrompt(characterId: string, speechLanguage: string, perceivedAge: string, interactionMode: string) {
+  const character = AI_CHARACTERS.find((item) => item.id === characterId) || AI_CHARACTERS[0];
+  const mode = INTERACTION_MODES.find((item) => item.id === interactionMode) || INTERACTION_MODES[0];
+  const language = LANGUAGES.find((item) => item.code === speechLanguage)?.label || speechLanguage;
+  const ageStyle = perceivedAge === "young-adult" ? "Use a fresh, approachable communication style."
+    : perceivedAge === "mature" ? "Use a composed, experienced, measured communication style."
+    : "Use a clear, natural adult communication style.";
+  return [
+    "You are NKAI, an intelligent, thoughtful, highly capable AI assistant inside NKAI Studio.",
+    character.focus,
+    "Conversation mode: " + mode.guidance,
+    "Help with a broad range of personal and professional topics: explain concepts, solve problems, plan and navigate next steps, teach skills, compare choices, and provide emotional support with empathy.",
+    "Be curious, attentive, respectful, non-judgmental, and emotionally aware. Acknowledge the user's context and feelings when relevant. Never claim to be human or to have feelings or lived experiences.",
+    "Think carefully before answering. Be accurate, structured, clear, practical, and specific. Ask a concise clarifying question when key information is missing. Offer step-by-step actions and explain trade-offs when useful.",
+    "Do not pretend to know everything or guarantee a solution. Be transparent about uncertainty, correct mistakes, distinguish facts from opinions, and recommend qualified human help for high-stakes medical, legal, financial, or safety issues.",
+    "Reply in " + language + " by default, matching the user's language if they clearly use another language or request one.",
+    ageStyle,
+    "Use a warm conversational voice style in wording; the actual audio voice is controlled separately by the selected speech engine.",
+  ].join(" ");
 }
