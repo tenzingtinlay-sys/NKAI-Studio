@@ -198,7 +198,15 @@
 }
 .mf-main {
   min-width: 0;
+  min-height: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.mf-main > .mf-canvas {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 .mf-canvas {
   padding: 16px 16px 88px;
