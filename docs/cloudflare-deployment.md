@@ -6,6 +6,7 @@ The main Studio is a full-stack TanStack Start/Vite application. Deploy it as a 
 
 - Root `wrangler.jsonc` supplies the Cloudflare Worker name, compatibility date, Node compatibility, and observability settings.
 - The existing `NITRO_PRESET` override is used to build Nitro's `cloudflare_module` output.
+- The 35 MiB MPFB CC0 sample is loaded from its upstream source rather than bundled as a Worker static asset, because Cloudflare caps individual assets at 25 MiB. The smaller brunette sample remains bundled and is non-commercial only.
 - `.github/workflows/cloudflare-workers-build.yml` builds the app and validates the generated Worker bundle without deploying.
 - `.github/workflows/deploy-cloudflare-studio.yml` is a manually triggered production deployment workflow. It requires real production credentials and runs database migrations before deployment.
 
