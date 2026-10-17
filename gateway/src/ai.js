@@ -212,7 +212,16 @@ export async function handleAi(request, env, url) {
     });
     return reply({ registered: true, id, ttlSeconds: ttl });
   }
-
+  if (path === "/api/ai/health") {
+    if (request.method !== "GET") return reply({ error: "GET required" }, 405);
+    if (!hasBearer(request, env.AI_CLIENT_SECRET)) {
+      return reply({ error: "Unauthorized" }, 401);
+    }
+    const worker = await getWorker(env);
+    return worker
+      ? reply({ status: "ready", worker: worker.id })
+      : reply({ status: "unavailable", error: "No healthy AI worker is registered" }, 503);
+  }
   // Caller-authenticated AI proxy endpoints.
   if (
     path === "/api/ai/capabilities" ||
