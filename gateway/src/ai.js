@@ -108,9 +108,13 @@ async function callWorker(env, worker, path, init, timeoutMs) {
       redirect: "error",
       signal: AbortSignal.timeout(timeoutMs),
     });
-  } catch {
+  } catch (error) {
     await env.BACKENDS.delete(AI_PREFIX + worker.id);
-    return null;
+    const detail = String((error && error.message) || error).slice(0, 200);
+    return reply(
+      { error: "AI worker is unreachable and has been removed", detail },
+      502,
+    );
   }
 }
 
