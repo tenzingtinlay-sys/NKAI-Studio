@@ -119,7 +119,11 @@ async function callWorker(env, worker, path, init, timeoutMs) {
 }
 
 function passThrough(upstream, extraHeaders = {}) {
-  if (upstream.status >= 300 && upstream.status < 400) {
+function passThrough(upstream, extraHeaders = {}) {
+  if (upstream.status === 401 || upstream.status === 403) {
+    return reply({ error: "AI worker rejected the gateway credentials" }, 502);
+  }
+if (upstream.status >= 300 && upstream.status < 400) {
     return reply({ error: "AI worker returned an unexpected redirect" }, 502);
   }
 
