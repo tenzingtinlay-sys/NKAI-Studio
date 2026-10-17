@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "nkai-studio",
   "compatibility_date": "2026-10-16",
-  "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
+  "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env", "global_fetch_strictly_public"],
   "observability": {
     "enabled": true
   }
