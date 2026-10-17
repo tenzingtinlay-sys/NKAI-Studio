@@ -30,21 +30,23 @@ async function workerIsReady(worker: AIWorker): Promise<boolean> {
 export default defineEventHandler(async (event) => {
   // Inference can consume scarce GPU time. Require a real verified session;
   // the app's shared development-user fallback is not sufficient authorization.
-  let user;
-  try {
-    user = await getSessionUser();
-  } catch {
-    setResponseStatus(event, 401);
-    return { error: "Sign in to use NKAI inference.", code: "AI_AUTH_REQUIRED" };
-  }
-  if (!user) {
-    setResponseStatus(event, 401);
-    return { error: "Sign in to use NKAI inference.", code: "AI_AUTH_REQUIRED" };
+   if (process.env.AI_ALLOW_ANONYMOUS?.trim() !== "true") {
+    let user;
+    try {
+      user = await getSessionUser();
+    } catch {
+      setResponseStatus(event, 401);
+      return { error: "Sign in to use NKAI inference.", code: "AI_AUTH_REQUIRED" };
+    }
+    if (!user) {
+      setResponseStatus(event, 401);
+      return { error: "Sign in to use NKAI inference.", code: "AI_AUTH_REQUIRED" };
+    }
   }
 
   let workers;
   try { workers = orderWorkersForTimeSlot(parseWorkerPool(), Date.now()); }
-  catch { setResponseStatus(event, 500); return { error: "The server-side AI worker pool configuration is invalid.", code: "AI_WORKER_POOL_INVALID" }; }
+  catch { setResponseStatus(event,   500); return { error: "The server-side AI worker pool configuration is invalid.", code: "AI_WORKER_POOL_INVALID" }; }
   const requestUrl = getRequestURL(event);
   const suffix = requestUrl.pathname.slice("/api/ai/".length).split("/").filter(Boolean);
   if (suffix.length !== 1 || !ALLOWED.has(suffix[0])) {
