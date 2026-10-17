@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           cd gateway
-          wrangler deploy --var "ALLOWED_ORIGINS:${ALLOWED_ORIGINS}" 2>&1 | tee "$RUNNER_TEMP/wrangler-deploy.log"
+          wrangler deploy src/index.js --config wrangler.toml --name nkai-avatar-gateway --var "ALLOWED_ORIGINS:${ALLOWED_ORIGINS}" 2>&1 | tee "$RUNNER_TEMP/wrangler-deploy.log"
           GATEWAY_URL="$(grep -Eo 'https://nkai-avatar-gateway\.[a-zA-Z0-9-]+\.workers\.dev' "$RUNNER_TEMP/wrangler-deploy.log" | tail -n 1 || true)"
           if [[ -z "$GATEWAY_URL" ]]; then
             echo "::error::Could not detect the deployed workers.dev URL from Wrangler output."
