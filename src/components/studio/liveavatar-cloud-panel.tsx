@@ -186,7 +186,7 @@ export function LiveAvatarCloudPanel() {
         reply = payload.reply.trim();
       } catch (gpuError) {
         try {
-          reply = await chatWithPuter(text, recent, "openai/gpt-5.5");
+          reply = await chatWithPuter(text, recent, "gpt-5.6-luna");
           setStatus("AI reply via Puter.js · speaking through LiveAvatar");
         } catch {
           throw gpuError;
