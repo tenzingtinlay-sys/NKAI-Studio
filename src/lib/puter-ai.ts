@@ -84,7 +84,7 @@ export async function listPuterModels(): Promise<PuterModel[]> {
     }];
   });
   if (!models.length) throw new Error("Puter.js did not return any chat models.");
-  const order = new Map(PREFERRED_MODELS.map((id, index) => [id.toLowerCase(), index]));
+  const order = new Map<string, number>(PREFERRED_MODELS.map((id, index) => [id.toLowerCase(), index] as const));
   return models.sort((a, b) => {
     const ai = order.get(a.id.toLowerCase()) ?? 9999;
     const bi = order.get(b.id.toLowerCase()) ?? 9999;
