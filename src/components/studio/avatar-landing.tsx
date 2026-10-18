@@ -1,6 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Camera, CameraOff, Check, ChevronDown, CircleHelp, Globe2, Languages, Mic, MicOff, MonitorPlay, Phone, Radio, Search, Send, Settings2, Sparkles, Volume2, VolumeX, Video, VideoOff, WandSparkles } from "lucide-react";
 import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
+import { AuthNavActions } from "@/components/studio/auth-nav-actions";
 const LiveAvatarCloudPanel = lazy(() =>
   import("@/components/studio/liveavatar-cloud-panel").then((module) => ({ default: module.LiveAvatarCloudPanel })),
 );
@@ -225,7 +226,7 @@ export function AvatarLandingPage() {
           <button className={tab === "gallery" ? "selected" : ""} onClick={() => setTab("gallery")}>Avatar gallery</button>
           <button className={tab === "liveavatar" ? "selected" : ""} onClick={() => setTab("liveavatar")}>HeyGen LiveAvatar</button>
         </nav>
-        <div className="nkai-nav-actions"><a className="nkai-secondary-link" href="/features">Features</a><a className="nkai-secondary-link" href="/help">Help</a><a className="nkai-studio-link" href="/studio">Open full studio <span>↗</span></a></div>
+        <div className="nkai-nav-actions"><a className="nkai-secondary-link" href="/features">Features</a><a className="nkai-secondary-link" href="/help">Help</a><a className="nkai-studio-link" href="/studio">Open full studio <span>↗</span></a><AuthNavActions /></div>
       </header>
 
       <main className="nkai-home-main">
