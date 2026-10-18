@@ -20,7 +20,7 @@
  * `process.env`, which is why the merge has to happen before Vite starts.
  */
 import { spawn } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync, existsSync } from "node:fs";
 import { constants as osConstants } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -111,13 +111,23 @@ function main(argv) {
     process.exit(2);
   }
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
-  const child = spawn(command, args, { stdio: "inherit", env });
+  // Resolve local binaries (node_modules/.bin) so spawned commands find their
+  // platform-specific executables (e.g. vite.cmd on Windows).
+  let resolvedCommand = command;
+  try {
+    const binDir = join(projectRoot(), "node_modules", ".bin");
+    const candidate = process.platform === "win32" ? join(binDir, `${command}.cmd`) : join(binDir, command);
+    if (existsSync(candidate)) {
+      resolvedCommand = candidate;
+    }
+  } catch {}
+  const child = spawn(resolvedCommand, args, { stdio: "inherit", env });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));
   }
   child.on("error", (err) => {
-    console.error(`[with-app-env] failed to run ${command}:`, err?.message || err);
+    console.error(`[with-app-env] failed to run ${resolvedCommand}:`, err?.message || err);
     process.exit(127);
   });
   child.on("exit", (code, signal) => {
