@@ -51,6 +51,7 @@ function extractText(result: unknown): string {
 }
 
 const PREFERRED_MODELS = [
+  "gpt-5.6-luna",
   "openai/gpt-5.6-luna",
   "openai/gpt-5.5",
   "anthropic/claude-opus-5-5",
