@@ -67,13 +67,13 @@ export async function listPuterModels(): Promise<PuterModel[]> {
 
 export async function chatWithPuter(prompt: string, history: Array<{ role: "user" | "assistant"; text: string }>, model: string): Promise<string> {
   const puter = await loadPuter();
-  const transcript = history.slice(-8).map((message) => `${message.role === "user" ? "User" : "Assistant"}: ${message.text}`).join("\\n");
+  const transcript = history.slice(-8).map((message) => `${message.role === "user" ? "User" : "Assistant"}: ${message.text}`).join("\n");
   const fullPrompt = [
     "You are the helpful, warm AI conversation partner inside NKAI Studio. Reply in the user's chosen language when possible. Be concise, useful, and honest. You are the conversation brain, not the live avatar renderer.",
-    transcript ? `Recent conversation:\\n${transcript}` : "",
+    transcript ? `Recent conversation:\n${transcript}` : "",
     `User: ${prompt}`,
     "Assistant:",
-  ].filter(Boolean).join("\\n\\n");
+  ].filter(Boolean).join("\n\n");
   const result = await puter.ai!.chat(fullPrompt, { model });
   const text = extractText(result);
   if (!text) throw new Error("Puter.js returned an empty response. Try another model or retry.");
