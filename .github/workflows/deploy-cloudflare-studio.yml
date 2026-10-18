@@ -23,6 +23,8 @@ jobs:
       GOOGLE_CLIENT_ID: ${{ secrets.NKAI_GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.NKAI_GOOGLE_CLIENT_SECRET }}
       NKAI_AI_CLIENT_SECRET: ${{ secrets.NKAI_AI_CLIENT_SECRET }}
+      LIVEAVATAR_API_KEY: ${{ secrets.NKAI_LIVEAVATAR_API_KEY || secrets.LIVEAVATAR_API_KEY || secrets.HEYGEN_API_KEY }}
+      LIVEAVATAR_IS_SANDBOX: ${{ secrets.NKAI_LIVEAVATAR_IS_SANDBOX || 'true' }}
       LIVETALKING_INTERNAL_URL: ${{ secrets.LIVETALKING_INTERNAL_URL }}
       VITE_AUTH_ENABLED: "true"
       NITRO_PRESET: cloudflare_module
@@ -77,6 +79,12 @@ jobs:
           else
             echo "::warning::NKAI_AI_CLIENT_SECRET is not configured; /api/avatar-ai/status and /capabilities will remain unavailable."
           fi
+          if [[ -n "$LIVEAVATAR_API_KEY" ]]; then
+            printf '%s' "$LIVEAVATAR_API_KEY" | npx --yes wrangler@4 secret put LIVEAVATAR_API_KEY --config .output/server/wrangler.json
+          else
+            echo "::warning::No LiveAvatar API key secret was found. Set NKAI_LIVEAVATAR_API_KEY (or LIVEAVATAR_API_KEY / HEYGEN_API_KEY) in GitHub Actions secrets to enable hosted avatar sessions."
+          fi
+          printf '%s' "$LIVEAVATAR_IS_SANDBOX" | npx --yes wrangler@4 secret put LIVEAVATAR_IS_SANDBOX --config .output/server/wrangler.json
           if [[ -n "$LIVETALKING_INTERNAL_URL" ]]; then
             printf '%s' "$LIVETALKING_INTERNAL_URL" | npx --yes wrangler@4 secret put LIVETALKING_INTERNAL_URL --config .output/server/wrangler.json
           else
