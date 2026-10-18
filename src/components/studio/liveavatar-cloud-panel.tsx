@@ -161,7 +161,6 @@ export function LiveAvatarCloudPanel() {
 
   async function sendMessage(input = message) {
     const text = input.trim();
-    const session = sessionRef.current;
     if (!text || thinking) return;
     setThinking(true);
     setError("");
