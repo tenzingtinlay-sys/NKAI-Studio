@@ -52,6 +52,18 @@ Useful discovery pages:
 
 A Space showing “Running” on a search page is only a snapshot; it is not an uptime SLA and does not prove that its endpoint can be called from NKAI.
 
+## Voice / TTS component survey
+
+| Project | Role | Useful traits | Licensing / deployment caution | NKAI fit |
+|---|---|---|---|---|
+| [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) | Local speech generation, streaming-oriented speech, voice design and voice cloning | Upstream lists 0.6B and 1.7B models and 10 major languages; weights download on first load unless cached | Verify the model and code licence in the exact model card. Its listed languages do not include Hindi, Tamil, Telugu or Bengali, so it cannot be the only voice engine for the full NKAI language list | Evaluate for English and listed languages on a separate worker; do not block Qwen chat inference on TTS model loading |
+| [OpenVoice V1/V2](https://github.com/myshell-ai/OpenVoice) | Voice tone cloning/style control; combines with a base TTS engine | Upstream says V1/V2 are MIT and commercially usable; V2 native language support includes English, Spanish, French, Chinese, Japanese and Korean | A cloned voice requires authorization from the voice owner; base TTS, reference samples and output usage still need policy review | Optional voice-cloning adapter for consenting users, not the default voice engine |
+| [Kokoro TTS](https://huggingface.co/hexgrad/Kokoro-82M) | Lightweight local TTS | Small 82M model; available ONNX / Python inference paths; suitable to evaluate for lower-latency English speech | The upstream model card and its dependency/voice-pack licences must be checked. Do not assume every community fork or voice is covered by the same licence | Strong low-cost English voice candidate; validate pronunciation and voice quality for each language |
+| [Piper](https://github.com/rhasspy/piper) | Fast local neural TTS with streaming output | CPU-friendly, can stream raw audio; many language-specific ONNX voice models | Voice model licences vary; review each voice's model card. The current voice list does not guarantee coverage for all NKAI languages | Useful CPU fallback for supported languages, provided the selected voice licence is acceptable |
+| Browser Web Speech API | No extra server/model download; OS/browser-installed voices | Already used by NKAI; low setup overhead and broad platform integration | Voice names and naturalness vary by device; voice availability is not guaranteed, and it is not a synchronized photorealistic avatar stream | Keep as explicitly labelled fallback only |
+
+**Voice rule:** A “real human voice” in product copy should mean a natural-sounding synthetic voice, not a claim that speech is recorded from a human. For lip-synced video, send the exact generated audio or text through the same avatar worker that renders the video; independent browser TTS can drift out of sync with the video.
+
 ## Recommended NKAI Studio architecture
 
 ```text
