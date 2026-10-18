@@ -353,8 +353,8 @@ export function LiveAvatarCloudPanel() {
           </div>
 
           <div className="lm-controls" aria-label="Call controls">
-            <button type="button" className="lm-btn primary lm-start-call" disabled={busy || live || !avatarId} onClick={() => void connect()}>
-              <span aria-hidden="true">▶</span> {busy ? "Connecting to avatar…" : live ? "Live video started" : "Start live video"}
+            <button type="button" className="lm-btn primary lm-start-call" disabled={busy || live || Boolean(sessionRef.current) || !avatarId} onClick={() => void connect()}>
+              <span aria-hidden="true">▶</span> {busy ? "Connecting to avatar…" : sessionRef.current && !streamReady ? "Waiting for avatar stream…" : live ? "Live video started" : "Start live video"}
             </button>
             <button type="button" className={"lm-btn lm-mic-btn" + (voiceListening ? " active" : "")} disabled={thinking || busy} onClick={startVoiceInput} aria-pressed={voiceListening}>
               <span aria-hidden="true">{voiceListening ? "●" : "🎙"}</span>{voiceListening ? "Listening…" : "Speak to avatar"}
@@ -362,7 +362,7 @@ export function LiveAvatarCloudPanel() {
             <button type="button" className={"lm-btn" + (camOn ? " active" : "")} onClick={() => void toggleCam()} aria-pressed={camOn}>
               <span aria-hidden="true">{camOn ? "◉" : "◎"}</span>{camOn ? "Camera on" : "Enable camera"}
             </button>
-            <button type="button" className="lm-btn lm-end-call" disabled={busy || !live} onClick={() => void disconnect()}>
+            <button type="button" className="lm-btn lm-end-call" disabled={busy || !sessionRef.current} onClick={() => void disconnect()}>
               End call
             </button>
           </div>
@@ -391,7 +391,7 @@ export function LiveAvatarCloudPanel() {
                 ))}
               </div>
               <label className="lm-field lm-avatar-picker">Choose an avatar
-                <select aria-label="Choose an avatar" value={avatarId} onChange={(event) => setAvatarId(event.target.value)} disabled={live || busy || loadingCatalog}>
+                <select aria-label="Choose an avatar" value={avatarId} onChange={(event) => setAvatarId(event.target.value)} disabled={live || busy || Boolean(sessionRef.current) || loadingCatalog}>
                   {!avatars.length && <option value="">No avatars available</option>}
                   {filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}
                 </select>
@@ -415,7 +415,7 @@ export function LiveAvatarCloudPanel() {
 
               <div className="lm-config-grid">
                 <label className="lm-field">Language
-                  <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={live || busy}>
+                  <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={live || busy || Boolean(sessionRef.current)}>
                     {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                   </select>
                 </label>
