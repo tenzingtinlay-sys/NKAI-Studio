@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Reference-only catalogue for authorized visual review. This is not a scraper, downloader, or source of reusable avatar/voice assets.",
+  "policy": "Do not enumerate or fetch additional proprietary previews automatically. A look count supplied by a user is marked as unverified until confirmed through an authorized source. Preview access does not establish reuse rights.",
+  "sources": [
+    {
+      "provider": "HeyGen",
+      "avatarName": "Marieke",
+      "lookPack": "Modern Corporate",
+      "reportedLookCount": 29,
+      "lookCountStatus": "user-reported-unverified",
+      "previewReferences": [
+        {
+          "lookNumber": 1,
+          "url": "https://resource2.heygen.ai/public-avatars/Marieke/lookpack/previews/Modern_Corporate_1.mp4",
+          "providedByUser": true,
+          "inspectionStatus": "not-inspected",
+          "reusePermission": "not-established"
+        },
+        {
+          "lookNumber": 2,
+          "url": "https://resource2.heygen.ai/public-avatars/Marieke/lookpack/previews/Modern_Corporate_2.mp4",
+          "providedByUser": true,
+          "inspectionStatus": "not-inspected",
+          "reusePermission": "not-established"
+        }
+      ],
+      "nextAction": "Add more individual references only when supplied by the owner or made available through a written-authorized catalogue/API workflow; do not infer a complete catalogue from URL patterns.",
+      "assetClassification": "rendered-preview-reference",
+      "deployableInNKAI": false
+    }
+  ]
+}
