@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
+import { chatWithPuter } from "@/lib/puter-ai";
 
 type LiveAvatar = {
   id: string;
@@ -42,6 +43,8 @@ export function LiveAvatarCloudPanel() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("Load your available LiveAvatar catalogue to begin.");
   const [busy, setBusy] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -146,16 +149,72 @@ export function LiveAvatarCloudPanel() {
     setStatus("Disconnected");
   }
 
-  function sendMessage() {
-    const text = message.trim();
+  async function sendMessage(input = message) {
+    const text = input.trim();
     const session = sessionRef.current;
-    if (!text || !session || session.state !== SessionState.CONNECTED) return;
+    if (!text || !session || session.state !== SessionState.CONNECTED || thinking) return;
+    setThinking(true);
+    setError("");
+    setMessage("");
+    const recent = history.slice(-8).map((item) => ({
+      role: (item.role === "you" ? "user" : "assistant") as "user" | "assistant",
+      text: item.text,
+    }));
+    setHistory((items) => [...items, { role: "you", text }]);
     try {
-      session.repeat(text);
-      setHistory((items) => [...items, { role: "you", text }]);
-      setMessage("");
+      let reply = "";
+      try {
+        const response = await fetch("/api/avatar-ai/chat", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ message: text, language, history: recent }),
+        });
+        const payload = await response.json() as { reply?: string; error?: string; detail?: string };
+        if (!response.ok || !payload.reply?.trim()) {
+          throw new Error(payload.error || payload.detail || "NKAI AI did not return a reply.");
+        }
+        reply = payload.reply.trim();
+      } catch (gpuError) {
+        try {
+          reply = await chatWithPuter(text, recent, "openai/gpt-5.5");
+          setStatus("AI reply via Puter.js · speaking through LiveAvatar");
+        } catch {
+          throw gpuError;
+        }
+      }
+      const currentSession = sessionRef.current;
+      if (!currentSession || currentSession.state !== SessionState.CONNECTED) {
+        throw new Error("The live avatar disconnected before it could speak the reply.");
+      }
+      await currentSession.repeat(reply);
+      setHistory((items) => [...items, { role: "avatar", text: reply }]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not send the message.");
+      setError(cause instanceof Error ? cause.message : "Could not generate or speak the reply.");
+    } finally {
+      setThinking(false);
+    }
+  }
+
+  function startVoiceInput() {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("Voice input is not supported in this browser. Use Chrome or type your message.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = language;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => { setVoiceListening(true); setError(""); };
+    recognition.onresult = (event: any) => {
+      const transcript = String(event.results?.[0]?.[0]?.transcript || "").trim();
+      if (transcript) void sendMessage(transcript);
+    };
+    recognition.onerror = (event: any) => setError("Microphone input failed: " + String(event.error || "unknown error") + ".");
+    recognition.onend = () => setVoiceListening(false);
+    try { recognition.start(); } catch {
+      setVoiceListening(false);
+      setError("Could not start microphone input. Check browser microphone permission.");
     }
   }
 
@@ -187,17 +246,18 @@ export function LiveAvatarCloudPanel() {
           <button style={primary} disabled={busy || !!sessionRef.current || !avatarId} onClick={() => void connect()}>{busy ? "Connecting…" : "Start live video"}</button>
           <button style={button} disabled={busy || !sessionRef.current} onClick={() => void disconnect()}>End session</button>
         </div>
-        <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, lineHeight: 1.6 }}>LiveAvatar is hosted by HeyGen and may consume account credits. Your API key remains on the server.</p>
+        <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, lineHeight: 1.6 }}>LiveAvatar is hosted by HeyGen and may consume account credits. Your API key remains on the server. Voice input uses browser speech recognition; AI replies are spoken by the connected live avatar.</p>
       </section>
       <section style={card}>
         <b>Talk to your avatar</b>
         <div aria-live="polite" style={{ minHeight: 180, maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, margin: "12px 0" }}>
-          {history.length === 0 && <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 13 }}>Start a session, then send a message to the avatar.</p>}
+          {history.length === 0 && <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 13 }}>Start a session, then speak or type. NKAI generates the reply and the live avatar speaks it.</p>}
           {history.map((item, index) => <div key={index} style={{ alignSelf: item.role === "you" ? "flex-end" : "flex-start", padding: 10, borderRadius: 10, background: item.role === "you" ? "#1d4ed8" : "#263244", maxWidth: "90%", overflowWrap: "anywhere" }}><small>{item.role === "you" ? "You" : "Avatar"}</small><div>{item.text}</div></div>)}
         </div>
-        <form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} style={{ display: "flex", gap: 8 }}>
-          <input style={{ ...field, flex: 1 }} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={1000} placeholder="Write a message…" aria-label="Message to LiveAvatar" />
-          <button style={button} disabled={!message.trim() || busy || !sessionRef.current}>Send</button>
+        <form onSubmit={(event) => { event.preventDefault(); void sendMessage(); }} style={{ display: "flex", gap: 8 }}>
+          <input style={{ ...field, flex: 1 }} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={1000} placeholder={thinking ? "AI is thinking; avatar will speak shortly…" : "Write or dictate a message…"} aria-label="Message to LiveAvatar" />
+          <button type="button" style={button} disabled={busy || thinking || !sessionRef.current} onClick={startVoiceInput}>{voiceListening ? "Listening…" : "🎙 Voice"}</button>
+          <button type="submit" style={button} disabled={!message.trim() || busy || thinking || !sessionRef.current}>{thinking ? "Thinking…" : "Send"}</button>
         </form>
         {error && <p role="alert" style={{ color: "#f87171", fontSize: 13, marginTop: 12 }}>{error}</p>}
       </section>
