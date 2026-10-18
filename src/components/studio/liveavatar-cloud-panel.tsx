@@ -173,7 +173,7 @@ export function LiveAvatarCloudPanel() {
     try {
       let reply = "";
       try {
-        const response = await fetch("/api/avatar-ai/chat", {
+        const response = await fetch("/api/ai/chat", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ message: text, language, history: recent }),
