@@ -55,8 +55,8 @@ export function AvatarLandingPage() {
   const [sessionStarted, setSessionStarted] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiProvider, setAiProvider] = useState<"auto" | "nkai" | "puter">("auto");
-  const [puterModel, setPuterModel] = useState("gpt-5.6-luna");
-  const [puterModels, setPuterModels] = useState<Array<{ id: string; name: string; provider?: string }>>([{ id: "gpt-5.6-luna", name: "GPT-5.6 Luna" }]);
+  const [puterModel, setPuterModel] = useState("openai/gpt-5.5");
+  const [puterModels, setPuterModels] = useState<Array<{ id: string; name: string; provider?: string }>>([{ id: "openai/gpt-5.5", name: "GPT-5.5" }]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
