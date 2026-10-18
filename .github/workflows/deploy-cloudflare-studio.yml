@@ -22,6 +22,8 @@ jobs:
       BETTER_AUTH_SECRET: ${{ secrets.NKAI_BETTER_AUTH_SECRET }}
       GOOGLE_CLIENT_ID: ${{ secrets.NKAI_GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.NKAI_GOOGLE_CLIENT_SECRET }}
+      NKAI_AI_CLIENT_SECRET: ${{ secrets.NKAI_AI_CLIENT_SECRET }}
+      LIVETALKING_INTERNAL_URL: ${{ secrets.LIVETALKING_INTERNAL_URL }}
       VITE_AUTH_ENABLED: "true"
       NITRO_PRESET: cloudflare_module
 
@@ -70,6 +72,16 @@ jobs:
           printf '%s' "$GOOGLE_CLIENT_ID" | npx --yes wrangler@4 secret put GOOGLE_CLIENT_ID --config .output/server/wrangler.json
           printf '%s' "$GOOGLE_CLIENT_SECRET" | npx --yes wrangler@4 secret put GOOGLE_CLIENT_SECRET --config .output/server/wrangler.json
           printf '%s' "$VITE_AUTH_ENABLED" | npx --yes wrangler@4 secret put VITE_AUTH_ENABLED --config .output/server/wrangler.json
+          if [[ -n "$NKAI_AI_CLIENT_SECRET" ]]; then
+            printf '%s' "$NKAI_AI_CLIENT_SECRET" | npx --yes wrangler@4 secret put NKAI_AI_CLIENT_SECRET --config .output/server/wrangler.json
+          else
+            echo "::warning::NKAI_AI_CLIENT_SECRET is not configured; /api/avatar-ai/status and /capabilities will remain unavailable."
+          fi
+          if [[ -n "$LIVETALKING_INTERNAL_URL" ]]; then
+            printf '%s' "$LIVETALKING_INTERNAL_URL" | npx --yes wrangler@4 secret put LIVETALKING_INTERNAL_URL --config .output/server/wrangler.json
+          else
+            echo "::warning::LIVETALKING_INTERNAL_URL is not configured; LiveTalking cannot connect to its GPU host."
+          fi
 
       - name: Verify deployment HTTP response
         shell: bash
@@ -87,3 +99,23 @@ jobs:
           done
           echo "::error::The deployed homepage did not return HTTP 200 at $SITE. Check the Worker URL and runtime logs."
           exit 1
+
+      - name: Verify deployed CSS assets
+        env:
+          SITE: ${{ secrets.NKAI_BETTER_AUTH_URL }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "$SITE/" -o /tmp/nkai-home.html
+          SITE="$SITE" node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const site = new URL(process.env.SITE);
+            const html = readFileSync("/tmp/nkai-home.html", "utf8");
+            const hrefs = [...html.matchAll(/href=["\x27]([^"\x27]+\.css(?:\?[^"\x27]*)?)["\x27]/gi)].map(m => m[1]);
+            const assets = [...new Set(hrefs.map(h => new URL(h, site)).filter(u => u.origin === site.origin))];
+            if (!assets.length) throw new Error("No same-origin CSS assets were found in the homepage HTML.");
+            for (const asset of assets) {
+              const response = await fetch(asset, { redirect: "follow" });
+              console.log(`${response.status} ${asset.pathname}`);
+              if (!response.ok) throw new Error(`Stylesheet returned HTTP ${response.status}: ${asset.pathname}`);
+            }
+          '
