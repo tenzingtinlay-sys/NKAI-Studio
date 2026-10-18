@@ -33,6 +33,8 @@ jobs:
           NKAI_LIVETALKING_INTERNAL_URL: ${{ secrets.NKAI_LIVETALKING_INTERNAL_URL }}
           LIVEAVATAR_API_KEY: ${{ secrets.LIVEAVATAR_API_KEY }}
           LIVEAVATAR_IS_SANDBOX: ${{ secrets.LIVEAVATAR_IS_SANDBOX }}
+          NKAI_AI_GATEWAY_URL: ${{ secrets.NKAI_AI_GATEWAY_URL }}
+          NKAI_AI_CLIENT_SECRET: ${{ secrets.NKAI_AI_CLIENT_SECRET }}
         run: |
           if [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE_ID" ]; then
             echo "::error::Configure repository secrets HF_TOKEN and HF_SPACE_ID first."
