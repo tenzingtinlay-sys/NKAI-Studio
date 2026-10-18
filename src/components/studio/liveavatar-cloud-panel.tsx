@@ -581,7 +581,12 @@ const CSS = `
 .lm-video-label{font-size:10px;letter-spacing:.1em;padding:4px 5px 10px}
 .lm-video-caption{font-size:11px}
 .lm-video-pair .lm-status{border:1px solid #303c54;background:#0b1019;color:#b9c5dc;padding:8px 11px;border-radius:9px;font-size:11px}
-.lm-ph{background:radial-gradient(ellipse at 50% 35%,#24294a,#090d15 72%);color:#d1d8e8;z-index:2;transition:opacity .2s ease}\n.lm-video>video{position:relative;z-index:1;background:#05070b}\n.lm-video:has(video[src],video[srcObject]){background:#05070b}\n.lm-avatar-preview{pointer-events:none}\n.lm-stage{min-width:0}\n.lm-video-pair{align-items:stretch}\n.lm-video-card{min-width:0}
+.lm-ph{background:radial-gradient(ellipse at 50% 35%,#24294a,#090d15 72%);color:#d1d8e8;z-index:2;transition:opacity .2s ease}
+.lm-video>video{position:relative;z-index:1;background:#05070b}
+.lm-avatar-preview{pointer-events:none}
+.lm-stage{min-width:0}
+.lm-video-pair{align-items:stretch}
+.lm-video-card{min-width:0}
 .lm-ph .lm-avatar-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%;opacity:.45;filter:saturate(.8)}
 .lm-ph>span{position:relative;z-index:1;max-width:90%;padding:7px 10px;border-radius:8px;background:#070a12b8;color:#eef0fb}
 .lm-stage-head h2{font-size:22px;letter-spacing:-.025em}
