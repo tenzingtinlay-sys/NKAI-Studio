@@ -5,7 +5,7 @@ import { authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { AuthNavActions } from "@/components/studio/auth-nav-actions";
 
-export const Route = createFileRoute("/login")({ component: LoginPage });
+export const Route = createFileRoute("/login" as any)({ component: LoginPage });
 
 function LoginPage() {
   const { user, isPending } = useCurrentUserState();
@@ -67,7 +67,7 @@ function LoginPage() {
         <div className="nkai-login-security"><ShieldCheck size={15} /><span>Authentication is handled by the NKAI server. Provider secrets are not placed in browser code.</span></div>
         <p className="nkai-login-footnote">By continuing, you’ll return to the NKAI Studio workspace after authentication.</p>
       </section>
-      <footer className="nkai-login-footer"><Link to="/avatar-library">Explore avatar library</Link><span>NKAI STUDIO · ACCOUNT ACCESS</span></footer>
+      <footer className="nkai-login-footer"><Link to={"/avatar-library" as any}>Explore avatar library</Link><span>NKAI STUDIO · ACCOUNT ACCESS</span></footer>
     </main>
   );
 }
