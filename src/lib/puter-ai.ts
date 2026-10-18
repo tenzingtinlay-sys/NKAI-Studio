@@ -50,19 +50,26 @@ function extractText(result: unknown): string {
   return "";
 }
 
+const PUTER_MODELS: PuterModel[] = [
+  { id: "openai/gpt-5.5", name: "GPT-5.5", provider: "OpenAI" },
+  { id: "anthropic/claude-opus-5-5", name: "Claude Opus 5.5", provider: "Anthropic" },
+  { id: "google/gemini-3.8-flash", name: "Gemini 3.8 Flash", provider: "Google" },
+  { id: "x-ai/grok-4.7", name: "Grok 4.7", provider: "xAI" },
+  { id: "z-ai/glm-5.3", name: "GLM 5.3", provider: "Z.AI" },
+  { id: "deepseek/deepseek-v4-pro", name: "DeepSeek V4 Pro", provider: "DeepSeek" },
+  { id: "qwen/qwen3.8-max", name: "Qwen 3.8 Max", provider: "Qwen" },
+  { id: "mistralai/mistral-small-2603", name: "Mistral Small 4", provider: "Mistral" },
+  { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6", provider: "Moonshot AI" },
+  { id: "google/gemma-4-31b-it", name: "Gemma 4 31B IT", provider: "Google" },
+  { id: "meta-llama/llama-4-maverick", name: "Llama 4 Maverick", provider: "Meta" },
+  { id: "microsoft/phi-4", name: "Phi-4", provider: "Microsoft" },
+  { id: "openai/gpt-5.3-codex", name: "GPT-5.3 Codex", provider: "OpenAI · Coding" },
+];
+
 export async function listPuterModels(): Promise<PuterModel[]> {
-  const puter = await loadPuter();
-  if (!puter.ai?.listModels) return [{ id: "gpt-5.6-luna", name: "GPT-5.6 Luna" }];
-  const raw = await puter.ai.listModels();
-  const entries = Array.isArray(raw) ? raw : raw && typeof raw === "object" && "models" in raw && Array.isArray((raw as { models: unknown }).models) ? (raw as { models: unknown[] }).models : [];
-  const models = entries.flatMap((entry): PuterModel[] => {
-    if (!entry || typeof entry !== "object") return [];
-    const value = entry as Record<string, unknown>;
-    const id = value.id ?? value.model ?? value.name;
-    if (typeof id !== "string" || !id.trim()) return [];
-    return [{ id, name: typeof value.name === "string" && value.name !== id ? value.name : id, provider: typeof value.provider === "string" ? value.provider : undefined }];
-  });
-  return models.length ? models.sort((a, b) => a.name.localeCompare(b.name)) : [{ id: "gpt-5.6-luna", name: "GPT-5.6 Luna" }];
+  // Keep the catalogue sourced from the documented model IDs, not a guessed listModels API.
+  // Puter may change model availability by account, region, or product updates.
+  return PUTER_MODELS;
 }
 
 export async function chatWithPuter(prompt: string, history: Array<{ role: "user" | "assistant"; text: string }>, model: string): Promise<string> {
