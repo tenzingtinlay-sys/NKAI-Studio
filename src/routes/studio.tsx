@@ -1,6 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { StudioApp } from "@/components/studio/app";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
+// The imported MediaForge workspace is retired. Keep the old URL safe by
+// redirecting visitors to the current NKAI Studio live-conversation page.
 export const Route = createFileRoute("/studio")({
-  component: StudioApp,
+  beforeLoad: () => {
+    throw redirect({ to: "/" });
+  },
 });
