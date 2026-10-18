@@ -1,0 +1,1 @@
+// placeholder to ensure folder exists for avatar endpoints\nexport {};

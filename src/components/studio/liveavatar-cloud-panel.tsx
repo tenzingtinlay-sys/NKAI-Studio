@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
 import LifeMateFallback from "../LifeMateFallback";
+import AvatarPlayer from "../../AvatarPlayer";
 
 type LiveAvatar = {
   id: string;
@@ -251,6 +252,13 @@ export function LiveAvatarCloudPanel() {
         <b>LifeMate Offline Fallback</b>
         <div style={{ marginTop: 10 }}>
           <LifeMateFallback avatarName={selectedAvatar?.name || 'LifeMate'} avatarImage={selectedAvatar?.preview_url} />
+        </div>
+      </section>
+
+      <section style={card}>
+        <b>Local Avatars (Images + Voice Samples)</b>
+        <div style={{ marginTop: 10 }}>
+          <AvatarPlayer />
         </div>
       </section>
     </div>
