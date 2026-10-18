@@ -57,6 +57,7 @@ function initials(name?: string) {
 
 export function LiveAvatarCloudPanel() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamReadyRef = useRef(false);
   const camRef = useRef<HTMLVideoElement | null>(null);
   const camStream = useRef<MediaStream | null>(null);
   const sessionRef = useRef<LiveAvatarSession | null>(null);
@@ -161,34 +162,37 @@ export function LiveAvatarCloudPanel() {
       if (!response.ok || !payload.session_token) throw new Error(payload.error || "Could not create a LiveAvatar session.");
       const session = new LiveAvatarSession(payload.session_token, { autoKeepAlive: true, voiceChat: { defaultMuted: true } });
       sessionRef.current = session;
+      streamReadyRef.current = false;
       session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
         if (state === SessionState.CONNECTED) setStatus("Connected · " + label);
         else setStatus(String(state).replaceAll("_", " "));
         if (String(state).toUpperCase().includes("DISCONNECT")) {
           setLive(false);
           setStreamReady(false);
+          streamReadyRef.current = false;
         }
       });
       session.on(SessionEvent.SESSION_STREAM_READY, () => {
         if (videoRef.current) session.attach(videoRef.current);
+        streamReadyRef.current = true;
         setLive(true);
         setStreamReady(true);
         setTab("chat");
         setStatus("Live · " + label);
       });
+      setStatus("Session starting · waiting for the avatar video stream…");
       await session.start();
       if (videoRef.current) session.attach(videoRef.current);
-      // Do not mark the call live until the SDK emits SESSION_STREAM_READY.
-      // Otherwise the loading poster disappears and users see a blank video frame.
-      setLive(false);
-      setStreamReady(false);
-      setStatus("Session connected · waiting for the avatar video stream…");
+      // SESSION_STREAM_READY may fire before or after start() resolves. Never clear
+      // the ready state here; doing so can turn a successful stream back into a blank frame.
+      if (!streamReadyRef.current) setStatus("Session connected · waiting for the avatar video stream…");
     } catch (cause) {
       const session = sessionRef.current;
       sessionRef.current = null;
       if (session) await session.stop().catch(() => undefined);
       setLive(false);
       setStreamReady(false);
+      streamReadyRef.current = false;
       setError(cause instanceof Error ? cause.message : "LiveAvatar connection failed.");
       setStatus("Not connected");
     } finally {
@@ -208,6 +212,7 @@ export function LiveAvatarCloudPanel() {
     }
     setLive(false);
     setStreamReady(false);
+    streamReadyRef.current = false;
     setStatus("Session ended");
   }
 
@@ -531,7 +536,7 @@ const CSS = `
 .lm-user-ph b{width:70px;height:70px;border-radius:50%;display:grid;place-items:center;font-size:35px;color:#dbe2f0;background:#202a3d;border:1px solid #34415a}
 .lm-user-ph small{font-size:11px;color:var(--mut)}
 .lm-camera-live{position:absolute;left:10px;bottom:10px;padding:4px 8px;border-radius:999px;background:rgba(5,7,11,.72);color:var(--ok);font-size:11px}
-.lm-video{aspect-ratio:4/3}
+.lm-video{aspect-ratio:4/3;min-height:220px}
 .lm-ph{gap:10px;padding:14px;font-size:12px}
 .lm-ph b{width:70px;height:70px;font-size:25px}
 .lm-topics{margin-top:18px;padding-top:15px;border-top:1px solid var(--line)}
@@ -576,7 +581,7 @@ const CSS = `
 .lm-video-label{font-size:10px;letter-spacing:.1em;padding:4px 5px 10px}
 .lm-video-caption{font-size:11px}
 .lm-video-pair .lm-status{border:1px solid #303c54;background:#0b1019;color:#b9c5dc;padding:8px 11px;border-radius:9px;font-size:11px}
-.lm-ph{background:radial-gradient(ellipse at 50% 35%,#24294a,#090d15 72%);color:#d1d8e8}
+.lm-ph{background:radial-gradient(ellipse at 50% 35%,#24294a,#090d15 72%);color:#d1d8e8;z-index:2;transition:opacity .2s ease}\n.lm-video>video{position:relative;z-index:1;background:#05070b}\n.lm-video:has(video[src],video[srcObject]){background:#05070b}\n.lm-avatar-preview{pointer-events:none}\n.lm-stage{min-width:0}\n.lm-video-pair{align-items:stretch}\n.lm-video-card{min-width:0}
 .lm-ph .lm-avatar-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%;opacity:.45;filter:saturate(.8)}
 .lm-ph>span{position:relative;z-index:1;max-width:90%;padding:7px 10px;border-radius:8px;background:#070a12b8;color:#eef0fb}
 .lm-stage-head h2{font-size:22px;letter-spacing:-.025em}
