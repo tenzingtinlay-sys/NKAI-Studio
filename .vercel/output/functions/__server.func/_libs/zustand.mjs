@@ -1,5 +1,5 @@
-import { i as __toESM } from "../_runtime.mjs";
-import { q as require_react } from "./@tanstack/react-router+[...].mjs";
+import { __toESM } from "../_runtime.mjs";
+import { require_react } from "./@tanstack/react-router+[...].mjs";
 //#region node_modules/zustand/esm/vanilla.mjs
 var import_react = /* @__PURE__ */ __toESM(require_react(), 1);
 var createStoreImpl = (createState) => {
@@ -45,4 +45,4 @@ var createImpl = (createState) => {
 };
 var create = ((createState) => createState ? createImpl(createState) : createImpl);
 //#endregion
-export { create as t };
+export { create };

@@ -1,4 +1,3 @@
-import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
 import { GROK_PROVIDERS } from "./providers";
@@ -18,7 +17,6 @@ import { GROK_PROVIDERS } from "./providers";
  * the visitor stays signed in.
  */
 export const authClient = createAuthClient({
-  plugins: [genericOAuthClient()],
   fetchOptions: {
     onRequest(ctx) {
       const token = getBearerToken();
@@ -45,7 +43,7 @@ export { GROK_PROVIDERS };
 // bearer token in sessionStorage and attach it to every Better Auth request (and
 // to server functions, via `@/lib/auth/middleware`). Empty everywhere except the
 // preview after a popup sign-in, so the cookie path is untouched elsewhere.
-const BEARER_KEY = "grok-auth.bearer-token";
+const BEARER_KEY = "nkai-auth.bearer-token";
 
 /** The stored preview bearer token, or null. */
 export function getBearerToken(): string | null {
@@ -156,8 +154,10 @@ export async function signIn(
     return;
   }
 
-  const { data, error } = await authClient.signIn.oauth2({
-    providerId,
+  // Generic / brokered providers are exposed via the social entrypoint in
+  // the installed better-auth version. Use the provider name as `provider`.
+  const { data, error } = await authClient.signIn.social({
+    provider: providerId,
     callbackURL,
     errorCallbackURL,
   });

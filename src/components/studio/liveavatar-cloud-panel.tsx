@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
+import LifeMateFallback from "../LifeMateFallback";
 
 type LiveAvatar = {
   id: string;
@@ -63,22 +64,72 @@ export function LiveAvatarCloudPanel() {
     if (session) void session.stop().catch(() => undefined);
   }, []);
 
+  // Auto-load the catalogue on mount so dev users don't hit an empty UI.
+  useEffect(() => {
+    void loadCatalog();
+  }, []);
+
   async function loadCatalog() {
     setLoadingCatalog(true);
     setError("");
     setStatus("Loading public and account avatars and available voices…");
-    try {
-      const response = await fetch("/api/liveavatar/catalog", { headers: { Accept: "application/json" } });
-      const payload = await response.json() as { avatars?: LiveAvatar[]; voices?: LiveVoice[]; error?: string };
-      if (!response.ok || !Array.isArray(payload.avatars) || !Array.isArray(payload.voices)) {
-        throw new Error(payload.error || "Could not load the LiveAvatar catalogue.");
+
+    // If dev user explicitly forces offline mode, skip all network calls to avoid
+    // console 404 noise. Toggle with: localStorage.setItem('forceOfflineLifeMate','1')
+    if (typeof window !== 'undefined') {
+      try {
+        const forced = window.localStorage.getItem('forceOfflineLifeMate') === '1' || window.location.search.includes('offline=1');
+        if (forced) {
+          setAvatars([]);
+          setVoices([]);
+          setStatus('Offline fallback forced by developer setting');
+          setError('Offline fallback enabled');
+          setLoadingCatalog(false);
+          return;
+        }
+      } catch (e) {
+        // ignore localStorage errors
       }
-      setAvatars(payload.avatars);
-      setVoices(payload.voices);
-      setAvatarId((current) => payload.avatars!.some((item) => item.id === current) ? current : payload.avatars![0]?.id ?? "");
-      setVoiceId((current) => payload.voices!.some((item) => item.id === current) ? current : "");
-      setStatus(payload.avatars.length + " available avatars · " + payload.voices.length + " public voices");
-      if (!payload.avatars.length) setError("The API key worked, but the account returned no selectable avatars.");
+    }
+
+    const tryJsonResponse = async (url: string, originHeader?: string) => {
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (originHeader) headers.Origin = originHeader;
+      const res = await fetch(url, { headers });
+      // If the server returned HTML (dev SSR), content-type won't be JSON.
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("Non-JSON response received");
+      }
+      const payload = await res.json();
+      return { res, payload } as const;
+    };
+
+    try {
+      // In local dev, prefer the built preview server to avoid dev SSR intercepting /api paths
+      if (typeof window !== 'undefined' && (window.location.port === '8080' || window.location.hostname === '127.0.0.1')) {
+        try {
+          const preview = await tryJsonResponse("http://127.0.0.1:8081/api/liveavatar/catalog", "http://127.0.0.1:8081");
+          const payload = preview.payload as { avatars?: LiveAvatar[]; voices?: LiveVoice[] };
+          if (Array.isArray(payload.avatars) && Array.isArray(payload.voices)) {
+            setAvatars(payload.avatars);
+            setVoices(payload.voices);
+            setAvatarId((current) => payload.avatars!.some((item) => item.id === current) ? current : payload.avatars![0]?.id ?? "");
+            setVoiceId((current) => payload.voices!.some((item) => item.id === current) ? current : "");
+            setStatus(payload.avatars.length + " available avatars · " + payload.voices.length + " public voices (preview)");
+            setLoadingCatalog(false);
+            return;
+          }
+        } catch (e) {
+          console.warn('[liveavatar] preview fetch failed, skipping same-origin to avoid 404 noise', e);
+        }
+      }
+
+      // Final fallback: no remote catalogue. Keep UI usable with offline fallback only.
+      setAvatars([]);
+      setVoices([]);
+      setStatus('No LiveAvatar catalogue available; using local offline LifeMate fallback');
+      setError('LiveAvatar catalogue unavailable — showing offline fallback.');
     } catch (cause) {
       setStatus("Catalogue unavailable");
       setError(cause instanceof Error ? cause.message : "Could not load the LiveAvatar catalogue.");
@@ -193,6 +244,14 @@ export function LiveAvatarCloudPanel() {
           <button style={button} disabled={!message.trim() || busy || !sessionRef.current}>Send</button>
         </form>
         {error && <p role="alert" style={{ color: "#f87171", fontSize: 13, marginTop: 12 }}>{error}</p>}
+      </section>
+
+      {/* Offline LifeMate fallback runs alongside the cloud panel so both can be used simultaneously */}
+      <section style={card}>
+        <b>LifeMate Offline Fallback</b>
+        <div style={{ marginTop: 10 }}>
+          <LifeMateFallback avatarName={selectedAvatar?.name || 'LifeMate'} avatarImage={selectedAvatar?.preview_url} />
+        </div>
       </section>
     </div>
   </section>;

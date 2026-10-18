@@ -2,7 +2,7 @@
   "version": 3,
   "framework": {
     "name": "nitro",
-    "version": "3.0.260610-beta"
+    "version": "3.0.260903-beta"
   },
   "overrides": {},
   "routes": [
@@ -14,6 +14,30 @@
     },
     {
       "handle": "filesystem"
+    },
+    {
+      "src": "/api/liveavatar/stop",
+      "dest": "/api/liveavatar/stop"
+    },
+    {
+      "src": "/api/liveavatar/session",
+      "dest": "/api/liveavatar/session"
+    },
+    {
+      "src": "/api/liveavatar/catalog",
+      "dest": "/api/liveavatar/catalog"
+    },
+    {
+      "src": "/api/avatar-ai/(?<action>[^/]+)",
+      "dest": "/api/avatar-ai/[action]"
+    },
+    {
+      "src": "/api/livetalking/?(?<path>.+)",
+      "dest": "/api/livetalking/[...path]"
+    },
+    {
+      "src": "/api/ai/?(?<path>.+)",
+      "dest": "/api/ai/[...path]"
     },
     {
       "src": "/(.*)",

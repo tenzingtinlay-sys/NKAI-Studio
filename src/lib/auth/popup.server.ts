@@ -62,17 +62,18 @@ export async function handleAuthPopupRequest(request: Request): Promise<Response
   // Stay first-party for the callback so the session cookie lands in THIS popup.
   const back = `${url.origin}/auth/popup?done=1`;
   try {
-    const apiRes = await auth.api.signInWithOAuth2({
-      body: {
-        providerId,
-        callbackURL: back,
-        errorCallbackURL: `${back}&error=1`,
-      },
-      // Forward the preview host so Better Auth derives the correct baseURL /
-      // redirect_uri for the dynamic `*.grok-sandbox.com` origin.
-      headers: request.headers,
-      asResponse: true,
-    });
+    const api = auth.api as any;
+    const apiRes = await (api.signInWithOAuth2
+      ? api.signInWithOAuth2({
+          body: { providerId, callbackURL: back, errorCallbackURL: `${back}&error=1` },
+          headers: request.headers,
+          asResponse: true,
+        })
+      : api.signIn?.oauth2
+      ? api.signIn.oauth2({ body: { providerId, callbackURL: back, errorCallbackURL: `${back}&error=1` }, headers: request.headers, asResponse: true })
+      : api.signIn?.social
+      ? api.signIn.social({ provider: providerId, callbackURL: back, errorCallbackURL: `${back}&error=1` })
+      : Promise.reject(new Error('no signIn api available')));
 
     if (!apiRes.ok) {
       const detail = await apiRes.text().catch(() => "");

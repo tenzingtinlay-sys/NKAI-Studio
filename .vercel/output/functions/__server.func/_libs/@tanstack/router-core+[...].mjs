@@ -1,4 +1,5 @@
-import { C as crossSerializeStream, F as _getRenderedMatches, G as rootRouteId, H as dehydrateSsrMatchId, L as invariant, O as createInlineCssPlaceholderAsset, P as waitForReason, R as createSieveCache, S as createStream, T as isStream, j as getStylesheetHref, k as createInlineCssStyleAsset, l as createHydrationScripts, u as GLOBAL_TSR, x as createPlugin, z as decodePath } from "./react-router+[...].mjs";
+import { GLOBAL_TSR, _getRenderedMatches, createHydrationScripts, createInlineCssPlaceholderAsset, createInlineCssStyleAsset, createPlugin, createSieveCache, createStream, crossSerializeStream, decodePath, dehydrateSsrMatchId, getStylesheetHref, invariant, isStream, rootRouteId, waitForReason } from "./react-router+[...].mjs";
+import { splitSetCookieString } from "./react-start+[...].mjs";
 //#region node_modules/@tanstack/router-core/dist/esm/ssr/serializer/transformer.js
 /**
 * Create a strongly-typed serialization adapter for SSR hydration.
@@ -797,8 +798,7 @@ function attachRouterServerSsrUtils({ router, manifest, getRequestAssets }) {
 	}
 }
 function getNormalizedURL(url, base) {
-	if (typeof url === "string") url = url.replace("\\", "%5C");
-	const rawUrl = new URL(url, base);
+	const rawUrl = typeof url === "string" ? new URL(url.replace("\\", "%5C"), base) : url;
 	const handledProtocolRelativeURL = rawUrl.pathname.startsWith("//");
 	const decodedPathname = decodePath(handledProtocolRelativeURL ? rawUrl.pathname.replace(/^\/+/, "/") : rawUrl.pathname);
 	const searchParams = new URLSearchParams(rawUrl.search);
@@ -807,49 +807,6 @@ function getNormalizedURL(url, base) {
 		url: new URL(normalizedHref, rawUrl.origin),
 		handledProtocolRelativeURL
 	};
-}
-//#endregion
-//#region node_modules/cookie-es/dist/index.mjs
-function splitSetCookieString(cookiesString) {
-	if (Array.isArray(cookiesString)) return cookiesString.flatMap((c) => splitSetCookieString(c));
-	if (typeof cookiesString !== "string") return [];
-	const cookiesStrings = [];
-	let pos = 0;
-	let start;
-	let ch;
-	let lastComma;
-	let nextStart;
-	let cookiesSeparatorFound;
-	const skipWhitespace = () => {
-		while (pos < cookiesString.length && /\s/.test(cookiesString.charAt(pos))) pos += 1;
-		return pos < cookiesString.length;
-	};
-	const notSpecialChar = () => {
-		ch = cookiesString.charAt(pos);
-		return ch !== "=" && ch !== ";" && ch !== ",";
-	};
-	while (pos < cookiesString.length) {
-		start = pos;
-		cookiesSeparatorFound = false;
-		while (skipWhitespace()) {
-			ch = cookiesString.charAt(pos);
-			if (ch === ",") {
-				lastComma = pos;
-				pos += 1;
-				skipWhitespace();
-				nextStart = pos;
-				while (pos < cookiesString.length && notSpecialChar()) pos += 1;
-				if (pos < cookiesString.length && cookiesString.charAt(pos) === "=") {
-					cookiesSeparatorFound = true;
-					pos = nextStart;
-					cookiesStrings.push(cookiesString.slice(start, lastComma));
-					start = pos;
-				} else pos = lastComma + 1;
-			} else pos += 1;
-		}
-		if (!cookiesSeparatorFound || pos >= cookiesString.length) cookiesStrings.push(cookiesString.slice(start));
-	}
-	return cookiesStrings;
 }
 //#endregion
 //#region node_modules/@tanstack/router-core/dist/esm/ssr/headers.js
@@ -869,4 +826,4 @@ function mergeHeaders(...headers) {
 	}, new Headers());
 }
 //#endregion
-export { defaultSerovalDeserializerPlugins as a, createRawStreamRPCPlugin as i, attachRouterServerSsrUtils as n, makeSerovalPlugin as o, getNormalizedURL as r, createSerializationAdapter as s, mergeHeaders as t };
+export { attachRouterServerSsrUtils, createRawStreamRPCPlugin, createSerializationAdapter, defaultSerovalDeserializerPlugins, getNormalizedURL, makeSerovalPlugin, mergeHeaders };

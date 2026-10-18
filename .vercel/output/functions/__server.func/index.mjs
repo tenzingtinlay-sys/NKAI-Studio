@@ -1,18 +1,13 @@
 globalThis.__nitro_main__ = import.meta.url;
-import { i as toEventHandler, n as HTTPError, o as NodeResponse, r as defineLazyEventHandler, t as H3Core } from "./_libs/h3+rou3+srvx.mjs";
+import { H3Core, HTTPError, NodeResponse, composeMiddleware, createMatcherFromFind, defineLazyEventHandler, headers, memoizeRouteRulesMatcher, toEventHandler } from "./_libs/h3+rou3+srvx.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-//#region node_modules/nitro/dist/runtime/internal/route-rules.mjs
-var headers = ((m) => function headersRouteRule(event) {
-	for (const [key, value] of Object.entries(m.options || {})) event.res.headers.set(key, value);
-});
-//#endregion
 //#region scripts/install-page.html?raw
-var install_page_default = "<!DOCTYPE html>\n<html lang=\"en\" class=\"device-desktop\">\n  <head>\n    <meta charset=\"utf-8\" />\n    <meta\n      name=\"viewport\"\n      content=\"width=device-width, initial-scale=1, viewport-fit=cover\"\n    />\n    <meta name=\"color-scheme\" content=\"dark\" />\n    <meta name=\"theme-color\" content=\"#000000\" />\n    <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\" />\n    <meta name=\"apple-mobile-web-app-title\" content=\"{{APP_NAME}}\" />\n    <title>Add {{APP_NAME}} to your Home Screen</title>\n    <link rel=\"manifest\" href=\"/__grok/manifest.webmanifest\" />\n    <link rel=\"apple-touch-icon\" href=\"/__grok/icon-180.png\" />\n    <link rel=\"stylesheet\" href=\"/__grok/install/styles.css\" />\n    <script>\n      (function () {\n        var ua = navigator.userAgent || \"\";\n        var touch = navigator.maxTouchPoints || 0;\n        var isiPad = /iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1);\n        var isiPhone = /iPhone|iPod/.test(ua);\n        var isIOS = isiPhone || isiPad;\n        var isAndroid = /Android/i.test(ua);\n        var isAndroidPhone = isAndroid && /Mobile/i.test(ua);\n        var isAndroidTablet = isAndroid && !/Mobile/i.test(ua);\n        var minSide = Math.min(screen.width || 0, screen.height || 0);\n        var maxSide = Math.max(screen.width || 0, screen.height || 0);\n\n        var type = \"desktop\";\n        if (isiPhone) type = \"phone\";\n        else if (isiPad || isAndroidTablet) type = \"tablet\";\n        else if (isAndroidPhone) type = \"phone\";\n        else if (touch > 0 && minSide > 0 && minSide <= 500) type = \"phone\";\n        else if (touch > 0 && minSide > 500 && maxSide <= 1400) type = \"tablet\";\n\n        var iosMajor = null;\n        var osToken = null;\n        var safariToken = null;\n        var iphoneOs = ua.match(/iPhone OS (\\d+)[._]/);\n        var ipadOs = ua.match(/CPU OS (\\d+)[._](\\d+) like Mac OS X/);\n        var safariVer = ua.match(/Version\\/(\\d+)[._]/);\n        if (iphoneOs) osToken = parseInt(iphoneOs[1], 10);\n        else if (ipadOs) osToken = parseInt(ipadOs[1], 10);\n        if (isIOS && safariVer) safariToken = parseInt(safariVer[1], 10);\n        if (osToken != null || safariToken != null) {\n          iosMajor = Math.max(osToken || 0, safariToken || 0);\n        }\n\n        var root = document.documentElement;\n        var classes = [\"device-\" + type];\n        if (iosMajor != null) {\n          root.dataset.ios = String(iosMajor);\n          classes.push(iosMajor >= 27 ? \"ios-27-plus\" : \"ios-below-27\");\n        }\n        root.className = classes.join(\" \");\n      })();\n    <\/script>\n  </head>\n  <body>\n    <div class=\"page\">\n      <header class=\"powered\" aria-label=\"Powered by Grok\">\n        <span class=\"powered-by\">Powered by</span>\n        <span class=\"powered-brand\">\n          <img\n            class=\"grok-logo\"\n            src=\"/__grok/install/assets/homescreen/logo-grok.svg\"\n            width=\"14\"\n            height=\"14\"\n            alt=\"\"\n          />\n          <span class=\"powered-grok\">Grok</span>\n        </span>\n      </header>\n\n      <main class=\"content\">\n        <div class=\"ob\" aria-hidden=\"true\">\n          <img\n            class=\"ob-img ob-phone\"\n            src=\"/__grok/install/assets/homescreen/ob-phone.png\"\n            width=\"338\"\n            height=\"294\"\n            alt=\"\"\n          />\n          <img\n            class=\"ob-img ob-ipad\"\n            src=\"/__grok/install/assets/homescreen/ob-ipad.png\"\n            width=\"634\"\n            height=\"294\"\n            alt=\"\"\n          />\n        </div>\n\n        <section class=\"copy\">\n          <h1>Add {{APP_NAME}} to your&nbsp;Home&nbsp;Screen</h1>\n\n          <div class=\"steps\">\n            <p class=\"step step-tap step-ios27\">\n              <span class=\"muted\">Tap</span>\n              <span class=\"glass glass--icon\" aria-hidden=\"true\">\n                <img src=\"/__grok/install/assets/homescreen/glass-puzzle.svg\" width=\"24\" height=\"24\" alt=\"\" />\n              </span>\n              <span class=\"muted loc loc-phone\">in the bottom bar, then</span>\n              <span class=\"muted loc loc-ipad\">in the tool bar, then</span>\n              <span class=\"glass glass--icon\" aria-hidden=\"true\">\n                <img src=\"/__grok/install/assets/homescreen/glass-share.svg\" width=\"24\" height=\"24\" alt=\"\" />\n              </span>\n            </p>\n\n            <p class=\"step step-tap step-ios-legacy\">\n              <span class=\"muted\">Tap</span>\n              <span class=\"glass glass--icon\" aria-hidden=\"true\">\n                <img src=\"/__grok/install/assets/homescreen/glass-share.svg\" width=\"24\" height=\"24\" alt=\"\" />\n              </span>\n              <span class=\"muted loc loc-phone\">in the bottom bar</span>\n              <span class=\"muted loc loc-ipad\">in the tool bar</span>\n            </p>\n\n            <p class=\"step step-select\">\n              <span class=\"muted\">Select</span>\n              <span class=\"add-label\">\n                <img\n                  class=\"plus-icon\"\n                  src=\"/__grok/install/assets/homescreen/plus.svg\"\n                  width=\"16\"\n                  height=\"16\"\n                  alt=\"\"\n                />\n                <span class=\"add-text\">Add to Home Screen</span>\n              </span>\n            </p>\n          </div>\n        </section>\n      </main>\n\n      <main class=\"content content-desktop\">\n        <section class=\"copy\">\n          <h1>Open this link on your iPhone&nbsp;or&nbsp;iPad</h1>\n          <p class=\"desktop-note\">\n            This page shows how to add {{APP_NAME}} to an iOS Home Screen.\n          </p>\n          <a class=\"desktop-open\" href=\"{{APP_URL}}\">Open {{APP_NAME}}</a>\n        </section>\n      </main>\n    </div>\n  </body>\n</html>\n";
+var install_page_default = "<!DOCTYPE html>\r\n<html lang=\"en\" class=\"device-desktop\">\r\n  <head>\r\n    <meta charset=\"utf-8\" />\r\n    <meta\r\n      name=\"viewport\"\r\n      content=\"width=device-width, initial-scale=1, viewport-fit=cover\"\r\n    />\r\n    <meta name=\"color-scheme\" content=\"dark\" />\r\n    <meta name=\"theme-color\" content=\"#000000\" />\r\n    <meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black\" />\r\n    <meta name=\"apple-mobile-web-app-title\" content=\"{{APP_NAME}}\" />\r\n    <title>Add {{APP_NAME}} to your Home Screen</title>\r\n    <link rel=\"manifest\" href=\"/__grok/manifest.webmanifest\" />\r\n    <link rel=\"apple-touch-icon\" href=\"/__grok/icon-180.png\" />\r\n    <link rel=\"stylesheet\" href=\"/__grok/install/styles.css\" />\r\n    <script>\r\n      (function () {\r\n        var ua = navigator.userAgent || \"\";\r\n        var touch = navigator.maxTouchPoints || 0;\r\n        var isiPad = /iPad/.test(ua) || (/Macintosh/.test(ua) && touch > 1);\r\n        var isiPhone = /iPhone|iPod/.test(ua);\r\n        var isIOS = isiPhone || isiPad;\r\n        var isAndroid = /Android/i.test(ua);\r\n        var isAndroidPhone = isAndroid && /Mobile/i.test(ua);\r\n        var isAndroidTablet = isAndroid && !/Mobile/i.test(ua);\r\n        var minSide = Math.min(screen.width || 0, screen.height || 0);\r\n        var maxSide = Math.max(screen.width || 0, screen.height || 0);\r\n\r\n        var type = \"desktop\";\r\n        if (isiPhone) type = \"phone\";\r\n        else if (isiPad || isAndroidTablet) type = \"tablet\";\r\n        else if (isAndroidPhone) type = \"phone\";\r\n        else if (touch > 0 && minSide > 0 && minSide <= 500) type = \"phone\";\r\n        else if (touch > 0 && minSide > 500 && maxSide <= 1400) type = \"tablet\";\r\n\r\n        var iosMajor = null;\r\n        var osToken = null;\r\n        var safariToken = null;\r\n        var iphoneOs = ua.match(/iPhone OS (\\d+)[._]/);\r\n        var ipadOs = ua.match(/CPU OS (\\d+)[._](\\d+) like Mac OS X/);\r\n        var safariVer = ua.match(/Version\\/(\\d+)[._]/);\r\n        if (iphoneOs) osToken = parseInt(iphoneOs[1], 10);\r\n        else if (ipadOs) osToken = parseInt(ipadOs[1], 10);\r\n        if (isIOS && safariVer) safariToken = parseInt(safariVer[1], 10);\r\n        if (osToken != null || safariToken != null) {\r\n          iosMajor = Math.max(osToken || 0, safariToken || 0);\r\n        }\r\n\r\n        var root = document.documentElement;\r\n        var classes = [\"device-\" + type];\r\n        if (iosMajor != null) {\r\n          root.dataset.ios = String(iosMajor);\r\n          classes.push(iosMajor >= 27 ? \"ios-27-plus\" : \"ios-below-27\");\r\n        }\r\n        root.className = classes.join(\" \");\r\n      })();\r\n    <\/script>\r\n  </head>\r\n  <body>\r\n    <div class=\"page\">\r\n      <header class=\"powered\" aria-label=\"Powered by Grok\">\r\n        <span class=\"powered-by\">Powered by</span>\r\n        <span class=\"powered-brand\">\r\n          <img\r\n            class=\"grok-logo\"\r\n            src=\"/__grok/install/assets/homescreen/logo-grok.svg\"\r\n            width=\"14\"\r\n            height=\"14\"\r\n            alt=\"\"\r\n          />\r\n          <span class=\"powered-grok\">Grok</span>\r\n        </span>\r\n      </header>\r\n\r\n      <main class=\"content\">\r\n        <div class=\"ob\" aria-hidden=\"true\">\r\n          <img\r\n            class=\"ob-img ob-phone\"\r\n            src=\"/__grok/install/assets/homescreen/ob-phone.png\"\r\n            width=\"338\"\r\n            height=\"294\"\r\n            alt=\"\"\r\n          />\r\n          <img\r\n            class=\"ob-img ob-ipad\"\r\n            src=\"/__grok/install/assets/homescreen/ob-ipad.png\"\r\n            width=\"634\"\r\n            height=\"294\"\r\n            alt=\"\"\r\n          />\r\n        </div>\r\n\r\n        <section class=\"copy\">\r\n          <h1>Add {{APP_NAME}} to your&nbsp;Home&nbsp;Screen</h1>\r\n\r\n          <div class=\"steps\">\r\n            <p class=\"step step-tap step-ios27\">\r\n              <span class=\"muted\">Tap</span>\r\n              <span class=\"glass glass--icon\" aria-hidden=\"true\">\r\n                <img src=\"/__grok/install/assets/homescreen/glass-puzzle.svg\" width=\"24\" height=\"24\" alt=\"\" />\r\n              </span>\r\n              <span class=\"muted loc loc-phone\">in the bottom bar, then</span>\r\n              <span class=\"muted loc loc-ipad\">in the tool bar, then</span>\r\n              <span class=\"glass glass--icon\" aria-hidden=\"true\">\r\n                <img src=\"/__grok/install/assets/homescreen/glass-share.svg\" width=\"24\" height=\"24\" alt=\"\" />\r\n              </span>\r\n            </p>\r\n\r\n            <p class=\"step step-tap step-ios-legacy\">\r\n              <span class=\"muted\">Tap</span>\r\n              <span class=\"glass glass--icon\" aria-hidden=\"true\">\r\n                <img src=\"/__grok/install/assets/homescreen/glass-share.svg\" width=\"24\" height=\"24\" alt=\"\" />\r\n              </span>\r\n              <span class=\"muted loc loc-phone\">in the bottom bar</span>\r\n              <span class=\"muted loc loc-ipad\">in the tool bar</span>\r\n            </p>\r\n\r\n            <p class=\"step step-select\">\r\n              <span class=\"muted\">Select</span>\r\n              <span class=\"add-label\">\r\n                <img\r\n                  class=\"plus-icon\"\r\n                  src=\"/__grok/install/assets/homescreen/plus.svg\"\r\n                  width=\"16\"\r\n                  height=\"16\"\r\n                  alt=\"\"\r\n                />\r\n                <span class=\"add-text\">Add to Home Screen</span>\r\n              </span>\r\n            </p>\r\n          </div>\r\n        </section>\r\n      </main>\r\n\r\n      <main class=\"content content-desktop\">\r\n        <section class=\"copy\">\r\n          <h1>Open this link on your iPhone&nbsp;or&nbsp;iPad</h1>\r\n          <p class=\"desktop-note\">\r\n            This page shows how to add {{APP_NAME}} to an iOS Home Screen.\r\n          </p>\r\n          <a class=\"desktop-open\" href=\"{{APP_URL}}\">Open {{APP_NAME}}</a>\r\n        </section>\r\n      </main>\r\n    </div>\r\n  </body>\r\n</html>\r\n";
 //#endregion
 //#region \0virtual:grok-og-identity
 var grokOgIdentity = { "site": {
-	"title": "MediaForge",
+	"title": "NKAI-Studio",
 	"card": "custom",
 	"image": "/og.jpg"
 } };
@@ -23,7 +18,7 @@ var grokOgIdentity = { "site": {
 * shared by the Vite plugin and Nitro middleware. Plain ESM so `node --test`
 * and the Nitro bundler can both consume it.
 */
-var DEFAULT_APP_NAME = "Grok App";
+var DEFAULT_APP_NAME = "NKAI Studio";
 var OG_SITE_REL_PATH = "src/lib/og/site.json";
 var SHARE_META_KEYS = /* @__PURE__ */ new Set([
 	"og:title",
@@ -65,7 +60,7 @@ function appNameFromHost(hostHeader) {
 	if (!host.endsWith(".grok.me")) return DEFAULT_APP_NAME;
 	const slug = host.split(".")[0] ?? "";
 	if (!slug || slug === "www" || !/^[a-z0-9-]{1,63}$/.test(slug)) return DEFAULT_APP_NAME;
-	return slug.split("-").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ") || "Grok App";
+	return slug.split("-").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ") || "NKAI Studio";
 }
 /** True for Vercel system domains. Envoy rewrites origin Host to these; they SSO-protect `/og.jpg`. */
 function isVercelSystemHost(host) {
@@ -221,8 +216,8 @@ function resolveOgTitle(site = {}, appName = DEFAULT_APP_NAME, host = "", docume
 	const fromDoc = String(documentTitle ?? "").trim();
 	if (fromDoc) return fromDoc;
 	const fromHost = appNameFromHost(host);
-	if (fromHost && fromHost !== "Grok App") return fromHost;
-	return String(appName ?? "").trim() || "Grok App";
+	if (fromHost && fromHost !== "NKAI Studio") return fromHost;
+	return String(appName ?? "").trim() || "NKAI Studio";
 }
 function siteHasCustomCard(site = {}) {
 	return String(site.card ?? "").toLowerCase() === "custom";
@@ -294,7 +289,7 @@ function normalizeHeadContext(ctx = {}) {
 	const cwd = ctx.cwd ?? process.cwd();
 	const site = applyCustomCardFromFs(ctx.site !== void 0 ? ctx.site : snapshotOgIdentity(cwd).site, cwd);
 	return {
-		appName: resolveOgTitle(site, ctx.appName ?? "Grok App", ctx.host ?? ""),
+		appName: resolveOgTitle(site, ctx.appName ?? "NKAI Studio", ctx.host ?? ""),
 		projectId: ctx.projectId ?? readGrokProjectId(),
 		creator: ctx.creator ?? readXCreator(),
 		creatorId: ctx.creatorId ?? readXCreatorId(),
@@ -307,7 +302,7 @@ function injectGrokPwaHead(html, ctx = {}) {
 	if (typeof html !== "string") return html;
 	const { site, projectId, creator, creatorId, host, cwd } = normalizeHeadContext(ctx);
 	const documentTitle = titleFromDocument(html);
-	const appName = resolveOgTitle(site, ctx.appName ?? "Grok App", host, documentTitle);
+	const appName = resolveOgTitle(site, ctx.appName ?? "NKAI Studio", host, documentTitle);
 	let next = stripShareMetaTags(html);
 	if (!readGrokExtensionsEnabled()) next = stripGrokExtensionsScript(next);
 	const missing = grokPwaHeadTags(appName).filter(([key]) => {
@@ -448,37 +443,120 @@ async function grokPwaMiddleware(event, next) {
 //#endregion
 //#region #nitro/virtual/routing
 var findRouteRules = /* @__PURE__ */ (() => {
-	const $0 = [{
-		name: "headers",
+	const $0 = {
 		route: "/assets/**",
-		handler: headers,
-		options: { "cache-control": "public, max-age=31536000, immutable" }
-	}];
+		rank: 0,
+		rules: [{
+			name: "headers",
+			route: "/assets/**",
+			handler: headers,
+			options: { "cache-control": "public, max-age=31536000, immutable" }
+		}]
+	};
 	return (m, p) => {
 		let r = [];
-		if (p.charCodeAt(p.length - 1) === 47) p = p.slice(0, -1) || "/";
+		if (p.charCodeAt(p.length - 1) === 47) p = p.slice(0, -1);
 		let s = p.split("/");
-		if (s.length > 1) {
-			if (s[1] === "assets") r.unshift({
+		let l = s.length;
+		let _w;
+		if (l > 1) {
+			if (s[1] === "assets") r.push(l > 2 ? {
 				data: $0,
-				params: { "_": s.slice(2).join("/") }
+				params: {
+					"0": _w = p.slice(8),
+					_: _w
+				}
+			} : {
+				data: $0,
+				params: {}
 			});
 		}
-		return r;
+		return r.reverse();
 	};
 })();
-var _lazy_IO091Z = defineLazyEventHandler(() => import("./_chunks/ssr-renderer.mjs"));
+var _lazy_a8b18c30e72e6aa7 = defineLazyEventHandler(() => import("./_...path_.mjs"));
+var _lazy_7a1dcf8681bb3430 = defineLazyEventHandler(() => import("./_action_.mjs"));
+var _lazy_3617b439069199c3 = defineLazyEventHandler(() => import("./_routes/api/liveavatar/catalog.mjs"));
+var _lazy_af530c8e24fa296a = defineLazyEventHandler(() => import("./_routes/api/liveavatar/session.mjs"));
+var _lazy_f7dabd66d9b80e50 = defineLazyEventHandler(() => import("./_routes/api/liveavatar/stop.mjs"));
+var _lazy_0244ada01219726d = defineLazyEventHandler(() => import("./_2...path_.mjs"));
+var _lazy_a34bea0c6440f97e = defineLazyEventHandler(() => import("./_chunks/ssr-renderer.mjs"));
 var findRoute = /* @__PURE__ */ (() => {
-	const data = {
+	const $0 = {
+		route: "/api/liveavatar/catalog",
+		method: "get",
+		handler: _lazy_3617b439069199c3
+	}, $1 = {
+		route: "/api/liveavatar/session",
+		method: "post",
+		handler: _lazy_af530c8e24fa296a
+	}, $2 = {
+		route: "/api/liveavatar/stop",
+		method: "post",
+		handler: _lazy_f7dabd66d9b80e50
+	}, $3 = {
+		route: "/api/ai/**:path",
+		handler: _lazy_a8b18c30e72e6aa7
+	}, $4 = {
+		route: "/api/avatar-ai/:action",
+		handler: _lazy_7a1dcf8681bb3430
+	}, $5 = {
+		route: "/api/livetalking/**:path",
+		handler: _lazy_0244ada01219726d
+	}, $6 = {
 		route: "/**",
-		handler: _lazy_IO091Z
+		handler: _lazy_a34bea0c6440f97e
 	};
-	return ((_m, p) => {
+	return (m, p) => {
+		if (p.charCodeAt(p.length - 1) === 47) p = p.slice(0, -1);
+		if (p === "/api/liveavatar/catalog") {
+			if (m === "GET") return { data: $0 };
+		} else if (p === "/api/liveavatar/session") {
+			if (m === "POST") return { data: $1 };
+		} else if (p === "/api/liveavatar/stop") {
+			if (m === "POST") return { data: $2 };
+		} else if (p.charCodeAt(p.length - 1) === 47) {
+			if (p === "/api/liveavatar/catalog/") {
+				if (m === "GET") return { data: $0 };
+			} else if (p === "/api/liveavatar/session/") {
+				if (m === "POST") return { data: $1 };
+			} else if (p === "/api/liveavatar/stop/") {
+				if (m === "POST") return { data: $2 };
+			}
+		}
+		let s = p.split("/");
+		if (s.length > 1 && s[s.length - 1] === "") {
+			s.pop();
+			p = p.slice(0, -1);
+		}
+		let l = s.length;
+		if (l > 1) {
+			if (s[1] === "api") {
+				if (l > 2) {
+					if (s[2] === "ai") {
+						if (l > 3) return {
+							data: $3,
+							params: { "path": p.slice(8) }
+						};
+					} else if (s[2] === "avatar-ai") {
+						if (l === 4) return {
+							data: $4,
+							params: { "action": s[3] }
+						};
+					} else if (s[2] === "livetalking") {
+						if (l > 3) return {
+							data: $5,
+							params: { "path": p.slice(17) }
+						};
+					}
+				}
+			}
+		}
 		return {
-			data,
+			data: $6,
 			params: { "_": p.slice(1) }
 		};
-	});
+	};
 })();
 var globalMiddleware = [toEventHandler(grokPwaMiddleware)].filter(Boolean);
 //#endregion
@@ -557,19 +635,12 @@ function createNitroApp() {
 }
 function createH3App(config) {
 	const h3App = new H3Core(config);
-	h3App["~findRoute"] = (event) => findRoute(event.req.method, event.url.pathname);
-	h3App["~middleware"].push(...globalMiddleware);
-	h3App["~getMiddleware"] = (event, route) => {
-		const pathname = event.url.pathname;
-		const method = event.req.method;
-		const middleware = [];
-		const routeRules = getRouteRules(method, pathname);
-		event.context.routeRules = routeRules?.routeRules;
-		if (routeRules?.routeRuleMiddleware.length) middleware.push(...routeRules.routeRuleMiddleware);
-		middleware.push(...h3App["~middleware"]);
-		if (route?.data?.middleware?.length) middleware.push(...route.data.middleware);
-		return middleware;
+	h3App["~findRoute"] = (event) => {
+		event.context.routeRules = getRouteRules(event.req.method, event.url.pathname).routeRules;
+		return findRoute(event.req.method, event.url.pathname);
 	};
+	h3App["~middleware"].push(createRouteRulesMiddleware());
+	h3App["~middleware"].push(...globalMiddleware);
 	return h3App;
 }
 //#endregion
@@ -583,61 +654,38 @@ function useNitroApp() {
 	globalThis.__nitro__[APP_ID] = instance;
 	return instance;
 }
+var _matchRouteRules;
 function getRouteRules(method, pathname) {
-	const m = findRouteRules(method, pathname);
-	if (!m?.length) return { routeRuleMiddleware: [] };
-	const routeRules = {};
-	for (const layer of m) for (const rule of layer.data) {
-		const currentRule = routeRules[rule.name];
-		if (currentRule) {
-			if (rule.options === false) {
-				delete routeRules[rule.name];
-				continue;
-			}
-			if (typeof currentRule.options === "object" && typeof rule.options === "object") currentRule.options = {
-				...currentRule.options,
-				...rule.options
-			};
-			else currentRule.options = rule.options;
-			currentRule.route = rule.route;
-			currentRule.params = {
-				...currentRule.params,
-				...layer.params
-			};
-		} else if (rule.options !== false) routeRules[rule.name] = {
-			...rule,
-			params: layer.params
-		};
-	}
-	const middleware = [];
-	const orderedRules = Object.values(routeRules).sort((a, b) => (a.handler?.order || 0) - (b.handler?.order || 0));
-	for (const rule of orderedRules) {
-		if (rule.options === false || !rule.handler) continue;
-		middleware.push(rule.handler(rule));
-	}
-	return {
-		routeRules,
-		routeRuleMiddleware: middleware
+	return (_matchRouteRules ??= memoizeRouteRulesMatcher(createMatcherFromFind(findRouteRules)))(method, pathname);
+}
+function createRouteRulesMiddleware() {
+	const composed = /* @__PURE__ */ new WeakMap();
+	const middleware = (event, next) => {
+		const ruleMiddleware = getRouteRules(event.req.method, event.url.pathname).routeRuleMiddleware;
+		if (ruleMiddleware.length === 0) return next();
+		let chain = composed.get(ruleMiddleware);
+		if (!chain) {
+			chain = composeMiddleware(ruleMiddleware);
+			composed.set(ruleMiddleware, chain);
+		}
+		return chain(event, next);
 	};
+	return markUntraced(middleware);
+}
+function markUntraced(middleware) {
+	middleware.__traced__ = true;
+	return middleware;
 }
 //#endregion
 //#region node_modules/nitro/dist/presets/vercel/runtime/isr.mjs
 var ISR_URL_PARAM = "__isr_route";
 function isrRouteRewrite(reqUrl, xNowRouteMatches) {
-	if (xNowRouteMatches) {
-		const isrURL = new URLSearchParams(xNowRouteMatches).get(ISR_URL_PARAM);
-		if (isrURL) return [decodeURIComponent(isrURL), ""];
-	} else {
-		const queryIndex = reqUrl.indexOf("?");
-		if (queryIndex !== -1) {
-			const params = new URLSearchParams(reqUrl.slice(queryIndex + 1));
-			const isrURL = params.get(ISR_URL_PARAM);
-			if (isrURL) {
-				params.delete(ISR_URL_PARAM);
-				return [decodeURIComponent(isrURL), params.toString()];
-			}
-		}
-	}
+	const queryIndex = reqUrl.indexOf("?");
+	const reqParams = queryIndex === -1 ? new URLSearchParams() : new URLSearchParams(reqUrl.slice(queryIndex + 1));
+	const isrURL = xNowRouteMatches ? new URLSearchParams(xNowRouteMatches).get(ISR_URL_PARAM) : reqParams.get(ISR_URL_PARAM);
+	if (!isrURL) return;
+	reqParams.delete(ISR_URL_PARAM);
+	return [isrURL, reqParams.toString()];
 }
 //#endregion
 //#region node_modules/nitro/dist/presets/vercel/runtime/vercel.web.mjs
