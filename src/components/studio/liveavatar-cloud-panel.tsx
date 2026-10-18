@@ -57,6 +57,7 @@ function initials(name?: string) {
 
 export function LiveAvatarCloudPanel() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamReadyRef = useRef(false);
   const camRef = useRef<HTMLVideoElement | null>(null);
   const camStream = useRef<MediaStream | null>(null);
   const sessionRef = useRef<LiveAvatarSession | null>(null);
@@ -73,6 +74,7 @@ export function LiveAvatarCloudPanel() {
   const [status, setStatus] = useState("Loading the avatar catalogue…");
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState(false);
+  const [streamReady, setStreamReady] = useState(false);
   const [camOn, setCamOn] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
@@ -160,27 +162,37 @@ export function LiveAvatarCloudPanel() {
       if (!response.ok || !payload.session_token) throw new Error(payload.error || "Could not create a LiveAvatar session.");
       const session = new LiveAvatarSession(payload.session_token, { autoKeepAlive: true, voiceChat: { defaultMuted: true } });
       sessionRef.current = session;
+      streamReadyRef.current = false;
       session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
         if (state === SessionState.CONNECTED) setStatus("Connected · " + label);
         else setStatus(String(state).replaceAll("_", " "));
-        if (String(state).toUpperCase().includes("DISCONNECT")) setLive(false);
+        if (String(state).toUpperCase().includes("DISCONNECT")) {
+          setLive(false);
+          setStreamReady(false);
+          streamReadyRef.current = false;
+        }
       });
       session.on(SessionEvent.SESSION_STREAM_READY, () => {
         if (videoRef.current) session.attach(videoRef.current);
+        streamReadyRef.current = true;
         setLive(true);
+        setStreamReady(true);
         setTab("chat");
         setStatus("Live · " + label);
       });
+      setStatus("Session starting · waiting for the avatar video stream…");
       await session.start();
       if (videoRef.current) session.attach(videoRef.current);
-      setLive(true);
-      setTab("chat");
-      setStatus("Session started · waiting for the avatar stream");
+      // SESSION_STREAM_READY may fire before or after start() resolves. Never clear
+      // the ready state here; doing so can turn a successful stream back into a blank frame.
+      if (!streamReadyRef.current) setStatus("Session connected · waiting for the avatar video stream…");
     } catch (cause) {
       const session = sessionRef.current;
       sessionRef.current = null;
       if (session) await session.stop().catch(() => undefined);
       setLive(false);
+      setStreamReady(false);
+      streamReadyRef.current = false;
       setError(cause instanceof Error ? cause.message : "LiveAvatar connection failed.");
       setStatus("Not connected");
     } finally {
@@ -199,6 +211,8 @@ export function LiveAvatarCloudPanel() {
       videoRef.current.srcObject = null;
     }
     setLive(false);
+    setStreamReady(false);
+    streamReadyRef.current = false;
     setStatus("Session ended");
   }
 
@@ -319,10 +333,10 @@ export function LiveAvatarCloudPanel() {
 
           <div className="lm-video-pair">
             <section className="lm-video-card" aria-label="AI avatar video">
-              <div className="lm-video-label"><span>AI AVATAR</span><span className={live ? "connected" : ""}>{live ? "LIVE" : "WAITING"}</span></div>
+              <div className="lm-video-label"><span>AI AVATAR</span><span className={streamReady ? "connected" : ""}>{streamReady ? "LIVE" : busy ? "CONNECTING" : "READY WHEN YOU ARE"}</span></div>
               <div className="lm-video">
                 <video ref={videoRef} autoPlay playsInline />
-                {!live && <div className="lm-ph">{selectedAvatar?.preview_url ? <img className="lm-avatar-preview" src={selectedAvatar.preview_url} alt="" /> : <b>{initials(selectedAvatar?.name)}</b>}<span>{busy ? "Connecting to the avatar…" : selectedAvatar ? "Ready to connect · " + (selectedAvatar.name || "Selected avatar") : "Choose an avatar to preview and start."}</span></div>}
+                {!streamReady && <div className="lm-ph">{selectedAvatar?.preview_url ? <img className="lm-avatar-preview" src={selectedAvatar.preview_url} alt="" /> : <b>{initials(selectedAvatar?.name)}</b>}<span>{busy ? "Connecting to the avatar…" : selectedAvatar ? "Ready to connect · " + (selectedAvatar.name || "Selected avatar") : "Choose an avatar to preview and start."}</span></div>}
               </div>
               <p className="lm-video-caption">{selectedAvatar?.name || "No avatar selected"}</p>
             </section>
@@ -339,8 +353,8 @@ export function LiveAvatarCloudPanel() {
           </div>
 
           <div className="lm-controls" aria-label="Call controls">
-            <button type="button" className="lm-btn primary lm-start-call" disabled={busy || live || !avatarId} onClick={() => void connect()}>
-              <span aria-hidden="true">▶</span> {busy ? "Connecting to avatar…" : live ? "Live video started" : "Start live video"}
+            <button type="button" className="lm-btn primary lm-start-call" disabled={busy || live || Boolean(sessionRef.current) || !avatarId} onClick={() => void connect()}>
+              <span aria-hidden="true">▶</span> {busy ? "Connecting to avatar…" : sessionRef.current && !streamReady ? "Waiting for avatar stream…" : live ? "Live video started" : "Start live video"}
             </button>
             <button type="button" className={"lm-btn lm-mic-btn" + (voiceListening ? " active" : "")} disabled={thinking || busy} onClick={startVoiceInput} aria-pressed={voiceListening}>
               <span aria-hidden="true">{voiceListening ? "●" : "🎙"}</span>{voiceListening ? "Listening…" : "Speak to avatar"}
@@ -348,7 +362,7 @@ export function LiveAvatarCloudPanel() {
             <button type="button" className={"lm-btn" + (camOn ? " active" : "")} onClick={() => void toggleCam()} aria-pressed={camOn}>
               <span aria-hidden="true">{camOn ? "◉" : "◎"}</span>{camOn ? "Camera on" : "Enable camera"}
             </button>
-            <button type="button" className="lm-btn lm-end-call" disabled={busy || !live} onClick={() => void disconnect()}>
+            <button type="button" className="lm-btn lm-end-call" disabled={busy || !sessionRef.current} onClick={() => void disconnect()}>
               End call
             </button>
           </div>
@@ -377,7 +391,7 @@ export function LiveAvatarCloudPanel() {
                 ))}
               </div>
               <label className="lm-field lm-avatar-picker">Choose an avatar
-                <select aria-label="Choose an avatar" value={avatarId} onChange={(event) => setAvatarId(event.target.value)} disabled={live || busy || loadingCatalog}>
+                <select aria-label="Choose an avatar" value={avatarId} onChange={(event) => setAvatarId(event.target.value)} disabled={live || busy || Boolean(sessionRef.current) || loadingCatalog}>
                   {!avatars.length && <option value="">No avatars available</option>}
                   {filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}
                 </select>
@@ -401,7 +415,7 @@ export function LiveAvatarCloudPanel() {
 
               <div className="lm-config-grid">
                 <label className="lm-field">Language
-                  <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={live || busy}>
+                  <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={live || busy || Boolean(sessionRef.current)}>
                     {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                   </select>
                 </label>
@@ -522,7 +536,7 @@ const CSS = `
 .lm-user-ph b{width:70px;height:70px;border-radius:50%;display:grid;place-items:center;font-size:35px;color:#dbe2f0;background:#202a3d;border:1px solid #34415a}
 .lm-user-ph small{font-size:11px;color:var(--mut)}
 .lm-camera-live{position:absolute;left:10px;bottom:10px;padding:4px 8px;border-radius:999px;background:rgba(5,7,11,.72);color:var(--ok);font-size:11px}
-.lm-video{aspect-ratio:4/3}
+.lm-video{aspect-ratio:4/3;min-height:220px}
 .lm-ph{gap:10px;padding:14px;font-size:12px}
 .lm-ph b{width:70px;height:70px;font-size:25px}
 .lm-topics{margin-top:18px;padding-top:15px;border-top:1px solid var(--line)}
@@ -567,7 +581,12 @@ const CSS = `
 .lm-video-label{font-size:10px;letter-spacing:.1em;padding:4px 5px 10px}
 .lm-video-caption{font-size:11px}
 .lm-video-pair .lm-status{border:1px solid #303c54;background:#0b1019;color:#b9c5dc;padding:8px 11px;border-radius:9px;font-size:11px}
-.lm-ph{background:radial-gradient(ellipse at 50% 35%,#24294a,#090d15 72%);color:#d1d8e8}
+.lm-ph{background:radial-gradient(ellipse at 50% 35%,#24294a,#090d15 72%);color:#d1d8e8;z-index:2;transition:opacity .2s ease}
+.lm-video>video{position:relative;z-index:1;background:#05070b}
+.lm-avatar-preview{pointer-events:none}
+.lm-stage{min-width:0}
+.lm-video-pair{align-items:stretch}
+.lm-video-card{min-width:0}
 .lm-ph .lm-avatar-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%;opacity:.45;filter:saturate(.8)}
 .lm-ph>span{position:relative;z-index:1;max-width:90%;padding:7px 10px;border-radius:8px;background:#070a12b8;color:#eef0fb}
 .lm-stage-head h2{font-size:22px;letter-spacing:-.025em}
