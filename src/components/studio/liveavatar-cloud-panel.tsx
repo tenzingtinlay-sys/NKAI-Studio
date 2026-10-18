@@ -63,6 +63,12 @@ export function LiveAvatarCloudPanel() {
     if (session) void session.stop().catch(() => undefined);
   }, []);
 
+  // Opening LiveAvatar immediately loads the real account catalogue.
+  useEffect(() => {
+    void loadCatalog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function loadCatalog() {
     setLoadingCatalog(true);
     setError("");
@@ -87,11 +93,12 @@ export function LiveAvatarCloudPanel() {
     }
   }
 
-  async function connect() {
-    if (!avatarId) {
+  async function connect(targetAvatarId = avatarId) {
+    if (!targetAvatarId) {
       setError("Load the catalogue and choose an avatar first.");
       return;
     }
+    const targetAvatar = avatars.find((item) => item.id === targetAvatarId);
     setBusy(true);
     setError("");
     setStatus("Requesting a secure session token…");
@@ -99,7 +106,7 @@ export function LiveAvatarCloudPanel() {
       const response = await fetch("/api/liveavatar/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "FULL", avatar_id: avatarId, voice_id: voiceId || selectedAvatar?.default_voice?.id || "", language, tone }),
+        body: JSON.stringify({ mode: "FULL", avatar_id: targetAvatarId, voice_id: voiceId || targetAvatar?.default_voice?.id || "", language, tone }),
       });
       const payload = await response.json() as { session_token?: string; sandbox?: boolean; error?: string };
       if (!response.ok || !payload.session_token) throw new Error(payload.error || "Could not create a LiveAvatar session.");
@@ -168,7 +175,7 @@ export function LiveAvatarCloudPanel() {
       <label style={label}>Avatar gender<select style={field} value={gender} onChange={(event) => setGender(event.target.value)}><option value="all">All / not specified</option><option value="female">Female</option><option value="male">Male</option><option value="unknown">Unknown only</option></select></label>
       <label style={label}>Conversation tone<select style={field} value={tone} onChange={(event) => setTone(event.target.value)}><option value="warm">Warm & supportive</option><option value="professional">Professional</option><option value="calm">Calm & thoughtful</option><option value="energetic">Energetic & upbeat</option><option value="friendly">Friendly & casual</option></select></label>
       <label style={label}>Language<select style={field} value={language} onChange={(event) => setLanguage(event.target.value)}>{LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select></label>
-      <label style={label}>Avatar<select style={field} value={avatarId} onChange={(event) => setAvatarId(event.target.value)}><option value="">Select an avatar…</option>{filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}</select><small style={{ color: "var(--mf-muted, #9ca3af)", fontWeight: 400 }}>{filteredAvatars.length} matching avatars</small></label>
+      <label style={label}>Avatar<select style={field} value={avatarId} onChange={(event) => { const id = event.target.value; setAvatarId(id); if (id) void connect(id); }}><option value="">Select an avatar…</option>{filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}</select><small style={{ color: "var(--mf-muted, #9ca3af)", fontWeight: 400 }}>{filteredAvatars.length} matching avatars · selecting one starts its live session</small></label>
       <label style={label}>Voice<select style={field} value={voiceId} onChange={(event) => setVoiceId(event.target.value)}><option value="">Avatar default{selectedAvatar?.default_voice?.name ? " · " + selectedAvatar.default_voice.name : ""}</option>{voices.filter((voice) => !voice.language || voice.language.toLowerCase().startsWith(language) || voice.language.toLowerCase().startsWith(language + "-") || voice.language.toLowerCase().includes(LANGUAGES.find(([code]) => code === language)?.[1].toLowerCase() || language)).map((voice) => <option key={voice.id} value={voice.id}>{voice.name || voice.id}{voice.language ? " · " + voice.language : ""}</option>)}</select><small style={{ color: "var(--mf-muted, #9ca3af)", fontWeight: 400 }}>{selectedVoice?.name || selectedAvatar?.default_voice?.name || "Provider default voice"}</small></label>
     </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 14 }}>
