@@ -63,7 +63,7 @@ function studioLocalReply(message: string) {
     return "Hello! I’m ready to help. Tell me what you would like to create, practise, or explore today.";
   }
   if (lower.includes("who are you") || lower.includes("your name")) {
-    return "I’m the NK-Studio interactive presenter. I can guide you through local scripts, voice practice, and the studio tools without connecting to a cloud AI API.";
+    return "I’m the NKAI-Studio interactive presenter. I can guide you through local scripts, voice practice, and the studio tools without connecting to a cloud AI API.";
   }
   if (lower.includes("script") || lower.includes("video") || lower.includes("present")) {
     return "A clear presentation works best with three beats: open with the main promise, explain one practical idea, and finish with a specific next step. Try drafting one sentence for each beat.";
@@ -163,7 +163,7 @@ export function VideoPanel() {
             <>
               <video controls src={last.url} />
               <div className="mf-bar">
-                <a className="mf-primary" href={last.url} download={`nk-studio-${Date.now()}.webm`}>
+                <a className="mf-primary" href={last.url} download={`nkai-studio-${Date.now()}.webm`}>
                   Download .webm
                 </a>
               </div>
@@ -418,7 +418,7 @@ export function ImagesPanel() {
                 if (!cv) return;
                 const a = document.createElement("a");
                 a.href = cv.toDataURL("image/png");
-                a.download = "nk-studio-image.png";
+                a.download = "nkai-studio-image.png";
                 a.click();
               }}
             >
@@ -1782,10 +1782,10 @@ export function SettingsPanel() {
               className="mf-ghost"
               onClick={() => {
                 useStudio.getState().persist();
-                const raw = localStorage.getItem("nk-studio-v1") || "{}";
+                const raw = localStorage.getItem("nkai-studio-v1") || "{}";
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
-                a.download = "nk-studio-backup.json";
+                a.download = "nkai-studio-backup.json";
                 a.click();
               }}
             >
@@ -1799,7 +1799,7 @@ export function SettingsPanel() {
                 try {
                   const d = JSON.parse(await f.text()) as { settings?: unknown };
                   if (!d.settings) throw new Error("bad");
-                  localStorage.setItem("nk-studio-v1", await f.text());
+                  localStorage.setItem("nkai-studio-v1", await f.text());
                   location.reload();
                 } catch {
                   useStudio.getState().flash("Not a valid NKAI Studio backup");
@@ -1815,7 +1815,7 @@ export function SettingsPanel() {
                   setArm(true);
                   return;
                 }
-                localStorage.removeItem("nk-studio-v1");
+                localStorage.removeItem("nkai-studio-v1");
                 location.reload();
               }}
             >
