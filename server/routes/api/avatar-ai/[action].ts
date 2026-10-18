@@ -20,7 +20,13 @@ export default defineEventHandler(async (event) => {
 
   const requestUrl = getRequestURL(event);
   const origin = event.node?.req?.headers?.origin;
-  if (typeof origin !== "string" || origin !== requestUrl.origin) {
+  let sameOrigin = false;
+  try {
+    sameOrigin = typeof origin === "string" && new URL(origin).host === requestUrl.host;
+  } catch {
+    sameOrigin = false;
+  }
+  if (!sameOrigin) {
     return fail(event, 403, "A same-origin browser request is required.");
   }
   const contentType = String(event.node?.req?.headers?.["content-type"] || "").split(";")[0].trim().toLowerCase();
