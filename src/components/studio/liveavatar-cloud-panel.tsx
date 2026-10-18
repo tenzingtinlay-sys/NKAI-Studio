@@ -84,6 +84,7 @@ export function LiveAvatarCloudPanel() {
   const selectedAvatar = avatars.find((item) => item.id === avatarId);
   const selectedVoice = voices.find((item) => item.id === voiceId);
   const languageName = LANGUAGES.find(([code]) => code === language)?.[1] || language;
+  const languageLocale = ({ en: "en-US", hi: "hi-IN", ta: "ta-IN", te: "te-IN", bn: "bn-IN", mr: "mr-IN", pa: "pa-IN", kn: "kn-IN", ml: "ml-IN", ur: "ur-PK", ar: "ar-SA", es: "es-ES", fr: "fr-FR", de: "de-DE", pt: "pt-PT", it: "it-IT", ja: "ja-JP", ko: "ko-KR", zh: "zh-CN", id: "id-ID", vi: "vi-VN", th: "th-TH", nl: "nl-NL", pl: "pl-PL" } as Record<string, string>)[language] || language;
   const toneName = TONES.find(([code]) => code === tone)?.[1] || tone;
 
   const filteredAvatars = useMemo(() => avatars.filter((item) => {
@@ -260,7 +261,7 @@ export function LiveAvatarCloudPanel() {
         if ("speechSynthesis" in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(reply);
-          utterance.lang = language;
+          utterance.lang = languageLocale;
           window.speechSynthesis.speak(utterance);
         }
         setStatus("Avatar offline · browser voice fallback");
@@ -280,7 +281,7 @@ export function LiveAvatarCloudPanel() {
       return;
     }
     const recognition = new SpeechRecognition();
-    recognition.lang = language;
+    recognition.lang = languageLocale;
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onstart = () => { setVoiceListening(true); setError(""); };
@@ -321,7 +322,7 @@ export function LiveAvatarCloudPanel() {
               <div className="lm-video-label"><span>AI AVATAR</span><span className={live ? "connected" : ""}>{live ? "LIVE" : "WAITING"}</span></div>
               <div className="lm-video">
                 <video ref={videoRef} autoPlay playsInline />
-                {!live && <div className="lm-ph"><b>{initials(selectedAvatar?.name)}</b><span>{busy ? "Connecting to the avatar…" : "Choose an avatar and start the live session."}</span></div>}
+                {!live && <div className="lm-ph">{selectedAvatar?.preview_url ? <img className="lm-avatar-preview" src={selectedAvatar.preview_url} alt="" /> : <b>{initials(selectedAvatar?.name)}</b>}<span>{busy ? "Connecting to the avatar…" : selectedAvatar ? "Ready to connect · " + (selectedAvatar.name || "Selected avatar") : "Choose an avatar to preview and start."}</span></div>}
               </div>
               <p className="lm-video-caption">{selectedAvatar?.name || "No avatar selected"}</p>
             </section>
@@ -337,16 +338,18 @@ export function LiveAvatarCloudPanel() {
             <div className="lm-status">{status}</div>
           </div>
 
-          <div className="lm-controls">
-            <button type="button" className="lm-btn primary" disabled={busy || live || !avatarId} onClick={() => void connect()}>
-              {busy ? "Connecting…" : "Start live video"}
+          <div className="lm-controls" aria-label="Call controls">
+            <button type="button" className="lm-btn primary lm-start-call" disabled={busy || live || !avatarId} onClick={() => void connect()}>
+              <span aria-hidden="true">▶</span> {busy ? "Connecting to avatar…" : live ? "Live video started" : "Start live video"}
             </button>
-            <button type="button" className="lm-btn" disabled={busy || !live} onClick={() => void disconnect()}>End session</button>
-            <button type="button" className={"lm-btn" + (camOn ? " active" : "")} onClick={() => void toggleCam()}>
-              {camOn ? "Hide my camera" : "Show my camera"}
+            <button type="button" className={"lm-btn lm-mic-btn" + (voiceListening ? " active" : "")} disabled={thinking || busy} onClick={startVoiceInput} aria-pressed={voiceListening}>
+              <span aria-hidden="true">{voiceListening ? "●" : "🎙"}</span>{voiceListening ? "Listening…" : "Speak to avatar"}
             </button>
-            <button type="button" className={"lm-btn" + (voiceListening ? " active" : "")} disabled={thinking} onClick={startVoiceInput}>
-              {voiceListening ? "Listening…" : "Voice"}
+            <button type="button" className={"lm-btn" + (camOn ? " active" : "")} onClick={() => void toggleCam()} aria-pressed={camOn}>
+              <span aria-hidden="true">{camOn ? "◉" : "◎"}</span>{camOn ? "Camera on" : "Enable camera"}
+            </button>
+            <button type="button" className="lm-btn lm-end-call" disabled={busy || !live} onClick={() => void disconnect()}>
+              End call
             </button>
           </div>
           {error && <p className="lm-error" role="alert">{error}</p>}
@@ -373,46 +376,52 @@ export function LiveAvatarCloudPanel() {
                   </button>
                 ))}
               </div>
-              <div className="lm-list" role="listbox" aria-label="Avatars">
-                {filteredAvatars.slice(0, 80).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="option"
-                    aria-selected={item.id === avatarId}
-                    className={"lm-av" + (item.id === avatarId ? " sel" : "")}
-                    disabled={live || busy}
-                    onClick={() => setAvatarId(item.id)}
-                  >
-                    <i>{initials(item.name)}</i>
-                    <span>{item.name || item.id}<small>{item.gender || item.type || "avatar"}</small></span>
-                  </button>
-                ))}
-                {!filteredAvatars.length && <p className="lm-empty">{loadingCatalog ? "Loading…" : "No avatars match."}</p>}
+              <label className="lm-field lm-avatar-picker">Choose an avatar
+                <select aria-label="Choose an avatar" value={avatarId} onChange={(event) => setAvatarId(event.target.value)} disabled={live || busy || loadingCatalog}>
+                  {!avatars.length && <option value="">No avatars available</option>}
+                  {filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}
+                </select>
+                <small>{loadingCatalog ? "Loading your account's avatar list…" : filteredAvatars.length + " available in this list"}</small>
+              </label>
+              <div className="lm-selected-avatar">
+                <div className="lm-selected-art">
+                  {selectedAvatar?.preview_url
+                    ? <img src={selectedAvatar.preview_url} alt={selectedAvatar.name || "Selected avatar"} />
+                    : <span>{initials(selectedAvatar?.name)}</span>}
+                  <span className="lm-selected-check" aria-hidden="true">✓</span>
+                </div>
+                <div className="lm-selected-info">
+                  <small>SELECTED DIGITAL HUMAN</small>
+                  <strong>{selectedAvatar?.name || "Choose an avatar"}</strong>
+                  <span>{selectedAvatar?.gender || selectedAvatar?.type || "LiveAvatar"}</span>
+                </div>
               </div>
-              <p className="lm-empty">{filteredAvatars.length} matching{filteredAvatars.length > 80 ? " · showing the first 80, search to narrow" : ""}</p>
+              {!filteredAvatars.length && <p className="lm-empty">{loadingCatalog ? "Loading…" : "No avatars match this search. Clear the search or change the gender filter."}</p>}
+              <p className="lm-catalog-count">{filteredAvatars.length} matching avatar{filteredAvatars.length === 1 ? "" : "s"}{filteredAvatars.length > 80 ? " · search to narrow the list" : ""}</p>
 
-              <label className="lm-field">Language
-                <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={live || busy}>
-                  {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-                </select>
-              </label>
-              <label className="lm-field">Conversation tone
-                <select value={tone} onChange={(event) => setTone(event.target.value)} disabled={live || busy}>
-                  {TONES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
-                </select>
-              </label>
-              <label className="lm-field">Voice
-                <select value={voiceId} onChange={(event) => setVoiceId(event.target.value)} disabled={live || busy}>
-                  <option value="">Avatar default{selectedAvatar?.default_voice?.name ? " · " + selectedAvatar.default_voice.name : ""}</option>
-                  {voices.filter((voice) => !voice.language || voice.language.toLowerCase().startsWith(language) || voice.language.toLowerCase().includes(languageName.toLowerCase())).map((voice) => (
-                    <option key={voice.id} value={voice.id}>{voice.name || voice.id}{voice.language ? " · " + voice.language : ""}</option>
-                  ))}
-                </select>
-                <small>{selectedVoice?.name || selectedAvatar?.default_voice?.name || "Provider default voice"}</small>
-              </label>
-              <button type="button" className="lm-btn" disabled={loadingCatalog || busy} onClick={() => void loadCatalog()}>
-                {loadingCatalog ? "Loading…" : "Reload catalogue"}
+              <div className="lm-config-grid">
+                <label className="lm-field">Language
+                  <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={live || busy}>
+                    {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                  </select>
+                </label>
+                <label className="lm-field">Voice
+                  <select value={voiceId} onChange={(event) => setVoiceId(event.target.value)} disabled={live || busy}>
+                    <option value="">Avatar default{selectedAvatar?.default_voice?.name ? " · " + selectedAvatar.default_voice.name : ""}</option>
+                    {voices.filter((voice) => !voice.language || voice.language.toLowerCase().startsWith(language) || voice.language.toLowerCase().includes(languageName.toLowerCase())).map((voice) => (
+                      <option key={voice.id} value={voice.id}>{voice.name || voice.id}{voice.language ? " · " + voice.language : ""}</option>
+                    ))}
+                  </select>
+                  <small>{selectedVoice?.name || selectedAvatar?.default_voice?.name || "Provider default voice"}</small>
+                </label>
+                <label className="lm-field lm-tone-field">Conversation tone
+                  <select value={tone} onChange={(event) => setTone(event.target.value)} disabled={live || busy}>
+                    {TONES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                  </select>
+                </label>
+              </div>
+              <button type="button" className="lm-btn lm-reload" disabled={loadingCatalog || busy} onClick={() => void loadCatalog()}>
+                {loadingCatalog ? "Loading catalogue…" : "↻  Refresh avatar & voice list"}
               </button>
 
               <section className="lm-topics" aria-labelledby="lm-topics-title">
@@ -524,5 +533,48 @@ const CSS = `
 .lm-topic.on{color:var(--ink);border-color:var(--acc);background:#202746}
 .lm-topic-start{margin-top:12px;width:100%}
 @media (max-width:560px){.lm-video-pair{grid-template-columns:1fr}.lm-video-pair .lm-status{grid-column:1}}
+
+/* Clear, accessible call setup controls */
+.lm-side{padding:20px;background:linear-gradient(155deg,#141b29,#101520 62%);box-shadow:0 18px 48px #0002}
+.lm-tabs{margin-bottom:20px}
+.lm-field{font-size:12px;letter-spacing:.015em;color:#c5cee0;margin:14px 0}
+.lm-field input,.lm-field select,.lm-compose input{min-height:44px;border-color:#35415a;background:#0a101a;border-radius:11px;padding:11px 13px;font-size:13px;color:#f3f5fb}
+.lm-field select:focus-visible,.lm-field input:focus-visible,.lm-compose input:focus-visible,.lm-btn:focus-visible,.lm-av:focus-visible{outline:2px solid #a99aff;outline-offset:2px}
+.lm-avatar-picker{margin-top:2px}
+.lm-avatar-picker select{font-weight:650;background-color:#0b1120}
+.lm-selected-avatar{display:flex;align-items:center;gap:14px;padding:12px;margin:12px 0 5px;border:1px solid #8f7cff55;border-radius:14px;background:linear-gradient(110deg,#8c7bff12,#ffffff03)}
+.lm-selected-art{position:relative;flex:0 0 68px;width:68px;height:76px;border-radius:10px;overflow:hidden;display:grid;place-items:center;background:linear-gradient(145deg,#343b65,#171c2c);color:white;font-weight:800;font-size:22px}
+.lm-selected-art img{width:100%;height:100%;object-fit:cover;object-position:center top}
+.lm-selected-check{position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:#a99aff;color:#141020;font-size:12px}
+.lm-selected-info{display:grid;gap:5px;min-width:0}
+.lm-selected-info small{font-size:9px;letter-spacing:.12em;color:#a99aff;font-weight:800}
+.lm-selected-info strong{font-size:16px;overflow-wrap:anywhere}
+.lm-selected-info>span{font-size:11px;color:var(--mut)}
+.lm-catalog-count{margin:6px 0 12px;font-size:11px;color:#8290a8}
+.lm-config-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.lm-config-grid .lm-tone-field{grid-column:1/-1}
+.lm-field small{display:block;line-height:1.45;margin-top:2px;color:#8897b0}
+.lm-reload{width:100%;min-height:40px;margin:3px 0 4px;background:#20283a;border-color:#3b4760;font-size:12px}
+.lm-reload:hover{background:#28334b}
+.lm-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+.lm-controls .lm-btn{min-height:46px;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;font-size:12px}
+.lm-controls .lm-start-call{grid-column:1/-1;min-height:54px;font-size:14px;font-weight:800;background:linear-gradient(110deg,#bdb1ff,#9482ff);box-shadow:0 8px 24px #8b7bff2b;color:#161126;border:0}
+.lm-controls .lm-start-call:hover:not(:disabled){filter:brightness(1.06);transform:translateY(-1px)}
+.lm-controls .lm-mic-btn{background:#1a2031;border-color:#51467f}
+.lm-controls .lm-mic-btn.active{background:#2d1b2c;border-color:#f17d9c;color:#ffc4d2}
+.lm-controls .lm-end-call{background:#321a25;border-color:#693142;color:#ffc3ce}
+.lm-video-card{padding:10px;background:#0a1019;border-color:#2b3549}
+.lm-video-label{font-size:10px;letter-spacing:.1em;padding:4px 5px 10px}
+.lm-video-caption{font-size:11px}
+.lm-video-pair .lm-status{border:1px solid #303c54;background:#0b1019;color:#b9c5dc;padding:8px 11px;border-radius:9px;font-size:11px}
+.lm-ph{background:radial-gradient(ellipse at 50% 35%,#24294a,#090d15 72%);color:#d1d8e8}
+.lm-ph .lm-avatar-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 20%;opacity:.45;filter:saturate(.8)}
+.lm-ph>span{position:relative;z-index:1;max-width:90%;padding:7px 10px;border-radius:8px;background:#070a12b8;color:#eef0fb}
+.lm-stage-head h2{font-size:22px;letter-spacing:-.025em}
+.lm-badge{background:#0b1019}
+.lm-list{max-height:220px}
+.lm-topic{min-height:34px}
+@media(max-width:560px){.lm-config-grid{grid-template-columns:1fr}.lm-config-grid .lm-tone-field{grid-column:auto}.lm-controls{grid-template-columns:1fr 1fr}.lm-controls .lm-start-call{grid-column:1/-1}.lm-stage,.lm-side{padding:12px}.lm-selected-avatar{gap:10px}}
+@media(min-width:921px){.lm-side{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}.lm-grid{grid-template-columns:minmax(0,1.5fr) minmax(360px,.9fr)}}
 
 `;
