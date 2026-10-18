@@ -11,7 +11,7 @@ export function AuthNavActions() {
     return <span className="nkai-auth-skeleton" aria-label="Checking account" />;
   }
   if (!authEnabled || !user) {
-    return <Link className="nkai-auth-link" to={"/login" as any}><LogIn size={15} /> Sign in</Link>;
+    return <Link className="nkai-auth-link" to="/login"><LogIn size={15} /> Sign in</Link>;
   }
   return <div className="nkai-auth-user"><UserButton /></div>;
 }
