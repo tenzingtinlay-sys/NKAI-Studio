@@ -1,6 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Camera, CameraOff, Check, ChevronDown, CircleHelp, Globe2, Languages, Mic, MicOff, MonitorPlay, Phone, Radio, Search, Send, Settings2, Sparkles, Volume2, VolumeX, Video, VideoOff, WandSparkles } from "lucide-react";
 import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
+import { chatWithPuter, listPuterModels } from "@/lib/puter-ai";
 import { AuthNavActions } from "@/components/studio/auth-nav-actions";
 const LiveAvatarCloudPanel = lazy(() =>
   import("@/components/studio/liveavatar-cloud-panel").then((module) => ({ default: module.LiveAvatarCloudPanel })),
@@ -53,6 +54,9 @@ export function AvatarLandingPage() {
   const liveAvatarCommandRef = useRef<((text: string) => Promise<boolean>) | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [aiProvider, setAiProvider] = useState<"auto" | "nkai" | "puter">("auto");
+  const [puterModel, setPuterModel] = useState("gpt-5.6-luna");
+  const [puterModels, setPuterModels] = useState<Array<{ id: string; name: string; provider?: string }>>([{ id: "gpt-5.6-luna", name: "GPT-5.6 Luna" }]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -75,6 +79,19 @@ export function AvatarLandingPage() {
   useEffect(() => {
     if (videoRef.current) videoRef.current.srcObject = streamRef.current;
   }, [cameraOn]);
+
+  useEffect(() => {
+    if (aiProvider !== "puter") return;
+    let active = true;
+    void listPuterModels().then((models) => {
+      if (!active || !models.length) return;
+      setPuterModels(models);
+      setPuterModel((current) => models.some((model) => model.id === current) ? current : models[0].id);
+    }).catch((cause) => {
+      if (active) setCameraError(cause instanceof Error ? cause.message : "Could not load Puter.js models.");
+    });
+    return () => { active = false; };
+  }, [aiProvider]);
 
   function chooseAvatar(id: string) {
     const next = AVATARS.find((item) => item.id === id);
@@ -194,16 +211,27 @@ export function AvatarLandingPage() {
         role: item.role === "you" ? "user" : "assistant",
         text: item.text,
       }));
-      const response = await fetch("/api/avatar-ai/chat", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: prompt, language: code, history }),
-      });
-      const payload = await response.json() as { reply?: string; error?: string; detail?: string; code?: string };
-      if (!response.ok || typeof payload.reply !== "string" || !payload.reply.trim()) {
-        throw new Error(payload.error || payload.detail || (response.status === 401 ? "Sign in to use the GPU AI avatar." : "The NKAI GPU worker did not return a reply."));
+      let reply = "";
+      if (aiProvider === "puter") {
+        reply = await chatWithPuter(prompt, history, puterModel);
+      } else {
+        try {
+          const response = await fetch("/api/avatar-ai/chat", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ message: prompt, language: code, history }),
+          });
+          const payload = await response.json() as { reply?: string; error?: string; detail?: string; code?: string };
+          if (!response.ok || typeof payload.reply !== "string" || !payload.reply.trim()) {
+            throw new Error(payload.error || payload.detail || (response.status === 401 ? "The NKAI GPU worker needs sign-in." : "The NKAI GPU worker did not return a reply."));
+          }
+          reply = payload.reply.trim();
+        } catch (gpuCause) {
+          if (aiProvider === "nkai") throw gpuCause;
+          reply = await chatWithPuter(prompt, history, puterModel);
+          setCameraError("NKAI GPU was unavailable; this reply used Puter.js instead.");
+        }
       }
-      const reply = payload.reply.trim();
       setMessages((old) => [...old, { role: "avatar", text: reply, time: stamp() }]);
       let spokenByLiveAvatar = false;
       if (liveAvatarConnected && liveAvatarCommandRef.current) {
@@ -290,7 +318,7 @@ export function AvatarLandingPage() {
               <div className="nkai-call-controls"><button className={micOn ? "nkai-control active" : "nkai-control"} onClick={() => void toggleMic()}><span>{micOn ? <Mic size={17} /> : <MicOff size={17} />}</span><small>{micOn ? "Listening…" : "Mic"}</small></button><button className={cameraOn ? "nkai-control active" : "nkai-control"} onClick={() => void toggleCamera()}><span>{cameraOn ? <Camera size={17} /> : <VideoOff size={17} />}</span><small>{cameraOn ? "Camera on" : "Camera"}</small></button><button className="nkai-control" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }}><span><VolumeX size={17} /></span><small>Mute voice</small></button><button className="nkai-control nkai-control-settings" onClick={() => setTab("voices")}><span><Settings2 size={17} /></span><small>Settings</small></button><button className="nkai-end-call" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); setSessionStarted(false); if (recognitionRef.current) recognitionRef.current.stop(); setMicOn(false); }}><Phone size={17} /> End</button></div>
               <div className="nkai-call-footnote"><CircleHelp size={14} /> Camera and microphone require browser permission. This preview uses browser speech until a live avatar stream connects. Connect LiveTalking below to have the video avatar speak the same NKAI reply.</div>
             </section>
-            <aside className="nkai-chat-column"><div className="nkai-chat-head"><div><span className="nkai-chat-avatar" aria-hidden="true">{avatar.name.slice(0, 1)}</span><span><b>{avatar.name}</b><small>{sessionStarted ? "Conversation started" : "Ready when you are"}</small></span></div><span className="nkai-chat-dots">•••</span></div><div className="nkai-chat-meta"><span><Languages size={13} /> {language}</span><span><span className="nkai-status-dot" /> {aiBusy ? "AI responding…" : speaking ? "Speaking" : "Voice idle"}</span></div><div className="nkai-messages" aria-live="polite">{messages.map((m, i) => <div className={m.role === "you" ? "nkai-message you" : "nkai-message"} key={i}><span className="nkai-message-author">{m.role === "you" ? "YOU" : avatar.name.toUpperCase()} <time suppressHydrationWarning>{m.time}</time></span><p>{m.text}</p>{m.role === "avatar" && <button className="nkai-replay" onClick={() => speak(m.text)}><Volume2 size={12} /> Listen</button>}</div>)}</div><form className="nkai-composer" onSubmit={(e) => { e.preventDefault(); void sendMessage(); }}><input value={text} onChange={(e) => setText(e.target.value)} placeholder={aiBusy ? "The GPU avatar is thinking…" : `Message ${avatar.name}…`} aria-label="Message your avatar" disabled={aiBusy} /><button type="submit" disabled={!text.trim() || aiBusy} aria-label="Send message">{aiBusy ? <span className="nkai-pulse" /> : <Send size={16} />}</button></form><div className="nkai-chat-disclaimer">Replies use the connected NKAI GPU AI worker. Spoken audio uses GPU TTS when available, with browser voice as fallback.</div></aside>
+            <aside className="nkai-chat-column"><div className="nkai-chat-head"><div><span className="nkai-chat-avatar" aria-hidden="true">{avatar.name.slice(0, 1)}</span><span><b>{avatar.name}</b><small>{sessionStarted ? "Conversation started" : "Ready when you are"}</small></span></div><span className="nkai-chat-dots">•••</span></div><div className="nkai-chat-meta"><span><Languages size={13} /> {language}</span><span><span className="nkai-status-dot" /> {aiBusy ? "AI responding…" : speaking ? "Speaking" : "Voice idle"}</span></div><div className="nkai-ai-engine-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--mf-border, #2a2a35)" }}><label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>AI engine<select value={aiProvider} onChange={(event) => setAiProvider(event.target.value as typeof aiProvider)} style={{ maxWidth: 220, padding: "6px 8px", borderRadius: 8, background: "var(--mf-panel, #171720)", color: "inherit", border: "1px solid var(--mf-border, #343442)" }}><option value="auto">Auto · NKAI GPU → Puter.js</option><option value="nkai">NKAI GPU worker</option><option value="puter">Puter.js models</option></select></label>{aiProvider === "puter" && <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>Model<select value={puterModel} onChange={(event) => setPuterModel(event.target.value)} style={{ maxWidth: 240, padding: "6px 8px", borderRadius: 8, background: "var(--mf-panel, #171720)", color: "inherit", border: "1px solid var(--mf-border, #343442)" }}>{puterModels.map((model) => <option key={model.id} value={model.id}>{model.name}{model.provider ? " · " + model.provider : ""}</option>)}</select></label>}</div><div className="nkai-messages" aria-live="polite">{messages.map((m, i) => <div className={m.role === "you" ? "nkai-message you" : "nkai-message"} key={i}><span className="nkai-message-author">{m.role === "you" ? "YOU" : avatar.name.toUpperCase()} <time suppressHydrationWarning>{m.time}</time></span><p>{m.text}</p>{m.role === "avatar" && <button className="nkai-replay" onClick={() => speak(m.text)}><Volume2 size={12} /> Listen</button>}</div>)}</div><form className="nkai-composer" onSubmit={(e) => { e.preventDefault(); void sendMessage(); }}><input value={text} onChange={(e) => setText(e.target.value)} placeholder={aiBusy ? "The GPU avatar is thinking…" : `Message ${avatar.name}…`} aria-label="Message your avatar" disabled={aiBusy} /><button type="submit" disabled={!text.trim() || aiBusy} aria-label="Send message">{aiBusy ? <span className="nkai-pulse" /> : <Send size={16} />}</button></form><div className="nkai-chat-disclaimer">Auto mode tries the NKAI GPU worker first and falls back to Puter.js. Puter AI requires a Puter account and is metered against that user account. Spoken audio uses the live avatar, GPU TTS, or browser voice fallback.</div></aside>
           </div>}
 
           {tab === "voices" && <div className="nkai-tool-panel"><div className="nkai-tool-intro"><div className="nkai-tool-icon"><AudioLines size={22} /></div><div><h3>Voice lab</h3><p>Use voices installed in your browser. Availability varies by operating system and language.</p></div></div><div className="nkai-settings-grid"><label>Speech language<select value={language} onChange={(e) => { setLanguage(e.target.value); setVoiceName(""); }}><option value={language}>{language}</option>{LANGUAGES.filter((l) => l !== language).map((l) => <option key={l} value={l}>{l}</option>)}</select></label><label>Voice presentation<select value={voiceGender} onChange={(e) => { setVoiceGender(e.target.value as typeof voiceGender); setVoiceName(""); }}><option>Any</option><option>Female</option><option>Male</option></select></label><label className="nkai-span-two">Installed voice<select value={currentVoice} onChange={(e) => setVoiceName(e.target.value)}>{genderFilteredVoices.length ? genderFilteredVoices.map((v) => <option key={v.name} value={v.name}>{v.name} · {v.lang}</option>) : <option value="Browser default">Browser default (voice list may be limited)</option>}</select></label></div><div className="nkai-voice-preview"><div className="nkai-voice-wave">{Array.from({length:30},(_,i)=><i key={i} style={{height:`${10+((i*17)%25)}px`}} />)}</div><div><b>{currentVoice}</b><small>{code} · {speaking ? "Playing preview" : "Ready to preview"}</small></div><button className="nkai-button-primary" onClick={() => speak(language === "Hindi" ? "नमस्ते, मैं आपकी एआई साथी हूँ। आज मैं आपकी कैसे मदद कर सकती हूँ?" : `Hello, I’m ${avatar.name}, your AI conversation partner. Let’s talk in ${language}.`)}><Volume2 size={16} /> Preview voice</button></div><p className="nkai-note">Gender labels are estimated from voice names where possible; your browser may offer different voices. This setting selects speech output and does not change the avatar's appearance.</p></div>}
@@ -302,7 +330,7 @@ export function AvatarLandingPage() {
           <div className="nkai-gpu-connect"><div className="nkai-gpu-symbol"><Radio size={20} /></div><div><b>Live AI avatar stream</b><p>{liveAvatarConnected ? "Connected. New NKAI replies are sent to this avatar for synchronized video and speech." : "Connect the LiveTalking GPU worker to enable a real video avatar. Until then, replies use the configured voice fallback."}</p></div><button className="nkai-button-secondary" onClick={() => setGpuOpen((v) => !v)}>{gpuOpen ? "Hide connection" : "Connect Live GPU"} <ChevronDown size={15} /></button></div>
           {gpuOpen && <div className="nkai-gpu-panel"><LiveTalkingNativePanel commandRef={liveAvatarCommandRef} onConnectionChange={setLiveAvatarConnected} /></div>}
         </section>
-        <footer className="nkai-home-footer"><a className="nkai-home-brand" href="/"><span className="nkai-brand-glyph"><Sparkles size={16} /></span><span>NKAI <b>STUDIO</b></span></a><span>Open-source-first AI · Clear status · Responsive by design</span><span className="nkai-footer-links"><a href="/features">Features</a><a href="/help">Help &amp; setup</a><a href="/deployment">Deployment status</a><a href="/gateway">Gateway check</a><a href="/studio">Open studio ↗</a></span></footer>
+        <footer className="nkai-home-footer"><a className="nkai-home-brand" href="/"><span className="nkai-brand-glyph"><Sparkles size={16} /></span><span>NKAI <b>STUDIO</b></span></a><span>Open-source-first AI · Clear status · Responsive by design · <a href="https://developer.puter.com" target="_blank" rel="noreferrer">Powered by Puter</a></span><span className="nkai-footer-links"><a href="/features">Features</a><a href="/help">Help &amp; setup</a><a href="/deployment">Deployment status</a><a href="/gateway">Gateway check</a><a href="/studio">Open studio ↗</a></span></footer>
       </main>
     </div>
   );
