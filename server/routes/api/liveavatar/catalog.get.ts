@@ -1,5 +1,8 @@
 import { defineEventHandler, getRequestURL, setResponseStatus } from "h3";
-import { getSessionUser } from "../../../../src/lib/auth/verify.server";
+import { liveAvatarAllowed } from "../../../utils/liveavatar-access";
+
+const female = "female";
+const male = "male";
 
 const API = "https://api.liveavatar.com/v1";
 type Item = { id: string; name?: string; is_expired?: boolean; [key: string]: unknown };
@@ -87,21 +90,20 @@ async function collect(path: string, key: string): Promise<Item[]> {
 }
 
 export default defineEventHandler(async (event) => {
-  let user;
-  try {
-    user = await getSessionUser();
-  } catch {
+   if (!(await liveAvatarAllowed())) {
     setResponseStatus(event, 401);
-    return { error: "Sign in to load the LiveAvatar catalog." };
-  }
-  if (!user) {
-    setResponseStatus(event, 401);
-    return { error: "Sign in to load the LiveAvatar catalog." };
+    return { error: "Live avatars are restricted. The owner must enable LIVEAVATAR_ALLOW_ANONYMOUS or add sign-in." };
   }
 
   const requestUrl = getRequestURL(event);
   const origin = event.node?.req?.headers?.origin;
-  if (typeof origin === "string" && origin !== requestUrl.origin) {
+    let foreignOrigin = false;
+  try {
+    foreignOrigin = typeof origin === "string" && new URL(origin).host !== requestUrl.host;
+  } catch {
+    foreignOrigin = true;
+  }
+  if (foreignOrigin) {
     setResponseStatus(event, 403);
     return { error: "A same-origin request is required." };
   }
