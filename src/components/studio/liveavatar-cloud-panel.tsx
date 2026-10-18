@@ -39,6 +39,17 @@ const TONES = [
   ["friendly", "Friendly & casual"],
 ] as const;
 
+const TOPICS = [
+  { id: "career", label: "Career growth", prompt: "Help me think through my career goals and next steps." },
+  { id: "interview", label: "Interview practice", prompt: "Run a realistic mock interview with me and give constructive feedback." },
+  { id: "leadership", label: "Leadership", prompt: "Discuss a practical leadership challenge with me." },
+  { id: "communication", label: "Communication", prompt: "Help me communicate more clearly and confidently." },
+  { id: "problem-solving", label: "Problem solving", prompt: "Help me break down a difficult problem into manageable steps." },
+  { id: "planning", label: "Daily planning", prompt: "Help me prioritise my tasks and make a realistic plan for today." },
+  { id: "learning", label: "Learning & skills", prompt: "Help me identify a skill to improve and create a learning plan." },
+  { id: "open", label: "Open conversation", prompt: "Let's have an open conversation. Ask me what I'd like to discuss." },
+] as const;
+
 function initials(name?: string) {
   const parts = String(name || "?").trim().split(/\s+/);
   return ((parts[0]?.[0] || "?") + (parts[1]?.[0] || "")).toUpperCase();
@@ -56,6 +67,7 @@ export function LiveAvatarCloudPanel() {
   const [language, setLanguage] = useState("en");
   const [gender, setGender] = useState<"all" | "female" | "male">("all");
   const [tone, setTone] = useState("warm");
+  const [topicId, setTopicId] = useState("open");
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<Tab>("setup");
   const [status, setStatus] = useState("Loading the avatar catalogue…");
@@ -301,15 +313,24 @@ export function LiveAvatarCloudPanel() {
             <span className={"lm-badge " + badge}>{badgeText}</span>
           </div>
 
-          <div className="lm-video">
-            <video ref={videoRef} autoPlay playsInline />
-            {!live && (
-              <div className="lm-ph">
-                <b>{initials(selectedAvatar?.name)}</b>
-                <span>{busy ? "Connecting to the avatar…" : "Pick an avatar in Setup, then press Start live video."}</span>
+          <div className="lm-video-pair">
+            <section className="lm-video-card" aria-label="AI avatar video">
+              <div className="lm-video-label"><span>AI AVATAR</span><span className={live ? "connected" : ""}>{live ? "LIVE" : "WAITING"}</span></div>
+              <div className="lm-video">
+                <video ref={videoRef} autoPlay playsInline />
+                {!live && <div className="lm-ph"><b>{initials(selectedAvatar?.name)}</b><span>{busy ? "Connecting to the avatar…" : "Choose an avatar and start the live session."}</span></div>}
               </div>
-            )}
-            <video ref={camRef} className={"lm-pip" + (camOn ? " on" : "")} autoPlay muted playsInline />
+              <p className="lm-video-caption">{selectedAvatar?.name || "No avatar selected"}</p>
+            </section>
+            <section className="lm-video-card" aria-label="Your camera video">
+              <div className="lm-video-label"><span>YOUR CAMERA</span><span className={camOn ? "connected" : ""}>{camOn ? "CAMERA ON" : "CAMERA OFF"}</span></div>
+              <div className={"lm-video lm-user-video" + (camOn ? " camera-on" : "")}>
+                <video ref={camRef} autoPlay muted playsInline />
+                {!camOn && <div className="lm-ph lm-user-ph"><b><span aria-hidden="true">◎</span></b><span>Your camera preview will appear here.</span><small>Choose “Show my camera” to enable it.</small></div>}
+                {camOn && <span className="lm-camera-live">● Camera preview</span>}
+              </div>
+              <p className="lm-video-caption">{camOn ? "Your video is active on this device" : "Camera is off"}</p>
+            </section>
             <div className="lm-status">{status}</div>
           </div>
 
@@ -390,6 +411,14 @@ export function LiveAvatarCloudPanel() {
               <button type="button" className="lm-btn" disabled={loadingCatalog || busy} onClick={() => void loadCatalog()}>
                 {loadingCatalog ? "Loading…" : "Reload catalogue"}
               </button>
+
+              <section className="lm-topics" aria-labelledby="lm-topics-title">
+                <div className="lm-topics-head"><span id="lm-topics-title">Conversation topics</span><small>Choose a starting point</small></div>
+                <div className="lm-topic-list">
+                  {TOPICS.map((topic) => <button key={topic.id} type="button" className={"lm-topic" + (topicId === topic.id ? " on" : "")} aria-pressed={topicId === topic.id} onClick={() => { setTopicId(topic.id); setMessage(topic.prompt); setTab("chat"); }}>{topic.label}</button>)}
+                </div>
+                <button type="button" className="lm-btn primary lm-topic-start" onClick={() => { const topic = TOPICS.find((item) => item.id === topicId) || TOPICS[TOPICS.length - 1]; setMessage(topic.prompt); setTab("chat"); }}>Use selected topic</button>
+              </section>
             </div>
           ) : (
             <div>
@@ -469,4 +498,28 @@ const CSS = `
 .lm-compose{display:flex;gap:8px}
 .lm-compose input{flex:1}
 .lm-empty{color:var(--mut);font-size:13px;margin:0}
+
+.lm-video-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;position:relative}
+.lm-video-card{min-width:0;border:1px solid var(--line);background:#0e131d;border-radius:14px;padding:8px}
+.lm-video-label{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 4px 9px;font-size:10px;font-weight:800;letter-spacing:.09em;color:var(--mut)}
+.lm-video-label .connected{color:var(--ok)}
+.lm-video-caption{font-size:12px;color:var(--mut);margin:8px 4px 2px;overflow-wrap:anywhere}
+.lm-video-pair .lm-status{position:static;grid-column:1/-1;max-width:none;width:max-content;margin-top:1px}
+.lm-user-video>video:first-child{width:100%;height:100%;object-fit:cover;display:block;transform:scaleX(-1);visibility:hidden}
+.lm-user-video.camera-on>video:first-child{visibility:visible}
+.lm-user-ph b{width:70px;height:70px;border-radius:50%;display:grid;place-items:center;font-size:35px;color:#dbe2f0;background:#202a3d;border:1px solid #34415a}
+.lm-user-ph small{font-size:11px;color:var(--mut)}
+.lm-camera-live{position:absolute;left:10px;bottom:10px;padding:4px 8px;border-radius:999px;background:rgba(5,7,11,.72);color:var(--ok);font-size:11px}
+.lm-video{aspect-ratio:4/3}
+.lm-ph{gap:10px;padding:14px;font-size:12px}
+.lm-ph b{width:70px;height:70px;font-size:25px}
+.lm-topics{margin-top:18px;padding-top:15px;border-top:1px solid var(--line)}
+.lm-topics-head{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;font-size:13px;font-weight:700}
+.lm-topics-head small{font-size:11px;font-weight:400;color:var(--mut)}
+.lm-topic-list{display:flex;flex-wrap:wrap;gap:7px}
+.lm-topic{border:1px solid var(--line);background:var(--panel2);color:var(--mut);border-radius:999px;padding:7px 10px;font:inherit;font-size:12px;cursor:pointer}
+.lm-topic.on{color:var(--ink);border-color:var(--acc);background:#202746}
+.lm-topic-start{margin-top:12px;width:100%}
+@media (max-width:560px){.lm-video-pair{grid-template-columns:1fr}.lm-video-pair .lm-status{grid-column:1}}
+
 `;
