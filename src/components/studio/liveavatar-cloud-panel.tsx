@@ -94,10 +94,7 @@ export function LiveAvatarCloudPanel() {
         setError("The API key worked, but the account returned no selectable avatars.");
       } else if (payload.sandbox && !nextAvatar) {
         setError("LiveAvatar sandbox mode only permits the Wayne test avatar, but it was not returned by the catalogue. Check the API key's sandbox access or set LIVEAVATAR_IS_SANDBOX=false only if you intend to use production sessions.");
-      } else if (!sessionRef.current && nextAvatar) {
-        // Match the provider's sandbox restriction before creating a session.
-        void connect(nextAvatar.id, nextAvatar);
-      }
+    }
     } catch (cause) {
       setStatus("Catalogue unavailable");
       setError(cause instanceof Error ? cause.message : "Could not load the LiveAvatar catalogue.");
