@@ -107,9 +107,18 @@ export default defineEventHandler(async (event) => {
   }
 
   const apiKey = process.env.LIVEAVATAR_API_KEY?.trim();
+  // Keep the supplied studio-look gallery browsable even before credentials are configured.
+  // Starting a hosted session still requires the server-side key and provider validation.
   if (!apiKey) {
-    setResponseStatus(event, 503);
-    return { error: "LiveAvatar is not configured. Add LIVEAVATAR_API_KEY as a server-side environment secret." };
+    return {
+      avatars: STUDIO_LOOKS,
+      voices: [],
+      counts: { avatars: STUDIO_LOOKS.length, voices: 0 },
+      studio_looks: STUDIO_LOOKS.length,
+      configured: false,
+      sandbox: process.env.LIVEAVATAR_IS_SANDBOX !== "false",
+      sandbox_avatar_id: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
+    };
   }
 
   try {
@@ -131,6 +140,7 @@ export default defineEventHandler(async (event) => {
       voices: [...uniqueVoices.values()],
       counts: { avatars: unique.size, voices: uniqueVoices.size },
       studio_looks: STUDIO_LOOKS.length,
+      configured: true,
       // Sandbox session creation only accepts the official Wayne test avatar.
       // Expose the mode so the client never auto-selects an avatar that the API will reject.
       sandbox: process.env.LIVEAVATAR_IS_SANDBOX !== "false",
