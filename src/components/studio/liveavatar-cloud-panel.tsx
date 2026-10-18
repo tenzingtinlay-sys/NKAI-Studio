@@ -162,7 +162,7 @@ export function LiveAvatarCloudPanel() {
   async function sendMessage(input = message) {
     const text = input.trim();
     const session = sessionRef.current;
-    if (!text || !session || session.state !== SessionState.CONNECTED || thinking) return;
+    if (!text || thinking) return;
     setThinking(true);
     setError("");
     setMessage("");
@@ -193,10 +193,20 @@ export function LiveAvatarCloudPanel() {
         }
       }
       const currentSession = sessionRef.current;
-      if (!currentSession || currentSession.state !== SessionState.CONNECTED) {
-        throw new Error("The live avatar disconnected before it could speak the reply.");
+      if (currentSession && currentSession.state === SessionState.CONNECTED) {
+        currentSession.repeat(reply);
+        setStatus("AI reply generated · speaking through LiveAvatar");
+      } else {
+        // Keep chat useful when a hosted avatar session or provider credentials are unavailable.
+        // This is explicitly a browser-voice fallback, not a simulated live avatar.
+        if ("speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(reply);
+          utterance.lang = language;
+          window.speechSynthesis.speak(utterance);
+        }
+        setStatus("AI chat available · live avatar disconnected · browser voice fallback");
       }
-      await currentSession.repeat(reply);
       setHistory((items) => [...items, { role: "avatar", text: reply }]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not generate or speak the reply.");
@@ -261,13 +271,13 @@ export function LiveAvatarCloudPanel() {
       <section style={card}>
         <b>Talk to your avatar</b>
         <div aria-live="polite" style={{ minHeight: 180, maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, margin: "12px 0" }}>
-          {history.length === 0 && <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 13 }}>Start a session, then speak or type. NKAI generates the reply and the live avatar speaks it.</p>}
+          {history.length === 0 && <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 13 }}>Speak or type at any time. When the live avatar is connected it speaks the reply; otherwise NKAI chat uses browser voice until the provider reconnects.</p>}
           {history.map((item, index) => <div key={index} style={{ alignSelf: item.role === "you" ? "flex-end" : "flex-start", padding: 10, borderRadius: 10, background: item.role === "you" ? "#1d4ed8" : "#263244", maxWidth: "90%", overflowWrap: "anywhere" }}><small>{item.role === "you" ? "You" : "Avatar"}</small><div>{item.text}</div></div>)}
         </div>
         <form onSubmit={(event) => { event.preventDefault(); void sendMessage(); }} style={{ display: "flex", gap: 8 }}>
           <input style={{ ...field, flex: 1 }} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={1000} placeholder={thinking ? "AI is thinking; avatar will speak shortly…" : "Write or dictate a message…"} aria-label="Message to LiveAvatar" />
-          <button type="button" style={button} disabled={busy || thinking || !sessionRef.current} onClick={startVoiceInput}>{voiceListening ? "Listening…" : "🎙 Voice"}</button>
-          <button type="submit" style={button} disabled={!message.trim() || busy || thinking || !sessionRef.current}>{thinking ? "Thinking…" : "Send"}</button>
+          <button type="button" style={button} disabled={busy || thinking} onClick={startVoiceInput}>{voiceListening ? "Listening…" : "🎙 Voice"}</button>
+          <button type="submit" style={button} disabled={!message.trim() || busy || thinking}>{thinking ? "Thinking…" : "Send"}</button>
         </form>
         {error && <p role="alert" style={{ color: "#f87171", fontSize: 13, marginTop: 12 }}>{error}</p>}
       </section>
