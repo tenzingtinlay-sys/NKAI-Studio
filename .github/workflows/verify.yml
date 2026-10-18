@@ -28,9 +28,11 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
-      - name: TypeScript check
-        run: npm run typecheck
       - name: Tests
         run: npm test
+      # TanStack Start generates routeTree.gen.ts during the Vite build.
+      # Run TypeScript after route generation so new file routes are included.
       - name: Production build
         run: npm run build
+      - name: TypeScript check
+        run: npm run typecheck
