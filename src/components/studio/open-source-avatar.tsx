@@ -209,7 +209,7 @@ export function OpenSourceAvatarPanel() {
     // Prefer authenticated NKAI server proxy for GPU-generated speech. Secrets stay server-side.
     try {
       setStatus("Requesting GPU-generated speech…");
-      const response = await fetch("/api/ai/tts", {
+      const response = await fetch("/api/avatar-ai/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: text.slice(0, 500), language: speechLanguage }),
@@ -331,7 +331,7 @@ export function OpenSourceAvatarPanel() {
     for (const candidate of orderedEndpoints) {
       try {
         const endpoint = new URL(candidate, window.location.origin);
-        endpoint.pathname = "/api/ai/tts-capabilities";
+        endpoint.pathname = "/api/avatar-ai/tts-capabilities";
         endpoint.search = "";
         const response = await fetch(endpoint.toString(), {
           method: "GET",
