@@ -2,7 +2,10 @@ import { defineEventHandler } from 'h3';
 import { readdirSync, statSync, existsSync } from 'fs';
 import { join, extname, basename } from 'path';
 
-const ROOT = join(process.cwd(), 'vendor', '370-avatars-and-users-library', '370+ avatars and users library – Untitled UI');
+const LIB_FOLDER = '370-avatars-and-users-library';
+const LIB_NAME = '370+ avatars and users library – Untitled UI';
+const ROOT = join(process.cwd(), 'vendor', LIB_FOLDER, LIB_NAME);
+const PUBLIC_ROOT = join(process.cwd(), 'public', 'vendor', LIB_FOLDER, LIB_NAME);
 
 function listFiles(dir: string) {
   if (!existsSync(dir)) return [];
@@ -27,6 +30,22 @@ export default defineEventHandler(async (event) => {
   const jpgs = listFiles(jpegDir);
   const audios = listFiles(audioDir);
 
+  // load optional manual CSV mapping (avatar_name,audio_filename)
+  const csvPath = join(ROOT, 'avatar-audio-mapping.csv');
+  const mapping = new Map<string,string>();
+  if (existsSync(csvPath)) {
+    try {
+      const txt = require('fs').readFileSync(csvPath, 'utf8');
+      const lines = txt.split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean);
+      for (const line of lines) {
+        const parts = line.split(',').map((p: string) => p.trim());
+        if (parts.length >= 2) mapping.set(parts[0].toLowerCase(), parts[1]);
+      }
+    } catch (e) {
+      // ignore CSV parse issues
+    }
+  }
+
   // Build map name -> images
   const imagesByName = new Map<string, { webp?: string; png?: string; jpg?: string }>();
   const addImage = (fname: string, kind: 'webp' | 'png' | 'jpg', dirPath: string) => {
@@ -45,10 +64,36 @@ export default defineEventHandler(async (event) => {
   const avatars: Array<any> = [];
   for (const [name, imgs] of imagesByName.entries()) {
     const lname = name.toLowerCase();
-    const matches = audioList.filter((a) => a.base.includes(lname) || lname.includes(a.base)).map((a) => `370+ avatars and users library – Untitled UI/Audio/${encodeURIComponent(a.file)}`);
-    // pick preferred image
-    const imagePath = imgs.webp || imgs.png || imgs.jpg || null;
-    avatars.push({ name, image: imagePath, audio: matches });
+    let matches: string[] = [];
+    // if there's a manual mapping, honor it first
+    if (mapping.has(lname)) {
+      const mapped = mapping.get(lname)!;
+      if (audios.includes(mapped)) {
+        matches = [`${LIB_NAME}/Audio/${encodeURIComponent(mapped)}`];
+      }
+    }
+    if (!matches.length) {
+      matches = audioList.filter((a) => a.base.includes(lname) || lname.includes(a.base)).map((a) => `${LIB_NAME}/Audio/${encodeURIComponent(a.file)}`);
+    }
+
+    // prefer public copies when present
+    const resolvePath = (relativePath: string) => {
+      // relativePath like `${LIB_NAME}/Audio/NAME.wav` or `${LIB_NAME}/WebP/IMG.webp`
+      const parts = relativePath.split('/');
+      const subpath = parts.slice(1).join('/');
+      const publicCandidate = join(PUBLIC_ROOT, subpath);
+      if (existsSync(publicCandidate)) {
+        // public assets are reachable at /vendor/<LIB_FOLDER>/<LIB_NAME>/<subpath>
+        return `/vendor/${LIB_FOLDER}/${LIB_NAME}/${subpath}`;
+      }
+      // fallback to vendor streaming path (the client uses /api/vendor-file?path=...)
+      return `${LIB_NAME}/${subpath}`;
+    };
+
+    const imagePath = imgs.webp ? resolvePath(`${LIB_NAME}/WebP/${encodeURIComponent(imgs.webp.split('/').pop() || imgs.webp)}`) : imgs.png ? resolvePath(`${LIB_NAME}/PNG (transparent background)/${encodeURIComponent(imgs.png.split('/').pop() || imgs.png)}`) : imgs.jpg ? resolvePath(`${LIB_NAME}/JPEG/${encodeURIComponent(imgs.jpg.split('/').pop() || imgs.jpg)}`) : null;
+
+    const audioPaths = matches.map((m) => resolvePath(m));
+    avatars.push({ name, image: imagePath, audio: audioPaths });
   }
 
   return { avatars };

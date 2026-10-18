@@ -26,7 +26,8 @@
     "assets:rocketbox:all": "npm run assets:rocketbox && npm run assets:rocketbox:convert",
     "predev": "npm run assets:download",
     "prebuild": "npm run assets:download",
-    "prebuild:dev": "npm run assets:download"
+    "prebuild:dev": "npm run assets:download",
+    "migrate:public": "node scripts/move_vendor_to_public.cjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",

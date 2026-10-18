@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { createRealTimeVisemeEngine, scheduleVisemesFromManifest } from '@/lib/viseme';
 
 type Avatar = { name: string; image?: string | null; audio?: string[] };
 
@@ -7,6 +8,9 @@ export default function AvatarPlayer({ api = '/api/avatars/library', onUseAsStre
   const [selected, setSelected] = useState<Avatar | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [viseme, setViseme] = useState<number>(0);
+  const visemeEngineRef = useRef<any>(null);
+  const visemeSchedulerRef = useRef<any>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -34,11 +38,25 @@ export default function AvatarPlayer({ api = '/api/avatars/library', onUseAsStre
       aud.removeEventListener('play', onPlay);
       aud.removeEventListener('ended', onEnd);
       aud.removeEventListener('pause', onEnd);
+      // cleanup viseme engine/scheduler
+      try { visemeEngineRef.current?.stop(); } catch {}
+      try { visemeSchedulerRef.current?.stop(); } catch {}
+      visemeEngineRef.current = null;
+      visemeSchedulerRef.current = null;
+      setViseme(0);
     };
   }, [selected]);
 
-  function playSample(url?: string) {
+  function stopVisemeEngines() {
+    try { visemeEngineRef.current?.stop(); } catch {}
+    try { visemeSchedulerRef.current?.stop(); } catch {}
+    visemeEngineRef.current = null;
+    visemeSchedulerRef.current = null;
+  }
+
+  async function playSample(url?: string) {
     if (!url) return;
+    stopVisemeEngines();
     if (!audioRef.current) {
       const a = document.createElement('audio');
       audioRef.current = a;
@@ -46,10 +64,27 @@ export default function AvatarPlayer({ api = '/api/avatars/library', onUseAsStre
       document.body.appendChild(a);
     }
     const a = audioRef.current!;
+    a.crossOrigin = 'anonymous';
     a.src = url;
-    a.play().catch(() => {
-      // autoplay may be blocked; try after a user gesture
-    });
+
+    // try to load a precomputed viseme manifest next to the audio: same filename + .viseme.json
+    const manifestUrl = url + '.viseme.json';
+    try {
+      const res = await fetch(manifestUrl, { cache: 'no-cache' });
+      if (res.ok) {
+        const points = await res.json();
+        // play audio then schedule visemes
+        a.play().catch(() => {});
+        visemeSchedulerRef.current = scheduleVisemesFromManifest(a, points, (v: number) => setViseme(v));
+        return;
+      }
+    } catch (e) {
+      // ignore manifest errors and fallback to real-time engine
+    }
+
+    // fallback to real-time viseme engine
+    a.play().catch(() => {});
+    visemeEngineRef.current = createRealTimeVisemeEngine(a, (v: number) => setViseme(v));
   }
 
   return (
@@ -73,7 +108,11 @@ export default function AvatarPlayer({ api = '/api/avatars/library', onUseAsStre
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <div style={{ width: 160, height: 160, borderRadius: 12, overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
             {selected.image ? <img src={`/api/vendor-file?path=${encodeURIComponent(selected.image)}`} alt={selected.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ color: '#fff' }}>{selected.name}</div>}
-            <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: 120, height: 18, borderRadius: 9, background: playing ? '#ffb86b' : '#444', transition: 'background 0.12s linear' }} />
+            {/* viseme mouth: render simple shapes by viseme index */}
+            <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', width: 140, height: 36, borderRadius: 9, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {/* map viseme 0..6 to width */}
+              <div style={{ height: 12, borderRadius: 8, background: '#ffb86b', width: `${Math.max(8, Math.min(140, 8 + viseme * 18))}px`, transition: 'width 0.06s linear' }} />
+            </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ color: '#fff', fontWeight: 700 }}>{selected.name}</div>

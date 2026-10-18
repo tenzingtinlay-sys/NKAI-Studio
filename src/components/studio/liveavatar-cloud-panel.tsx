@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
 import LifeMateFallback from "../LifeMateFallback";
 import AvatarPlayer from "../../AvatarPlayer";
+import { createRealTimeVisemeEngine, scheduleVisemesFromManifest } from '@/lib/viseme';
 
 type LiveAvatar = {
   id: string;
@@ -55,6 +56,9 @@ export function LiveAvatarCloudPanel() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioElemRef = useRef<HTMLAudioElement | null>(null);
   const [mouthLevel, setMouthLevel] = useState(0);
+  const [visemeIndex, setVisemeIndex] = useState(0);
+  const visemeEngineRef = useRef<any>(null);
+  const visemeSchedulerRef = useRef<any>(null);
 
   const selectedAvatar = avatars.find((item) => item.id === avatarId);
   const selectedVoice = voices.find((item) => item.id === voiceId);
@@ -215,21 +219,38 @@ export function LiveAvatarCloudPanel() {
     setStatus("Disconnected");
   }
 
-  function playLocalStream(pathOrEncoded: string) {
+  async function playLocalStream(pathOrEncoded: string) {
     // pathOrEncoded is expected to be the encoded vendor path like '370+ .../Audio/file.wav' or full encoded string
     stopLocalStream();
     const url = `/api/vendor-file?path=${encodeURIComponent(pathOrEncoded)}`;
     const audio = new Audio(url);
     audio.crossOrigin = 'anonymous';
     audioElemRef.current = audio;
-    // create audio context and analyser
+
+    // try precomputed viseme manifest first
+    const manifestUrl = url + '.viseme.json';
+    try {
+      const res = await fetch(manifestUrl, { cache: 'no-cache' });
+      if (res.ok) {
+        const points = await res.json();
+        // play and schedule visemes from manifest
+        audio.play().catch(() => {});
+        visemeSchedulerRef.current = scheduleVisemesFromManifest(audio, points, (v: number) => setVisemeIndex(v));
+        setLocalStreamAvatar((prev) => prev); // keep avatar set
+        return;
+      }
+    } catch (e) {
+      // continue to realtime fallback
+    }
+
+    // realtime fallback using analyser -> viseme mapping
     try {
       const AC = window.AudioContext || (window as any).webkitAudioContext;
       const ac = new AC();
       audioContextRef.current = ac;
       const src = ac.createMediaElementSource(audio);
       const analyser = ac.createAnalyser();
-      analyser.fftSize = 256;
+      analyser.fftSize = 1024;
       src.connect(analyser);
       analyser.connect(ac.destination);
       analyserRef.current = analyser;
@@ -238,7 +259,7 @@ export function LiveAvatarCloudPanel() {
       const tick = () => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteFrequencyData(data);
-        // compute simple RMS-ish level
+        // compute simple RMS-ish level for backward-compatible mouthLevel
         let sum = 0;
         for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
         const rms = Math.sqrt(sum / data.length) / 255;
@@ -247,10 +268,10 @@ export function LiveAvatarCloudPanel() {
       };
       audio.play().catch(() => {});
       tick();
-      // store raf id on analyserRef via property for cleanup
       (analyserRef.current as any)._rafId = raf;
+      // start viseme engine alongside for better mapping
+      visemeEngineRef.current = createRealTimeVisemeEngine(audio, (v: number) => setVisemeIndex(v));
     } catch (e) {
-      // fallback: just play audio without analyser
       audio.play().catch(() => {});
     }
     setLocalStreamAvatar((prev) => prev); // keep avatar set
@@ -266,16 +287,21 @@ export function LiveAvatarCloudPanel() {
       if (analyserRef.current) {
         const raf = (analyserRef.current as any)._rafId;
         if (raf) cancelAnimationFrame(raf);
-        analyserRef.current.disconnect();
+          try { analyserRef.current.disconnect(); } catch {}
         analyserRef.current = null;
       }
       if (audioContextRef.current) {
         try { audioContextRef.current.close(); } catch {}
         audioContextRef.current = null;
       }
-    } catch (e) {}
-    setMouthLevel(0);
-    setLocalStreamAvatar(null);
+        try { visemeSchedulerRef.current?.stop(); } catch {}
+        try { visemeEngineRef.current?.stop(); } catch {}
+        visemeSchedulerRef.current = null;
+        visemeEngineRef.current = null;
+      } catch (e) {}
+      setMouthLevel(0);
+      setVisemeIndex(0);
+      setLocalStreamAvatar(null);
   }
 
   function sendMessage() {
@@ -319,8 +345,8 @@ export function LiveAvatarCloudPanel() {
             {localStreamAvatar.image ? (
               <img src={`/api/vendor-file?path=${encodeURIComponent(localStreamAvatar.image)}`} alt={localStreamAvatar.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : <div style={{ color: '#fff' }}>{localStreamAvatar.name}</div>}
-            <div style={{ position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)', width: 160, height: 22, borderRadius: 12, background: '#111' }}>
-              <div style={{ height: '100%', width: `${Math.max(8, Math.min(100, mouthLevel * 120))}%`, background: '#ffb86b', transition: 'width 0.08s linear' }} />
+            <div style={{ position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)', width: 160, height: 28, borderRadius: 12, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ height: 14, borderRadius: 8, background: '#ffb86b', width: `${Math.max(8, Math.min(140, 8 + visemeIndex * 18))}px`, transition: 'width 0.06s linear' }} />
             </div>
             <button onClick={() => stopLocalStream()} style={{ position: 'absolute', top: 10, right: 10, padding: '6px 10px', borderRadius: 8 }}>Stop local stream</button>
           </div>
