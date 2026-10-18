@@ -40,13 +40,18 @@ function LoginPage() {
         <p className="nkai-login-subtitle">Sign in to connect your account and continue to your avatar workspace.</p>
         {isPending ? (
           <div className="nkai-login-state" role="status">Checking your session…</div>
+        ) : !authEnabled ? (
+          <div className="nkai-login-config" role="status">
+            <strong>Sign-in is not enabled in this deployment yet.</strong>
+            <p>The login screen is ready, but real accounts require authentication to be enabled and an OAuth provider configured on the server. No demo sign-in is offered.</p>
+          </div>
         ) : user ? (
           <div className="nkai-login-state">
             <ShieldCheck size={20} />
             <div><strong>You’re connected</strong><span>{user.displayName || user.primaryEmail || "Your account"} is signed in.</span></div>
             <button className="nkai-login-primary" onClick={() => void navigate({ to: "/" })}>Continue to studio <ArrowRight size={16} /></button>
           </div>
-        ) : authEnabled ? (
+        ) : (
           <div className="nkai-login-providers">
             {GROK_PROVIDERS.map((provider) => (
               <button className="nkai-login-provider" key={provider.providerId} type="button" disabled={busyProvider !== null} onClick={() => void connect(provider.providerId)}>
@@ -55,11 +60,6 @@ function LoginPage() {
                 <ArrowRight size={16} />
               </button>
             ))}
-          </div>
-        ) : (
-          <div className="nkai-login-config" role="status">
-            <strong>Sign-in is not enabled in this deployment yet.</strong>
-            <p>The login screen is ready, but real accounts require authentication to be enabled and an OAuth provider configured on the server. No demo sign-in is offered.</p>
           </div>
         )}
         {error && <p className="nkai-login-error" role="alert">{error}</p>}
