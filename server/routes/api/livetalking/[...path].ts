@@ -27,19 +27,26 @@ function isRateLimited(key: string, limit: number): boolean {
  * WebRTC media itself travels over ICE/UDP and cannot be tunneled through this HTTP route.
  */
 export default defineEventHandler(async (event) => {
-  // Streaming consumes scarce GPU sessions. Require a verified app session even
-  // when the rest of the app is running in its unauthenticated development mode.
-  // Never treat the shared dev-user fallback as authorization for GPU endpoints.
-  let user;
-  try {
-    user = await getSessionUser();
-  } catch {
-    setResponseStatus(event, 401);
-    return { error: "Sign in to use live avatar streaming.", code: "LIVETALKING_AUTH_REQUIRED" };
-  }
-  if (!user) {
-    setResponseStatus(event, 401);
-    return { error: "Sign in to use live avatar streaming.", code: "LIVETALKING_AUTH_REQUIRED" };
+  // The read-only status probe exposes no credentials or internal URL, so it
+  // can run before sign-in and report service readiness without console 401s.
+  // All streaming actions still require a verified app session.
+  const initialUrl = getRequestURL(event);
+  const initialPath = initialUrl.pathname.startsWith("/api/livetalking")
+    ? initialUrl.pathname.slice("/api/livetalking".length).split("/").filter(Boolean).join("/")
+    : "";
+  const publicStatusProbe = initialPath === "status" && event.method.toUpperCase() === "GET";
+  if (!publicStatusProbe) {
+    let user;
+    try {
+      user = await getSessionUser();
+    } catch {
+      setResponseStatus(event, 401);
+      return { error: "Sign in to use live avatar streaming.", code: "LIVETALKING_AUTH_REQUIRED" };
+    }
+    if (!user) {
+      setResponseStatus(event, 401);
+      return { error: "Sign in to use live avatar streaming.", code: "LIVETALKING_AUTH_REQUIRED" };
+    }
   }
 
   const upstreamBase = process.env.LIVETALKING_INTERNAL_URL?.trim();
