@@ -5,7 +5,7 @@ declare global {
     puter?: {
       ai?: {
         chat: (prompt: string, options?: { model?: string }) => Promise<unknown>;
-        listModels?: () => Promise<unknown>;
+        listModels?: (provider?: string | null) => Promise<unknown>;
       };
     };
   }
@@ -50,26 +50,45 @@ function extractText(result: unknown): string {
   return "";
 }
 
-const PUTER_MODELS: PuterModel[] = [
-  { id: "openai/gpt-5.5", name: "GPT-5.5", provider: "OpenAI" },
-  { id: "anthropic/claude-opus-5-5", name: "Claude Opus 5.5", provider: "Anthropic" },
-  { id: "google/gemini-3.8-flash", name: "Gemini 3.8 Flash", provider: "Google" },
-  { id: "x-ai/grok-4.7", name: "Grok 4.7", provider: "xAI" },
-  { id: "z-ai/glm-5.3", name: "GLM 5.3", provider: "Z.AI" },
-  { id: "deepseek/deepseek-v4-pro", name: "DeepSeek V4 Pro", provider: "DeepSeek" },
-  { id: "qwen/qwen3.8-max", name: "Qwen 3.8 Max", provider: "Qwen" },
-  { id: "mistralai/mistral-small-2603", name: "Mistral Small 4", provider: "Mistral" },
-  { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6", provider: "Moonshot AI" },
-  { id: "google/gemma-4-31b-it", name: "Gemma 4 31B IT", provider: "Google" },
-  { id: "meta-llama/llama-4-maverick", name: "Llama 4 Maverick", provider: "Meta" },
-  { id: "microsoft/phi-4", name: "Phi-4", provider: "Microsoft" },
-  { id: "openai/gpt-5.3-codex", name: "GPT-5.3 Codex", provider: "OpenAI · Coding" },
+const PREFERRED_MODELS = [
+  "openai/gpt-5.6-luna",
+  "openai/gpt-5.5",
+  "anthropic/claude-opus-5-5",
+  "google/gemini-3.8-flash",
+  "x-ai/grok-4.7",
+  "z-ai/glm-5.3",
+  "deepseek/deepseek-v4-pro",
+  "qwen/qwen3.8-max",
+  "mistralai/mistral-small-2603",
+  "moonshotai/kimi-k2.6",
+  "google/gemma-4-31b-it",
+  "meta-llama/llama-4-maverick",
+  "microsoft/phi-4",
+  "openai/gpt-5.3-codex",
 ];
 
 export async function listPuterModels(): Promise<PuterModel[]> {
-  // Keep the catalogue sourced from the documented model IDs, not a guessed listModels API.
-  // Puter may change model availability by account, region, or product updates.
-  return PUTER_MODELS;
+  const puter = await loadPuter();
+  if (!puter.ai?.listModels) throw new Error("This Puter.js version does not expose model discovery.");
+  const result = await puter.ai.listModels();
+  if (!Array.isArray(result)) throw new Error("Puter.js returned an invalid model catalogue.");
+  const models: PuterModel[] = result.flatMap((value) => {
+    if (!value || typeof value !== "object") return [];
+    const item = value as { id?: unknown; name?: unknown; provider?: unknown; aliases?: unknown };
+    if (typeof item.id !== "string" || !item.id.trim()) return [];
+    return [{
+      id: item.id,
+      name: typeof item.name === "string" && item.name.trim() ? item.name : item.id,
+      provider: typeof item.provider === "string" ? item.provider : undefined,
+    }];
+  });
+  if (!models.length) throw new Error("Puter.js did not return any chat models.");
+  const order = new Map(PREFERRED_MODELS.map((id, index) => [id.toLowerCase(), index]));
+  return models.sort((a, b) => {
+    const ai = order.get(a.id.toLowerCase()) ?? 9999;
+    const bi = order.get(b.id.toLowerCase()) ?? 9999;
+    return ai - bi || a.name.localeCompare(b.name);
+  });
 }
 
 export async function chatWithPuter(prompt: string, history: Array<{ role: "user" | "assistant"; text: string }>, model: string): Promise<string> {
