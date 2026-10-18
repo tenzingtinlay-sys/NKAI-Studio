@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { AuthNavActions } from "@/components/studio/auth-nav-actions";
 import { useCallback, useEffect, useState } from "react";
 import { Activity, ArrowDownToLine, AudioLines, Boxes, CheckCircle2, CircleAlert, ExternalLink, RefreshCw, Video, WifiOff } from "lucide-react";
 
@@ -82,7 +83,7 @@ function AvatarLibraryPage() {
       <header className="nkai-library-top">
         <a className="nkai-library-brand" href="/"><span className="nkai-library-mark">N</span><span>NKAI <b>STUDIO</b></span></a>
         <nav><a href="/">Studio</a><a className="active" href="/avatar-library">Avatar library</a><a href="/deployment">Diagnostics</a></nav>
-        <button className="nkai-library-refresh" onClick={() => void refresh()} disabled={busy}><RefreshCw size={15} className={busy ? "nkai-spin" : ""} /> {busy ? "Checking…" : "Refresh status"}</button>
+        <AuthNavActions /><button className="nkai-library-refresh" onClick={() => void refresh()} disabled={busy}><RefreshCw size={15} className={busy ? "nkai-spin" : ""} /> {busy ? "Checking…" : "Refresh status"}</button>
       </header>
       <section className="nkai-library-hero">
         <div className="nkai-eyebrow"><Activity size={14} /> ONE LIBRARY · MULTIPLE RUNTIMES</div>
