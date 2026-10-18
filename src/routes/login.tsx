@@ -3,6 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 import { authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { AuthNavActions } from "@/components/studio/auth-nav-actions";
 
 export const Route = createFileRoute("/login")({ component: LoginPage });
 
@@ -31,7 +32,7 @@ function LoginPage() {
     <main className="nkai-login-page">
       <header className="nkai-login-nav">
         <Link className="nkai-library-brand" to="/"><span className="nkai-library-mark">N</span><span>NKAI <b>STUDIO</b></span></Link>
-        <Link className="nkai-login-back" to="/"><ArrowLeft size={15} /> Back to studio</Link>
+        <div className="nkai-login-nav-actions"><AuthNavActions /><Link className="nkai-login-back" to="/"><ArrowLeft size={15} /> Back to studio</Link></div>
       </header>
       <section className="nkai-login-card">
         <div className="nkai-login-symbol"><Sparkles size={23} /></div>
