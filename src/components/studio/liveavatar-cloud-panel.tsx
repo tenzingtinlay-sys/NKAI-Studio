@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
+import type { LiveAvatarSession } from "@heygen/liveavatar-web-sdk";
 import { chatWithPuter } from "@/lib/puter-ai";
 
 type LiveAvatar = {
@@ -147,6 +147,9 @@ export function LiveAvatarCloudPanel() {
     setError("");
     setStatus("Requesting a secure session…");
     try {
+      // Load the provider SDK only when a user starts a call, so a browser-incompatible
+      // SDK bundle cannot crash the entire landing page during initial render.
+      const { LiveAvatarSession, SessionEvent, SessionState } = await import("@heygen/liveavatar-web-sdk");
       const response = await fetch("/api/liveavatar/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -250,7 +253,7 @@ export function LiveAvatarCloudPanel() {
         }
       }
       const currentSession = sessionRef.current;
-      if (currentSession && currentSession.state === SessionState.CONNECTED) {
+      if (currentSession && String(currentSession.state).toUpperCase() === "CONNECTED") {
         currentSession.repeat(reply);
         setStatus("Speaking · " + (selectedAvatar?.name || "LiveAvatar"));
       } else {
