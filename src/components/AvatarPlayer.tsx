@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createRealTimeVisemeEngine, scheduleVisemesFromManifest } from '@/lib/viseme';
 
-type Avatar = { name: string; image?: string | null; audio?: string[] };
+type Avatar = { name: string; image?: string | null; audio?: string[]; video?: string | null };
 
 export default function AvatarPlayer({ api = '/api/avatars/library', onUseAsStream }: { api?: string; onUseAsStream?: (avatar: { name: string; image?: string | null; audio?: string[] }) => void }) {
   const [avatars, setAvatars] = useState<Avatar[]>([]);
