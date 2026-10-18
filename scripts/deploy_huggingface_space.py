@@ -28,6 +28,8 @@ OPTIONAL_SECRETS = {
     "NKAI_LIVETALKING_INTERNAL_URL": "LIVETALKING_INTERNAL_URL",
     "LIVEAVATAR_API_KEY": "LIVEAVATAR_API_KEY",
     "LIVEAVATAR_IS_SANDBOX": "LIVEAVATAR_IS_SANDBOX",
+    "NKAI_AI_GATEWAY_URL": "NKAI_AI_GATEWAY_URL",
+    "NKAI_AI_CLIENT_SECRET": "NKAI_AI_CLIENT_SECRET",
 }
 
 
@@ -131,6 +133,15 @@ def build_space_secrets(env: Mapping[str, str], repo_id: str) -> dict[str, str]:
         require_https_url(tts_url, "NKAI_TTS_INTERNAL_URL")
         if len(tts_token) < 32:
             raise ValueError("NKAI_TTS_API_TOKEN must be at least 32 characters.")
+
+    gateway_url = env.get("NKAI_AI_GATEWAY_URL", "").strip()
+    gateway_secret = env.get("NKAI_AI_CLIENT_SECRET", "").strip()
+    if gateway_url:
+        require_https_url(gateway_url, "NKAI_AI_GATEWAY_URL")
+        if not gateway_secret:
+            raise ValueError("Configure NKAI_AI_CLIENT_SECRET when NKAI_AI_GATEWAY_URL is set.")
+    if gateway_secret and len(gateway_secret) < 32:
+        raise ValueError("NKAI_AI_CLIENT_SECRET must be at least 32 characters.")
 
     livetalking_url = env.get("NKAI_LIVETALKING_INTERNAL_URL", "").strip()
     if livetalking_url:
