@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
+import { chatWithPuter } from "@/lib/puter-ai";
 
 type LiveAvatar = {
   id: string;
@@ -42,6 +43,8 @@ export function LiveAvatarCloudPanel() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("Load your available LiveAvatar catalogue to begin.");
   const [busy, setBusy] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -63,22 +66,38 @@ export function LiveAvatarCloudPanel() {
     if (session) void session.stop().catch(() => undefined);
   }, []);
 
+  // Opening LiveAvatar immediately loads the real account catalogue.
+  useEffect(() => {
+    void loadCatalog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function loadCatalog() {
     setLoadingCatalog(true);
     setError("");
     setStatus("Loading public and account avatars and available voices…");
     try {
       const response = await fetch("/api/liveavatar/catalog", { headers: { Accept: "application/json" } });
-      const payload = await response.json() as { avatars?: LiveAvatar[]; voices?: LiveVoice[]; error?: string };
+      const payload = await response.json() as { avatars?: LiveAvatar[]; voices?: LiveVoice[]; error?: string; sandbox?: boolean; sandbox_avatar_id?: string };
       if (!response.ok || !Array.isArray(payload.avatars) || !Array.isArray(payload.voices)) {
         throw new Error(payload.error || "Could not load the LiveAvatar catalogue.");
       }
       setAvatars(payload.avatars);
       setVoices(payload.voices);
-      setAvatarId((current) => payload.avatars!.some((item) => item.id === current) ? current : payload.avatars![0]?.id ?? "");
+      const nextAvatar = payload.sandbox
+        ? payload.avatars.find((item) => item.id === payload.sandbox_avatar_id)
+        : payload.avatars.find((item) => item.id === avatarId) ?? payload.avatars[0];
+      setAvatarId(nextAvatar?.id ?? "");
       setVoiceId((current) => payload.voices!.some((item) => item.id === current) ? current : "");
-      setStatus(payload.avatars.length + " available avatars · " + payload.voices.length + " public voices");
-      if (!payload.avatars.length) setError("The API key worked, but the account returned no selectable avatars.");
+      setStatus(payload.avatars.length + " available avatars · " + payload.voices.length + " public voices" + (payload.sandbox ? " · sandbox" : ""));
+      if (!payload.avatars.length) {
+        setError("The API key worked, but the account returned no selectable avatars.");
+      } else if (payload.sandbox && !nextAvatar) {
+        setError("LiveAvatar sandbox mode only permits the Wayne test avatar, but it was not returned by the catalogue. Check the API key's sandbox access or set LIVEAVATAR_IS_SANDBOX=false only if you intend to use production sessions.");
+      } else if (!sessionRef.current && nextAvatar) {
+        // Match the provider's sandbox restriction before creating a session.
+        void connect(nextAvatar.id, nextAvatar);
+      }
     } catch (cause) {
       setStatus("Catalogue unavailable");
       setError(cause instanceof Error ? cause.message : "Could not load the LiveAvatar catalogue.");
@@ -87,11 +106,12 @@ export function LiveAvatarCloudPanel() {
     }
   }
 
-  async function connect() {
-    if (!avatarId) {
+  async function connect(targetAvatarId = avatarId, targetAvatarOverride?: LiveAvatar) {
+    if (!targetAvatarId) {
       setError("Load the catalogue and choose an avatar first.");
       return;
     }
+    const targetAvatar = targetAvatarOverride ?? avatars.find((item) => item.id === targetAvatarId);
     setBusy(true);
     setError("");
     setStatus("Requesting a secure session token…");
@@ -99,11 +119,11 @@ export function LiveAvatarCloudPanel() {
       const response = await fetch("/api/liveavatar/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "FULL", avatar_id: avatarId, voice_id: voiceId || selectedAvatar?.default_voice?.id || "", language, tone }),
+        body: JSON.stringify({ mode: "FULL", avatar_id: targetAvatarId, voice_id: voiceId || targetAvatar?.default_voice?.id || "", language, tone }),
       });
       const payload = await response.json() as { session_token?: string; sandbox?: boolean; error?: string };
       if (!response.ok || !payload.session_token) throw new Error(payload.error || "Could not create a LiveAvatar session.");
-      const session = new LiveAvatarSession(payload.session_token, { autoKeepAlive: true });
+      const session = new LiveAvatarSession(payload.session_token, { autoKeepAlive: true, voiceChat: { defaultMuted: true } });
       sessionRef.current = session;
       session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
         setStatus(state === SessionState.CONNECTED ? "Connected · " + (selectedAvatar?.name || "LiveAvatar") : String(state).replaceAll("_", " "));
@@ -139,16 +159,81 @@ export function LiveAvatarCloudPanel() {
     setStatus("Disconnected");
   }
 
-  function sendMessage() {
-    const text = message.trim();
-    const session = sessionRef.current;
-    if (!text || !session || session.state !== SessionState.CONNECTED) return;
+  async function sendMessage(input = message) {
+    const text = input.trim();
+    if (!text || thinking) return;
+    setThinking(true);
+    setError("");
+    setMessage("");
+    const recent = history.slice(-8).map((item) => ({
+      role: (item.role === "you" ? "user" : "assistant") as "user" | "assistant",
+      text: item.text,
+    }));
+    setHistory((items) => [...items, { role: "you", text }]);
     try {
-      session.repeat(text);
-      setHistory((items) => [...items, { role: "you", text }]);
-      setMessage("");
+      let reply = "";
+      try {
+        const response = await fetch("/api/avatar-ai/chat", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ message: text, language, history: recent }),
+        });
+        const payload = await response.json() as { reply?: string; error?: string; detail?: string };
+        if (!response.ok || !payload.reply?.trim()) {
+          throw new Error(payload.error || payload.detail || "NKAI AI did not return a reply.");
+        }
+        reply = payload.reply.trim();
+      } catch (gpuError) {
+        try {
+          reply = await chatWithPuter(text, recent, "gpt-5.6-luna");
+          setStatus("AI reply via Puter.js · speaking through LiveAvatar");
+        } catch {
+          throw gpuError;
+        }
+      }
+      const currentSession = sessionRef.current;
+      if (currentSession && currentSession.state === SessionState.CONNECTED) {
+        currentSession.repeat(reply);
+        setStatus("AI reply generated · speaking through LiveAvatar");
+      } else {
+        // Keep chat useful when a hosted avatar session or provider credentials are unavailable.
+        // This is explicitly a browser-voice fallback, not a simulated live avatar.
+        if ("speechSynthesis" in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(reply);
+          utterance.lang = language;
+          window.speechSynthesis.speak(utterance);
+        }
+        setStatus("AI chat available · live avatar disconnected · browser voice fallback");
+      }
+      setHistory((items) => [...items, { role: "avatar", text: reply }]);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not send the message.");
+      setError(cause instanceof Error ? cause.message : "Could not generate or speak the reply.");
+    } finally {
+      setThinking(false);
+    }
+  }
+
+  function startVoiceInput() {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError("Voice input is not supported in this browser. Use Chrome or type your message.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = language;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => { setVoiceListening(true); setError(""); };
+    recognition.onresult = (event: any) => {
+      const transcript = String(event.results?.[0]?.[0]?.transcript || "").trim();
+      if (transcript) void sendMessage(transcript);
+    };
+    recognition.onerror = (event: any) => setError("Microphone input failed: " + String(event.error || "unknown error") + ".");
+    recognition.onend = () => setVoiceListening(false);
+    try { recognition.start(); } catch {
+      setVoiceListening(false);
+      setError("Could not start microphone input. Check browser microphone permission.");
     }
   }
 
@@ -168,7 +253,7 @@ export function LiveAvatarCloudPanel() {
       <label style={label}>Avatar gender<select style={field} value={gender} onChange={(event) => setGender(event.target.value)}><option value="all">All / not specified</option><option value="female">Female</option><option value="male">Male</option><option value="unknown">Unknown only</option></select></label>
       <label style={label}>Conversation tone<select style={field} value={tone} onChange={(event) => setTone(event.target.value)}><option value="warm">Warm & supportive</option><option value="professional">Professional</option><option value="calm">Calm & thoughtful</option><option value="energetic">Energetic & upbeat</option><option value="friendly">Friendly & casual</option></select></label>
       <label style={label}>Language<select style={field} value={language} onChange={(event) => setLanguage(event.target.value)}>{LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select></label>
-      <label style={label}>Avatar<select style={field} value={avatarId} onChange={(event) => setAvatarId(event.target.value)}><option value="">Select an avatar…</option>{filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}</select><small style={{ color: "var(--mf-muted, #9ca3af)", fontWeight: 400 }}>{filteredAvatars.length} matching avatars</small></label>
+      <label style={label}>Avatar<select style={field} value={avatarId} onChange={(event) => { const id = event.target.value; setAvatarId(id); if (id) { const selected = avatars.find((item) => item.id === id); if (selected) { void (async () => { await disconnect(); await connect(id, selected); })(); } } }}><option value="">Select an avatar…</option>{filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}</select><small style={{ color: "var(--mf-muted, #9ca3af)", fontWeight: 400 }}>{filteredAvatars.length} matching avatars · selecting one starts its live session</small></label>
       <label style={label}>Voice<select style={field} value={voiceId} onChange={(event) => setVoiceId(event.target.value)}><option value="">Avatar default{selectedAvatar?.default_voice?.name ? " · " + selectedAvatar.default_voice.name : ""}</option>{voices.filter((voice) => !voice.language || voice.language.toLowerCase().startsWith(language) || voice.language.toLowerCase().startsWith(language + "-") || voice.language.toLowerCase().includes(LANGUAGES.find(([code]) => code === language)?.[1].toLowerCase() || language)).map((voice) => <option key={voice.id} value={voice.id}>{voice.name || voice.id}{voice.language ? " · " + voice.language : ""}</option>)}</select><small style={{ color: "var(--mf-muted, #9ca3af)", fontWeight: 400 }}>{selectedVoice?.name || selectedAvatar?.default_voice?.name || "Provider default voice"}</small></label>
     </div>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 14 }}>
@@ -180,17 +265,18 @@ export function LiveAvatarCloudPanel() {
           <button style={primary} disabled={busy || !!sessionRef.current || !avatarId} onClick={() => void connect()}>{busy ? "Connecting…" : "Start live video"}</button>
           <button style={button} disabled={busy || !sessionRef.current} onClick={() => void disconnect()}>End session</button>
         </div>
-        <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, lineHeight: 1.6 }}>LiveAvatar is hosted by HeyGen and may consume account credits. Your API key remains on the server.</p>
+        <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, lineHeight: 1.6 }}>LiveAvatar is hosted by HeyGen and may consume account credits. Your API key remains on the server. Voice input uses browser speech recognition; AI replies are spoken by the connected live avatar.</p>
       </section>
       <section style={card}>
         <b>Talk to your avatar</b>
         <div aria-live="polite" style={{ minHeight: 180, maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, margin: "12px 0" }}>
-          {history.length === 0 && <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 13 }}>Start a session, then send a message to the avatar.</p>}
+          {history.length === 0 && <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 13 }}>Speak or type at any time. When the live avatar is connected it speaks the reply; otherwise NKAI chat uses browser voice until the provider reconnects.</p>}
           {history.map((item, index) => <div key={index} style={{ alignSelf: item.role === "you" ? "flex-end" : "flex-start", padding: 10, borderRadius: 10, background: item.role === "you" ? "#1d4ed8" : "#263244", maxWidth: "90%", overflowWrap: "anywhere" }}><small>{item.role === "you" ? "You" : "Avatar"}</small><div>{item.text}</div></div>)}
         </div>
-        <form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} style={{ display: "flex", gap: 8 }}>
-          <input style={{ ...field, flex: 1 }} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={1000} placeholder="Write a message…" aria-label="Message to LiveAvatar" />
-          <button style={button} disabled={!message.trim() || busy || !sessionRef.current}>Send</button>
+        <form onSubmit={(event) => { event.preventDefault(); void sendMessage(); }} style={{ display: "flex", gap: 8 }}>
+          <input style={{ ...field, flex: 1 }} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={1000} placeholder={thinking ? "AI is thinking; avatar will speak shortly…" : "Write or dictate a message…"} aria-label="Message to LiveAvatar" />
+          <button type="button" style={button} disabled={busy || thinking} onClick={startVoiceInput}>{voiceListening ? "Listening…" : "🎙 Voice"}</button>
+          <button type="submit" style={button} disabled={!message.trim() || busy || thinking}>{thinking ? "Thinking…" : "Send"}</button>
         </form>
         {error && <p role="alert" style={{ color: "#f87171", fontSize: 13, marginTop: 12 }}>{error}</p>}
       </section>

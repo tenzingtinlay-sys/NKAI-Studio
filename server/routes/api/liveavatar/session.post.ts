@@ -24,6 +24,49 @@ async function collect(path: string, apiKey: string): Promise<LiveAvatarItem[]> 
   return items;
 }
 
+const STUDIO_LOOK_IDS = new Set([
+  "9c59a215-4c9f-478f-9d95-edca74c7b0d0",
+  "de82b2cc-7314-40a1-b41f-cc456c66601c",
+  "ab0765ad-69de-41fb-9f8a-bd01c3c52d6f",
+  "63014563-22f7-4401-95db-034f3c992ec3",
+  "42700a53-38ab-4485-b46f-26be6e0953dc",
+  "06bcaebf-feeb-4e7a-8ab8-16b9f9537a19",
+  "bfed3e3e-7d44-4fdb-b2be-ce9a9fd0b9b5",
+  "334c4101-4c2d-4aa4-9c4e-342867842608",
+  "ebdfdc7e-7e2c-4d2c-8407-a78883e5000a",
+  "649e4023-7e82-4a01-af90-4476d75df75d",
+  "b4fc2d60-3b82-4694-b243-93e9d2bb0242",
+  "65ee9a5b-00ae-4c96-acf2-3326d9566467",
+  "38ad67ed-98f0-407c-a2d2-4f0998b306fc",
+  "3466af9c-45f5-40f2-8392-c51f8385422c",
+  "509609b9-cda3-4f74-b1b2-97b4d98834fd",
+  "b26c00a5-8861-4fd3-90cc-144791d2d81d",
+  "bb1f6ebc-b388-4a39-9e2b-8df618e0377c",
+  "f0a9978d-634a-4063-8164-42ba6670542f",
+  "03f8332d-9046-42a1-bff3-3b2309f77b58",
+  "fc4125a5-83fa-45e2-8574-bf657ac19998",
+  "26393b8e-e944-4367-98ef-e2bc75c4b792",
+  "260d706a-bf31-48fd-96d0-511553a9060e",
+  "09919247-f4b2-45d8-a75e-86fc2fceaebf",
+  "69cf601f-b35b-4d1b-a701-c854d223b5a5",
+  "f86e8b45-3389-424a-b3d7-7f6e8729e36d",
+  "f0953388-a391-4518-945b-f2db3b602e77",
+  "8532b602-89e8-44fa-a9e2-5a4259a058cc",
+  "9d4d6cdd-38a1-448e-a336-1ac682ba6a27",
+  "200eba85-74c0-4210-8670-81ceab4efd0d",
+  "90a94dae-8df2-4b12-99a8-5bbc34c9551e",
+  "7001c332-8101-4e5a-b695-eac2a72d9568",
+  "9a5a4cb2-a32e-415f-8689-aa9d61acee1b",
+  "075abc67-2fae-4548-8ca9-b815fcbd34c7",
+  "de16689a-234a-4334-b504-3b379d30daa1",
+  "0aae6046-0ab9-44fe-a08d-c5ac3f406d34",
+  "5c6e2257-bb91-48f4-a75d-d4c9ad212af9",
+  "16141106-96b5-4dd9-9846-593728c5d0ed",
+  "37521110-f8cf-4c34-b37e-bbb4f670711e",
+  "246e8d9d-5826-4f49-b8a0-07cb73ff7556",
+  "6a1906e3-6caa-4aba-995f-c49088661560",
+]);
+
 const TONES: Record<string, string> = {
   warm: "Be warm, supportive, empathetic, and encouraging. Use natural conversational language.",
   professional: "Be professional, concise, clear, and respectful. Focus on practical next steps.",
@@ -82,7 +125,10 @@ export default defineEventHandler(async (event) => {
       collect("/avatars", apiKey),
     ]);
     const selected = [...publicAvatars, ...accountAvatars].find((item) => item.id === avatarId && !item.is_expired);
-    if (!selected) {
+    // Supplied studio-look IDs may not be enumerated by the account list endpoint.
+    // Allow only this explicit allowlist through to session-token creation; the provider
+    // remains the final authority and its token response is still checked below.
+    if (!selected && !STUDIO_LOOK_IDS.has(avatarId)) {
       setResponseStatus(event, 400);
       return { error: "That avatar is unavailable to this LiveAvatar account. Reload the catalogue and choose another." };
     }

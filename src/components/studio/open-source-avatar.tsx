@@ -331,7 +331,7 @@ export function OpenSourceAvatarPanel() {
     for (const candidate of orderedEndpoints) {
       try {
         const endpoint = new URL(candidate, window.location.origin);
-        endpoint.pathname = "/api/ai/tts-capabilities";
+        endpoint.pathname = "/api/avatar-ai/tts-capabilities";
         endpoint.search = "";
         const response = await fetch(endpoint.toString(), {
           method: "GET",
