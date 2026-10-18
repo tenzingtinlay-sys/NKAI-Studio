@@ -1,5 +1,4 @@
 import { defineEventHandler, getRequestURL, setResponseStatus } from "h3";
-import { liveAvatarAllowed } from "../../../utils/liveavatar-access";
 
 const female = "female";
 const male = "male";
@@ -90,11 +89,8 @@ async function collect(path: string, key: string): Promise<Item[]> {
 }
 
 export default defineEventHandler(async (event) => {
-   if (!(await liveAvatarAllowed())) {
-    setResponseStatus(event, 401);
-    return { error: "Live avatars are restricted. The owner must enable LIVEAVATAR_ALLOW_ANONYMOUS or add sign-in." };
-  }
-
+  // The avatar catalogue is read-only and safe to browse before sign-in.
+  // Session creation remains protected by liveAvatarAllowed() in session.post.ts.
   const requestUrl = getRequestURL(event);
   const origin = event.node?.req?.headers?.origin;
     let foreignOrigin = false;
