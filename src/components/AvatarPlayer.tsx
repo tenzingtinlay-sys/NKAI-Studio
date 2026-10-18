@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 
 type Avatar = { name: string; image?: string | null; audio?: string[] };
 
-export default function AvatarPlayer({ api = '/api/avatars/library' }: { api?: string }) {
+export default function AvatarPlayer({ api = '/api/avatars/library', onUseAsStream }: { api?: string; onUseAsStream?: (avatar: { name: string; image?: string | null; audio?: string[] }) => void }) {
   const [avatars, setAvatars] = useState<Avatar[]>([]);
   const [selected, setSelected] = useState<Avatar | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -81,6 +81,7 @@ export default function AvatarPlayer({ api = '/api/avatars/library' }: { api?: s
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => { if (selected.audio && selected.audio[0]) playSample(`/api/vendor-file?path=${encodeURIComponent(selected.audio[0])}`); }} style={{ padding: '8px 12px', borderRadius: 8 }}>Play sample</button>
               <button onClick={() => { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } }} style={{ padding: '8px 12px', borderRadius: 8 }}>Stop</button>
+              <button onClick={() => onUseAsStream && onUseAsStream(selected)} style={{ padding: '8px 12px', borderRadius: 8 }}>Use as local stream</button>
             </div>
           </div>
         </div>

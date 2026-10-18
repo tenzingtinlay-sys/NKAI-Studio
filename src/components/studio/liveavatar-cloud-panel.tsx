@@ -49,6 +49,13 @@ export function LiveAvatarCloudPanel() {
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState<{ role: "you" | "avatar"; text: string }[]>([]);
 
+  // Local stream state: when user selects a local avatar to act as the "stream"
+  const [localStreamAvatar, setLocalStreamAvatar] = useState<{ name: string; image?: string | null; audio?: string[] } | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioElemRef = useRef<HTMLAudioElement | null>(null);
+  const [mouthLevel, setMouthLevel] = useState(0);
+
   const selectedAvatar = avatars.find((item) => item.id === avatarId);
   const selectedVoice = voices.find((item) => item.id === voiceId);
   const filteredAvatars = useMemo(() => avatars.filter((item) => {
@@ -173,6 +180,21 @@ export function LiveAvatarCloudPanel() {
       if (session) await session.stop().catch(() => undefined);
       setError(cause instanceof Error ? cause.message : "LiveAvatar connection failed.");
       setStatus("Not connected");
++      // Offer quick fallback: use a local avatar if available
++      try {
++        const lib = await fetch('/api/avatars/library').then((r) => r.json()).catch(() => null);
++        if (lib && Array.isArray(lib.avatars) && lib.avatars.length) {
++          // choose first avatar with audio
++          const found = lib.avatars.find((a: any) => Array.isArray(a.audio) && a.audio.length) || lib.avatars[0];
++          if (found) {
++            setLocalStreamAvatar(found);
++            // auto-play first sample if present
++            if (found.audio && found.audio[0]) playLocalStream(found.audio[0]);
++          }
++        }
++      } catch (e) {
++        /* ignore */
++      }
     } finally {
       setBusy(false);
     }
@@ -188,7 +210,72 @@ export function LiveAvatarCloudPanel() {
       videoRef.current.pause();
       videoRef.current.srcObject = null;
     }
+    // also stop any local stream
+    stopLocalStream();
     setStatus("Disconnected");
+  }
+
+  function playLocalStream(pathOrEncoded: string) {
+    // pathOrEncoded is expected to be the encoded vendor path like '370+ .../Audio/file.wav' or full encoded string
+    stopLocalStream();
+    const url = `/api/vendor-file?path=${encodeURIComponent(pathOrEncoded)}`;
+    const audio = new Audio(url);
+    audio.crossOrigin = 'anonymous';
+    audioElemRef.current = audio;
+    // create audio context and analyser
+    try {
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      const ac = new AC();
+      audioContextRef.current = ac;
+      const src = ac.createMediaElementSource(audio);
+      const analyser = ac.createAnalyser();
+      analyser.fftSize = 256;
+      src.connect(analyser);
+      analyser.connect(ac.destination);
+      analyserRef.current = analyser;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      let raf = 0;
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteFrequencyData(data);
+        // compute simple RMS-ish level
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+        const rms = Math.sqrt(sum / data.length) / 255;
+        setMouthLevel(rms);
+        raf = requestAnimationFrame(tick);
+      };
+      audio.play().catch(() => {});
+      tick();
+      // store raf id on analyserRef via property for cleanup
+      (analyserRef.current as any)._rafId = raf;
+    } catch (e) {
+      // fallback: just play audio without analyser
+      audio.play().catch(() => {});
+    }
+    setLocalStreamAvatar((prev) => prev); // keep avatar set
+  }
+
+  function stopLocalStream() {
+    try {
+      if (audioElemRef.current) {
+        audioElemRef.current.pause();
+        audioElemRef.current.currentTime = 0;
+        audioElemRef.current = null;
+      }
+      if (analyserRef.current) {
+        const raf = (analyserRef.current as any)._rafId;
+        if (raf) cancelAnimationFrame(raf);
+        analyserRef.current.disconnect();
+        analyserRef.current = null;
+      }
+      if (audioContextRef.current) {
+        try { audioContextRef.current.close(); } catch {}
+        audioContextRef.current = null;
+      }
+    } catch (e) {}
+    setMouthLevel(0);
+    setLocalStreamAvatar(null);
   }
 
   function sendMessage() {
@@ -226,13 +313,29 @@ export function LiveAvatarCloudPanel() {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 14 }}>
       <section style={card}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}><div><b>{selectedAvatar?.name || "LiveAvatar preview"}</b><p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, margin: "4px 0 0" }}>{selectedAvatar?.type || "Hosted digital human"} · {language.toUpperCase()} · {tone}</p></div><span style={{ fontSize: 11, color: "var(--mf-muted, #9ca3af)" }}>{status}</span></div>
-        {selectedAvatar?.preview_url && !sessionRef.current && <img src={selectedAvatar.preview_url} alt={selectedAvatar.name || "Selected avatar"} style={{ display: "block", width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 10, marginBottom: 10 }} />}
-        <video ref={videoRef} autoPlay playsInline controls style={{ width: "100%", aspectRatio: "16 / 9", background: "#030712", borderRadius: 10, display: "block" }} />
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-          <button style={primary} disabled={busy || !!sessionRef.current || !avatarId} onClick={() => void connect()}>{busy ? "Connecting…" : "Start live video"}</button>
-          <button style={button} disabled={busy || !sessionRef.current} onClick={() => void disconnect()}>End session</button>
-        </div>
-        <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, lineHeight: 1.6 }}>LiveAvatar is hosted by HeyGen and may consume account credits. Your API key remains on the server.</p>
+        {/* If a local stream avatar is active, show it here instead of the live session video */}
+        {localStreamAvatar ? (
+          <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 10, overflow: 'hidden', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {localStreamAvatar.image ? (
+              <img src={`/api/vendor-file?path=${encodeURIComponent(localStreamAvatar.image)}`} alt={localStreamAvatar.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : <div style={{ color: '#fff' }}>{localStreamAvatar.name}</div>}
+            <div style={{ position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)', width: 160, height: 22, borderRadius: 12, background: '#111' }}>
+              <div style={{ height: '100%', width: `${Math.max(8, Math.min(100, mouthLevel * 120))}%`, background: '#ffb86b', transition: 'width 0.08s linear' }} />
+            </div>
+            <button onClick={() => stopLocalStream()} style={{ position: 'absolute', top: 10, right: 10, padding: '6px 10px', borderRadius: 8 }}>Stop local stream</button>
+          </div>
+        ) : (
+          <>
+            {selectedAvatar?.preview_url && !sessionRef.current && <img src={selectedAvatar.preview_url} alt={selectedAvatar.name || "Selected avatar"} style={{ display: "block", width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 10, marginBottom: 10 }} />}
+            <video ref={videoRef} autoPlay playsInline controls style={{ width: "100%", aspectRatio: "16 / 9", background: "#030712", borderRadius: 10, display: "block" }} />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+              <button style={primary} disabled={busy || !!sessionRef.current || !avatarId} onClick={() => void connect()}>{busy ? "Connecting…" : "Start live video"}</button>
+              <button style={button} disabled={busy || !sessionRef.current} onClick={() => void disconnect()}>End session</button>
+              <button style={button} onClick={() => { /* open local avatar selection UI area scroll into view */ const el = document.querySelector('[data-local-avatar-list]'); if(el) el.scrollIntoView({ behavior: 'smooth' }); }}>Use local avatar instead</button>
+            </div>
+            <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, lineHeight: 1.6 }}>LiveAvatar is hosted by HeyGen and may consume account credits. Your API key remains on the server.</p>
+          </>
+        )}
       </section>
       <section style={card}>
         <b>Talk to your avatar</b>
