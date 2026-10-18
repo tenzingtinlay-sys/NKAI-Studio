@@ -188,8 +188,15 @@ export function VideoPanel() {
           <button
             className="mf-ghost"
             onClick={async () => {
-              const f = await pickFile("video/*");
-              if (f) setFile(f);
+              try {
+                const f = await pickFile("video/*");
+                if (f) {
+                  setFile(f);
+                  useStudio.getState().flash(`Selected ${f.name}`);
+                }
+              } catch (error) {
+                useStudio.getState().flash(error instanceof Error ? error.message : "Could not open the video picker");
+              }
             }}
           >
             Choose video
@@ -387,20 +394,29 @@ export function ImagesPanel() {
             <button
               className="mf-ghost"
               onClick={async () => {
-                const f = await pickFile("image/*");
-                if (!f) return;
-                const url = await shrinkFile(f, 1400);
-                const img = new Image();
-                img.onload = () => {
-                  const c = document.createElement("canvas");
-                  c.width = img.width;
-                  c.height = img.height;
-                  c.getContext("2d")?.drawImage(img, 0, 0);
-                  source.current = c;
-                  setEngine("upload");
-                  paintFilters();
-                };
-                img.src = url;
+                try {
+                  const f = await pickFile("image/*");
+                  if (!f) return;
+                  const url = await shrinkFile(f, 1400);
+                  await new Promise<void>((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => {
+                      const c = document.createElement("canvas");
+                      c.width = img.width;
+                      c.height = img.height;
+                      c.getContext("2d")?.drawImage(img, 0, 0);
+                      source.current = c;
+                      setEngine("upload");
+                      paintFilters();
+                      resolve();
+                    };
+                    img.onerror = () => reject(new Error("Could not load the selected image."));
+                    img.src = url;
+                  });
+                  useStudio.getState().flash("Photo loaded for editing");
+                } catch (error) {
+                  useStudio.getState().flash(error instanceof Error ? error.message : "Could not edit this photo");
+                }
               }}
             >
               Edit my photo
@@ -1330,10 +1346,15 @@ export function ScenesPanel() {
             <button
               className="mf-ghost"
               onClick={async () => {
-                const f = await pickFile("image/*");
-                if (!f) return;
-                const img = await shrinkFile(f, 1400);
-                useStudio.getState().updateScene(i, { img });
+                try {
+                  const f = await pickFile("image/*");
+                  if (!f) return;
+                  const img = await shrinkFile(f, 1400);
+                  useStudio.getState().updateScene(i, { img });
+                  useStudio.getState().flash(`Scene ${i + 1} background updated`);
+                } catch (error) {
+                  useStudio.getState().flash(error instanceof Error ? error.message : "Could not load the scene background");
+                }
               }}
             >
               Background
@@ -1395,12 +1416,21 @@ export function BrandPanel() {
             <button
               className="mf-ghost"
               onClick={async () => {
-                const f = await pickFile("image/*");
-                if (!f) return;
-                if (f.size > 600000) return useStudio.getState().flash("Logo must be under 600 KB");
-                const reader = new FileReader();
-                reader.onload = () => setBrand({ logo: String(reader.result) });
-                reader.readAsDataURL(f);
+                try {
+                  const f = await pickFile("image/*");
+                  if (!f) return;
+                  if (!f.type.startsWith("image/")) return useStudio.getState().flash("Choose an image file for the logo");
+                  if (f.size > 600000) return useStudio.getState().flash("Logo must be under 600 KB");
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setBrand({ logo: String(reader.result) });
+                    useStudio.getState().flash("Brand logo updated");
+                  };
+                  reader.onerror = () => useStudio.getState().flash("Could not read the selected logo file");
+                  reader.readAsDataURL(f);
+                } catch (error) {
+                  useStudio.getState().flash(error instanceof Error ? error.message : "Could not upload the logo");
+                }
               }}
             >
               Upload logo
@@ -1745,10 +1775,15 @@ export function IntegrationsPanel() {
         <button
           className="mf-ghost"
           onClick={async () => {
-            const h = await studioHealth();
-            const label = h.engine === "grok" ? `grok · ${h.model}` : "local engine";
-            setHealth(label);
-            useStudio.setState({ engine: label });
+            try {
+              const h = await studioHealth();
+              const label = h.engine === "grok" ? `grok · ${h.model}` : "local engine";
+              setHealth(label);
+              useStudio.setState({ engine: label });
+              useStudio.getState().flash("Integration status refreshed");
+            } catch (error) {
+              useStudio.getState().flash(error instanceof Error ? error.message : "Could not refresh integration status");
+            }
           }}
         >
           Re-check
