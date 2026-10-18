@@ -78,20 +78,24 @@ export function LiveAvatarCloudPanel() {
     setStatus("Loading public and account avatars and available voices…");
     try {
       const response = await fetch("/api/liveavatar/catalog", { headers: { Accept: "application/json" } });
-      const payload = await response.json() as { avatars?: LiveAvatar[]; voices?: LiveVoice[]; error?: string };
+      const payload = await response.json() as { avatars?: LiveAvatar[]; voices?: LiveVoice[]; error?: string; sandbox?: boolean; sandbox_avatar_id?: string };
       if (!response.ok || !Array.isArray(payload.avatars) || !Array.isArray(payload.voices)) {
         throw new Error(payload.error || "Could not load the LiveAvatar catalogue.");
       }
       setAvatars(payload.avatars);
       setVoices(payload.voices);
-      const nextAvatar = payload.avatars.find((item) => item.id === avatarId) ?? payload.avatars[0];
+      const nextAvatar = payload.sandbox
+        ? payload.avatars.find((item) => item.id === payload.sandbox_avatar_id)
+        : payload.avatars.find((item) => item.id === avatarId) ?? payload.avatars[0];
       setAvatarId(nextAvatar?.id ?? "");
       setVoiceId((current) => payload.voices!.some((item) => item.id === current) ? current : "");
-      setStatus(payload.avatars.length + " available avatars · " + payload.voices.length + " public voices");
+      setStatus(payload.avatars.length + " available avatars · " + payload.voices.length + " public voices" + (payload.sandbox ? " · sandbox" : ""));
       if (!payload.avatars.length) {
         setError("The API key worked, but the account returned no selectable avatars.");
+      } else if (payload.sandbox && !nextAvatar) {
+        setError("LiveAvatar sandbox mode only permits the Wayne test avatar, but it was not returned by the catalogue. Check the API key's sandbox access or set LIVEAVATAR_IS_SANDBOX=false only if you intend to use production sessions.");
       } else if (!sessionRef.current && nextAvatar) {
-        // Entering the live-avatar tab starts a real provider session instead of leaving a static preview.
+        // Match the provider's sandbox restriction before creating a session.
         void connect(nextAvatar.id, nextAvatar);
       }
     } catch (cause) {
@@ -119,7 +123,7 @@ export function LiveAvatarCloudPanel() {
       });
       const payload = await response.json() as { session_token?: string; sandbox?: boolean; error?: string };
       if (!response.ok || !payload.session_token) throw new Error(payload.error || "Could not create a LiveAvatar session.");
-      const session = new LiveAvatarSession(payload.session_token, { autoKeepAlive: true });
+      const session = new LiveAvatarSession(payload.session_token, { autoKeepAlive: true, voiceChat: { defaultMuted: true } });
       sessionRef.current = session;
       session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
         setStatus(state === SessionState.CONNECTED ? "Connected · " + (selectedAvatar?.name || "LiveAvatar") : String(state).replaceAll("_", " "));
