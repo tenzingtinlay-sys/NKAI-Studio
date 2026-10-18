@@ -11,8 +11,7 @@ type State = "checking" | "ready" | "offline" | "not-configured";
 type Provider = { id: string; name: string; kind: string; detail: string; state: State; status: string; action?: string; href?: string };
 
 const starterAssets = [
-  { id: "mpfb", name: "MPFB human", kind: "Browser 3D · GLB", detail: "Remote sample model. Verify the upstream asset licence before redistribution.", url: "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/mpfb.glb", download: false },
-  { id: "brunette", name: "Brunette sample", kind: "Browser 3D · GLB", detail: "Non-commercial sample; it must not be used commercially without separate permission.", url: "/assets/avatars/brunette.glb", download: true },
+  { id: "mpfb", name: "MPFB human", kind: "Browser 3D · GLB", detail: "CC0 sample loaded from upstream; check the upstream source and asset provenance before redistribution.", url: "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/mpfb.glb", download: false },
 ];
 
 function Badge({ state }: { state: State }) {
