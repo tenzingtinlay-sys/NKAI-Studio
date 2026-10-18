@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from "react";
 
 type OfferResponse = { sdp?: string; type?: RTCSdpType; sessionid?: string; error?: string; detail?: string };
 type ApiResponse = { code?: number; msg?: string; error?: string; detail?: string };
+type LiveTalkingNativePanelProps = {
+  commandRef?: { current: ((text: string) => Promise<boolean>) | null };
+  onConnectionChange?: (connected: boolean) => void;
+};
 
-export function LiveTalkingNativePanel() {
+export function LiveTalkingNativePanel({ commandRef, onConnectionChange }: LiveTalkingNativePanelProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const sessionRef = useRef("");
@@ -13,14 +17,40 @@ export function LiveTalkingNativePanel() {
   const [text, setText] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => () => {
-    peerRef.current?.close();
-    peerRef.current = null;
-  }, []);
+  useEffect(() => {
+    if (commandRef) {
+      commandRef.current = async (message: string) => {
+        const sessionid = sessionRef.current;
+        if (!sessionid || peerRef.current?.connectionState !== "connected") return false;
+        const response = await fetch("/api/livetalking/human", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionid, text: message.slice(0, 2000), type: "echo" }),
+          signal: AbortSignal.timeout(20000),
+        });
+        const result = await response.json() as ApiResponse;
+        if (!response.ok || (typeof result.code === "number" && result.code !== 0)) {
+          throw new Error(result.error || result.msg || ("Text-to-avatar request failed (HTTP " + response.status + ")."));
+        }
+        setStatus("NKAI reply sent to the live avatar stream");
+        return true;
+      };
+    }
+    return () => {
+      if (commandRef) commandRef.current = null;
+      peerRef.current?.close();
+      peerRef.current = null;
+    };
+  }, [commandRef]);
+
+  function updateConnectionState(value: boolean) {
+    setConnected(value);
+    onConnectionChange?.(value);
+  }
 
   async function connect() {
     setBusy(true);
-    setConnected(false);
+    updateConnectionState(false);
     setError("");
     setStatus("Negotiating WebRTC with the private LiveTalking worker…");
     try {
@@ -44,13 +74,13 @@ export function LiveTalkingNativePanel() {
       };
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === "connected") {
-          setConnected(true);
+          updateConnectionState(true);
           setStatus("Live WebRTC stream connected");
         } else if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-          setConnected(false);
+          updateConnectionState(false);
           setStatus("WebRTC connection lost · check GPU worker ICE/UDP networking");
         } else if (pc.connectionState === "connecting") {
-          setConnected(false);
+          updateConnectionState(false);
           setStatus("Offer accepted · establishing media connection…");
         }
       };
@@ -89,7 +119,7 @@ export function LiveTalkingNativePanel() {
       peerRef.current?.close();
       peerRef.current = null;
       sessionRef.current = "";
-      setConnected(false);
+      updateConnectionState(false);
       const message = cause instanceof Error ? cause.message : "Could not connect to LiveTalking.";
       setError(message);
       setStatus("Unable to connect · verify LIVETALKING_INTERNAL_URL and GPU worker network ports");
@@ -103,7 +133,7 @@ export function LiveTalkingNativePanel() {
     peerRef.current = null;
     sessionRef.current = "";
     if (videoRef.current) videoRef.current.srcObject = null;
-    setConnected(false);
+    updateConnectionState(false);
     setStatus("Disconnected");
     setError("");
   }
