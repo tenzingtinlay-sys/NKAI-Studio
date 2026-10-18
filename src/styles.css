@@ -1099,3 +1099,44 @@ body {
 @keyframes nkai-spin{to{transform:rotate(360deg)}}
 @media(max-width:1100px){.nkai-provider-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.nkai-library-top{gap:14px;padding:12px 0}.nkai-library-top nav{order:3;width:100%;gap:18px}.nkai-library-top nav a{padding:8px 0 12px}.nkai-library-refresh{margin-left:auto}.nkai-provider-grid,.nkai-asset-grid{grid-template-columns:1fr}.nkai-section-heading{align-items:flex-start;flex-direction:column}.nkai-library-footer{flex-direction:column}.nkai-library-hero{padding-top:48px}}
+
+
+/* Shared account navigation + sign-in page */
+.nkai-auth-link{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:0 13px;border:1px solid rgba(140,164,190,.28);border-radius:12px;color:#eaf1fb;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;transition:background .2s,border-color .2s}
+.nkai-auth-link:hover{background:rgba(105,150,255,.12);border-color:rgba(140,164,255,.55)}
+.nkai-auth-user{display:flex;align-items:center;max-width:240px;color:#eaf1fb}
+.nkai-auth-user>div{gap:8px!important}
+.nkai-auth-user img{width:28px!important;height:28px!important}
+.nkai-auth-user button{border:1px solid rgba(140,164,190,.25);border-radius:9px;padding:6px 9px;text-decoration:none!important;color:#eaf1fb!important}
+.nkai-auth-skeleton{display:inline-block;width:92px;height:34px;border-radius:11px;background:rgba(255,255,255,.08);animation:nkai-auth-pulse 1.4s ease-in-out infinite}
+@keyframes nkai-auth-pulse{50%{opacity:.42}}
+.nkai-login-page{min-height:100vh;background:radial-gradient(ellipse at 50% 0%,rgba(53,91,160,.25),transparent 48%),#080b12;color:#edf3ff;padding:0 26px 28px;display:flex;flex-direction:column}
+.nkai-login-nav{width:min(1120px,100%);margin:0 auto;min-height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(155,177,211,.13)}
+.nkai-login-back{display:inline-flex;align-items:center;gap:8px;color:#aab8ce;text-decoration:none;font-size:13px}
+.nkai-login-card{width:min(460px,100%);margin:clamp(48px,9vh,100px) auto 54px;padding:36px;border:1px solid rgba(145,169,205,.2);border-radius:25px;background:linear-gradient(155deg,rgba(23,32,51,.94),rgba(12,17,28,.98));box-shadow:0 28px 90px rgba(0,0,0,.35)}
+.nkai-login-symbol{width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(135deg,rgba(100,139,255,.24),rgba(95,225,201,.13));border:1px solid rgba(137,170,255,.25);color:#a9c3ff;margin-bottom:26px}
+.nkai-login-card>.nkai-eyebrow{font-size:10px;letter-spacing:.16em;color:#9ab6f6;font-weight:800}
+.nkai-login-card h1{font-size:clamp(27px,4vw,36px);line-height:1.12;letter-spacing:-.045em;margin:12px 0 13px}
+.nkai-login-subtitle{font-size:14px;line-height:1.7;color:#a8b5c9;margin:0 0 27px}
+.nkai-login-providers{display:grid;gap:11px}
+.nkai-login-provider{width:100%;display:flex;align-items:center;gap:12px;min-height:54px;padding:0 15px;border:1px solid rgba(160,181,213,.2);border-radius:13px;background:rgba(255,255,255,.035);color:#f0f4fc;font-size:13px;font-weight:700;text-align:left;cursor:pointer;transition:background .2s,border-color .2s}
+.nkai-login-provider:hover:not(:disabled){background:rgba(112,149,236,.12);border-color:rgba(133,165,255,.48)}
+.nkai-login-provider:disabled{opacity:.62;cursor:wait}
+.nkai-login-provider>span:nth-child(2){flex:1}
+.nkai-provider-letter{display:grid;place-items:center;width:29px;height:29px;border-radius:9px;background:rgba(255,255,255,.08);font-size:14px;font-weight:800}
+.nkai-login-state{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px;border:1px solid rgba(83,206,164,.25);border-radius:14px;background:rgba(45,175,132,.08);color:#9ce7c9}
+.nkai-login-state>div{display:grid;gap:4px;flex:1}
+.nkai-login-state strong{font-size:14px;color:#e8fff5}
+.nkai-login-state span{font-size:12px;color:#a8cbbb;overflow-wrap:anywhere}
+.nkai-login-primary{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:0;border-radius:11px;background:#dbe6ff;color:#101a2c;font-size:13px;font-weight:800;cursor:pointer}
+.nkai-login-config{padding:15px;border:1px solid rgba(236,184,98,.24);border-radius:13px;background:rgba(236,184,98,.06);font-size:13px;line-height:1.6;color:#f0d5a5}
+.nkai-login-config p{margin:8px 0 0;color:#c6bda9}
+.nkai-login-error{margin-top:13px;padding:10px 12px;border-radius:10px;background:rgba(255,85,104,.1);color:#ffb2bb;font-size:12px}
+.nkai-login-security{display:flex;align-items:flex-start;gap:9px;margin-top:25px;padding-top:20px;border-top:1px solid rgba(155,177,211,.13);color:#91a2bc;font-size:11px;line-height:1.65}
+.nkai-login-security svg{flex-shrink:0;color:#86cdbb;margin-top:1px}
+.nkai-login-footnote{margin:16px 0 0;color:#75859f;font-size:10px;line-height:1.6;text-align:center}
+.nkai-login-footer{width:min(1120px,100%);margin:auto auto 0;display:flex;justify-content:space-between;gap:15px;color:#71819a;font-size:10px;letter-spacing:.08em}
+.nkai-login-footer a{color:#a7bce8;text-decoration:none;letter-spacing:0;font-size:12px}
+.nkai-library-top .nkai-auth-user,.nkai-library-top .nkai-auth-link{margin-left:4px}
+@media(max-width:850px){.nkai-auth-user>div>span:not(:first-child){display:none}.nkai-auth-user{max-width:42px}.nkai-library-top{flex-wrap:wrap}.nkai-library-top .nkai-auth-user{max-width:42px}}
+@media(max-width:560px){.nkai-login-page{padding:0 16px 22px}.nkai-login-nav{min-height:70px}.nkai-login-card{padding:25px 20px;margin-top:42px}.nkai-login-footer{flex-direction:column;align-items:center;text-align:center}.nkai-login-back{font-size:12px}.nkai-auth-link{min-height:34px;padding:0 9px;font-size:11px}}
