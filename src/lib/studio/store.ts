@@ -17,7 +17,7 @@ import {
   type VoicePreset,
 } from "./types";
 
-const KEY = "nkai-studio-v1";
+const KEY = "nk-studio-v1";
 
 type Snap = {
   name: string;

@@ -92,7 +92,7 @@ export function StudioApp() {
           <div className="mf-mark">
             <i />
           </div>
-          NKAI Studio
+          NK-Studio
         </div>
         <div className="mf-crumbs">
           <span>Projects</span>
