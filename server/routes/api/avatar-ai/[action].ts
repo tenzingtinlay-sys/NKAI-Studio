@@ -34,13 +34,17 @@ export default defineEventHandler(async (event) => {
       }
     }
   } else {
-    let sameOrigin = false;
+    let sameOriginHost = false;
     try {
-      sameOrigin = typeof origin === "string" && new URL(origin).origin === requestUrl.origin;
+      // Cloudflare terminates TLS before the Worker runtime. Compare the browser
+      // Origin host to the public request host, not the scheme reconstructed by H3.
+      // This still rejects foreign origins while avoiding false 403s on HTTPS.
+      sameOriginHost = typeof origin === "string" &&
+        new URL(origin).host.toLowerCase() === requestUrl.host.toLowerCase();
     } catch {
-      sameOrigin = false;
+      sameOriginHost = false;
     }
-    if (!sameOrigin) return fail(event, 403, "A same-origin browser request is required.");
+    if (!sameOriginHost) return fail(event, 403, "A same-origin browser request is required.");
     const contentType = String(event.node?.req?.headers?.["content-type"] || "").split(";")[0].trim().toLowerCase();
     if (contentType !== "application/json") return fail(event, 415, "Content-Type must be application/json.");
   }
