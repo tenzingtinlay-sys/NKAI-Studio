@@ -48,7 +48,9 @@ export function AvatarLandingPage() {
   const [voiceName, setVoiceName] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [cameraError, setCameraError] = useState("");
-  const [gpuOpen, setGpuOpen] = useState(false);
+  const [gpuOpen, setGpuOpen] = useState(true);
+  const [liveAvatarConnected, setLiveAvatarConnected] = useState(false);
+  const liveAvatarCommandRef = useRef<((text: string) => Promise<boolean>) | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -203,7 +205,16 @@ export function AvatarLandingPage() {
       }
       const reply = payload.reply.trim();
       setMessages((old) => [...old, { role: "avatar", text: reply, time: stamp() }]);
-      await speakGpuVoice(reply);
+      let spokenByLiveAvatar = false;
+      if (liveAvatarConnected && liveAvatarCommandRef.current) {
+        try {
+          spokenByLiveAvatar = await liveAvatarCommandRef.current(reply);
+        } catch {
+          // A dropped video stream must not break the conversation; use the voice fallback.
+          setLiveAvatarConnected(false);
+        }
+      }
+      if (!spokenByLiveAvatar) await speakGpuVoice(reply);
     } catch (cause) {
       setCameraError(cause instanceof Error ? cause.message : "Could not reach the NKAI GPU worker.");
     } finally {
@@ -277,7 +288,7 @@ export function AvatarLandingPage() {
               </div>
               {cameraError && <div className="nkai-inline-error" role="status">{cameraError}</div>}
               <div className="nkai-call-controls"><button className={micOn ? "nkai-control active" : "nkai-control"} onClick={() => void toggleMic()}><span>{micOn ? <Mic size={17} /> : <MicOff size={17} />}</span><small>{micOn ? "Listening…" : "Mic"}</small></button><button className={cameraOn ? "nkai-control active" : "nkai-control"} onClick={() => void toggleCamera()}><span>{cameraOn ? <Camera size={17} /> : <VideoOff size={17} />}</span><small>{cameraOn ? "Camera on" : "Camera"}</small></button><button className="nkai-control" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }}><span><VolumeX size={17} /></span><small>Mute voice</small></button><button className="nkai-control nkai-control-settings" onClick={() => setTab("voices")}><span><Settings2 size={17} /></span><small>Settings</small></button><button className="nkai-end-call" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); setSessionStarted(false); if (recognitionRef.current) recognitionRef.current.stop(); setMicOn(false); }}><Phone size={17} /> End</button></div>
-              <div className="nkai-call-footnote"><CircleHelp size={14} /> Camera and microphone require browser permission. This is a local preview; GPU-generated video is available when the LiveTalking worker is configured.</div>
+              <div className="nkai-call-footnote"><CircleHelp size={14} /> Camera and microphone require browser permission. This preview uses browser speech until a live avatar stream connects. Connect LiveTalking below to have the video avatar speak the same NKAI reply.</div>
             </section>
             <aside className="nkai-chat-column"><div className="nkai-chat-head"><div><span className="nkai-chat-avatar" aria-hidden="true">{avatar.name.slice(0, 1)}</span><span><b>{avatar.name}</b><small>{sessionStarted ? "Conversation started" : "Ready when you are"}</small></span></div><span className="nkai-chat-dots">•••</span></div><div className="nkai-chat-meta"><span><Languages size={13} /> {language}</span><span><span className="nkai-status-dot" /> {aiBusy ? "AI responding…" : speaking ? "Speaking" : "Voice idle"}</span></div><div className="nkai-messages" aria-live="polite">{messages.map((m, i) => <div className={m.role === "you" ? "nkai-message you" : "nkai-message"} key={i}><span className="nkai-message-author">{m.role === "you" ? "YOU" : avatar.name.toUpperCase()} <time suppressHydrationWarning>{m.time}</time></span><p>{m.text}</p>{m.role === "avatar" && <button className="nkai-replay" onClick={() => speak(m.text)}><Volume2 size={12} /> Listen</button>}</div>)}</div><form className="nkai-composer" onSubmit={(e) => { e.preventDefault(); void sendMessage(); }}><input value={text} onChange={(e) => setText(e.target.value)} placeholder={aiBusy ? "The GPU avatar is thinking…" : `Message ${avatar.name}…`} aria-label="Message your avatar" disabled={aiBusy} /><button type="submit" disabled={!text.trim() || aiBusy} aria-label="Send message">{aiBusy ? <span className="nkai-pulse" /> : <Send size={16} />}</button></form><div className="nkai-chat-disclaimer">Replies use the connected NKAI GPU AI worker. Spoken audio uses GPU TTS when available, with browser voice as fallback.</div></aside>
           </div>}
@@ -289,7 +300,7 @@ export function AvatarLandingPage() {
           {tab === "gallery" && <div className="nkai-gallery-panel"><div className="nkai-gallery-toolbar"><div className="nkai-filter-search"><Search size={15} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, role, language…" /></div><div className="nkai-gender-filters">{["All","Woman","Man","Androgynous"].map((g) => <button key={g} className={gender === g ? "active" : ""} onClick={() => setGender(g)}>{g === "Woman" ? "Women" : g === "Man" ? "Men" : g}</button>)}</div></div><div className="nkai-avatar-grid">{filtered.map((a) => <button key={a.id} className={avatarId === a.id ? "nkai-avatar-card chosen" : "nkai-avatar-card"} onClick={() => { chooseAvatar(a.id); setTab("call"); }}><span className="nkai-card-image nkai-card-initial" aria-hidden="true"><span>{a.name.slice(0, 1)}</span><span className="nkai-card-badge">{a.gender}</span><span className="nkai-card-select">{avatarId === a.id ? <Check size={15} /> : <Sparkles size={15} />}</span></span><span className="nkai-card-copy"><b>{a.name}</b><small>{a.role}</small><span>{a.languages.slice(0,3).join(" · ")}</span></span></button>)}</div>{filtered.length === 0 && <div className="nkai-empty-state">No avatars match those filters. Try another search.</div>}<p className="nkai-note">These are conversation profiles, not rendered 3D humans. A live digital-human stream appears only after a compatible GPU avatar service is connected.</p></div>}
 
           <div className="nkai-gpu-connect"><div className="nkai-gpu-symbol"><Radio size={20} /></div><div><b>Want a real-time generated digital human?</b><p>Connect the LiveTalking GPU worker to replace the portrait preview with a live avatar video stream.</p></div><button className="nkai-button-secondary" onClick={() => setGpuOpen((v) => !v)}>{gpuOpen ? "Hide connection" : "Connect Live GPU"} <ChevronDown size={15} /></button></div>
-          {gpuOpen && <div className="nkai-gpu-panel"><LiveTalkingNativePanel /></div>}
+          {gpuOpen && <div className="nkai-gpu-panel"><LiveTalkingNativePanel commandRef={liveAvatarCommandRef} onConnectionChange={setLiveAvatarConnected} /></div>}
         </section>
         <footer className="nkai-home-footer"><a className="nkai-home-brand" href="/"><span className="nkai-brand-glyph"><Sparkles size={16} /></span><span>NKAI <b>STUDIO</b></span></a><span>Open-source-first AI · Clear status · Responsive by design</span><span className="nkai-footer-links"><a href="/features">Features</a><a href="/help">Help &amp; setup</a><a href="/deployment">Deployment status</a><a href="/gateway">Gateway check</a><a href="/studio">Open studio ↗</a></span></footer>
       </main>
