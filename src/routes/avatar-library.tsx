@@ -36,9 +36,11 @@ function AvatarLibraryPage() {
     setProviders((old) => old.map((p) => p.id === "duix" ? p : { ...p, state: "checking", status: "Checking live server route…" }));
     const next: Provider[] = [];
     try {
-      const response = await fetch("/api/ai/health", { cache: "no-store", signal: AbortSignal.timeout(10000) });
+      const response = await fetch("/api/avatar-ai/status", { cache: "no-store", signal: AbortSignal.timeout(10000) });
       const data = await response.json().catch(() => ({})) as Record<string, unknown>;
-      next.push({ id: "ai", name: "NKAI AI Gateway", kind: "Conversation engine", detail: "Private chat worker health and model availability.", state: response.ok ? "ready" : response.status === 503 ? "not-configured" : "offline", status: response.ok ? "Worker replied. Model: " + String(data.model || "not reported") : String(data.error || "HTTP " + response.status) });
+      const detail = typeof data.error === "string" ? data.error : "HTTP " + response.status;
+      const unavailableState = response.status === 503 && /not configured/i.test(detail) ? "not-configured" : "offline";
+      next.push({ id: "ai", name: "NKAI AI Gateway", kind: "Conversation engine", detail: "Registered Cloudflare gateway worker for chat and model capabilities.", state: response.ok ? "ready" : unavailableState, status: response.ok ? "Gateway: " + String(data.status || "reachable") + " · worker: " + String(data.worker || "not reported") : detail });
     } catch (error) {
       next.push({ id: "ai", name: "NKAI AI Gateway", kind: "Conversation engine", detail: "Private chat worker health and model availability.", state: "offline", status: error instanceof Error ? error.message : "Health check failed." });
     }
