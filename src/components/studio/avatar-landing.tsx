@@ -207,8 +207,8 @@ export function AvatarLandingPage() {
     setAiBusy(true);
     setMessages((old) => [...old, { role: "you", text: prompt, time: stamp() }]);
     try {
-      const history = messages.slice(-8).map((item) => ({
-        role: item.role === "you" ? "user" : "assistant",
+      const history: Array<{ role: "user" | "assistant"; text: string }> = messages.slice(-8).map((item) => ({
+        role: (item.role === "you" ? "user" : "assistant") as "user" | "assistant",
         text: item.text,
       }));
       let reply = "";
