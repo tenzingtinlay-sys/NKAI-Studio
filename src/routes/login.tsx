@@ -5,7 +5,7 @@ import { authEnabled, GROK_PROVIDERS, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { AuthNavActions } from "@/components/studio/auth-nav-actions";
 
-export const Route = createFileRoute("/login" as any)({ component: LoginPage });
+export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
   const { user, isPending } = useCurrentUserState();
