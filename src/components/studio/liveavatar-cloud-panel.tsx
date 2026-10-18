@@ -20,6 +20,7 @@ type LiveVoice = {
   tags?: string[] | string;
   description?: string;
 };
+type Tab = "setup" | "chat";
 
 const LANGUAGES = [
   ["en", "English"], ["hi", "Hindi"], ["ta", "Tamil"], ["te", "Telugu"],
@@ -30,19 +31,37 @@ const LANGUAGES = [
   ["vi", "Vietnamese"], ["th", "Thai"], ["nl", "Dutch"], ["pl", "Polish"],
 ] as const;
 
+const TONES = [
+  ["warm", "Warm & supportive"],
+  ["professional", "Professional"],
+  ["calm", "Calm & thoughtful"],
+  ["energetic", "Energetic & upbeat"],
+  ["friendly", "Friendly & casual"],
+] as const;
+
+function initials(name?: string) {
+  const parts = String(name || "?").trim().split(/\s+/);
+  return ((parts[0]?.[0] || "?") + (parts[1]?.[0] || "")).toUpperCase();
+}
+
 export function LiveAvatarCloudPanel() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const camRef = useRef<HTMLVideoElement | null>(null);
+  const camStream = useRef<MediaStream | null>(null);
   const sessionRef = useRef<LiveAvatarSession | null>(null);
   const [avatars, setAvatars] = useState<LiveAvatar[]>([]);
   const [voices, setVoices] = useState<LiveVoice[]>([]);
   const [avatarId, setAvatarId] = useState("");
   const [voiceId, setVoiceId] = useState("");
   const [language, setLanguage] = useState("en");
-  const [gender, setGender] = useState("all");
+  const [gender, setGender] = useState<"all" | "female" | "male">("all");
   const [tone, setTone] = useState("warm");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("Load your available LiveAvatar catalogue to begin.");
+  const [tab, setTab] = useState<Tab>("setup");
+  const [status, setStatus] = useState("Loading the avatar catalogue…");
   const [busy, setBusy] = useState(false);
+  const [live, setLive] = useState(false);
+  const [camOn, setCamOn] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
@@ -52,11 +71,14 @@ export function LiveAvatarCloudPanel() {
 
   const selectedAvatar = avatars.find((item) => item.id === avatarId);
   const selectedVoice = voices.find((item) => item.id === voiceId);
+  const languageName = LANGUAGES.find(([code]) => code === language)?.[1] || language;
+  const toneName = TONES.find(([code]) => code === tone)?.[1] || tone;
+
   const filteredAvatars = useMemo(() => avatars.filter((item) => {
     const metadata = [item.name, item.description, item.tags, item.gender, item.type].flat().filter(Boolean).join(" ").toLowerCase();
     const queryMatches = metadata.includes(search.trim().toLowerCase());
     const avatarGender = String(item.gender ?? "").toLowerCase();
-    const genderMatches = gender === "all" || (gender === "female" ? /female|woman|girl/i.test(avatarGender) : gender === "male" ? /male|man|boy/i.test(avatarGender) : !avatarGender);
+    const genderMatches = gender === "all" || (gender === "female" ? /female|woman|girl/i.test(avatarGender) : /^(male|man|boy)/i.test(avatarGender));
     return queryMatches && genderMatches;
   }), [avatars, gender, search]);
 
@@ -64,9 +86,9 @@ export function LiveAvatarCloudPanel() {
     const session = sessionRef.current;
     sessionRef.current = null;
     if (session) void session.stop().catch(() => undefined);
+    camStream.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
-  // Opening LiveAvatar immediately loads the real account catalogue.
   useEffect(() => {
     void loadCatalog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,7 +97,7 @@ export function LiveAvatarCloudPanel() {
   async function loadCatalog() {
     setLoadingCatalog(true);
     setError("");
-    setStatus("Loading public and account avatars and available voices…");
+    setStatus("Loading avatars and voices…");
     try {
       const response = await fetch("/api/liveavatar/catalog", { headers: { Accept: "application/json" } });
       const payload = await response.json() as { avatars?: LiveAvatar[]; voices?: LiveVoice[]; error?: string; sandbox?: boolean; sandbox_avatar_id?: string };
@@ -89,12 +111,12 @@ export function LiveAvatarCloudPanel() {
         : payload.avatars.find((item) => item.id === avatarId) ?? payload.avatars[0];
       setAvatarId(nextAvatar?.id ?? "");
       setVoiceId((current) => payload.voices!.some((item) => item.id === current) ? current : "");
-      setStatus(payload.avatars.length + " available avatars · " + payload.voices.length + " public voices" + (payload.sandbox ? " · sandbox" : ""));
+      setStatus(payload.avatars.length + " avatars · " + payload.voices.length + " voices" + (payload.sandbox ? " · sandbox" : ""));
       if (!payload.avatars.length) {
         setError("The API key worked, but the account returned no selectable avatars.");
       } else if (payload.sandbox && !nextAvatar) {
-        setError("LiveAvatar sandbox mode only permits the Wayne test avatar, but it was not returned by the catalogue. Check the API key's sandbox access or set LIVEAVATAR_IS_SANDBOX=false only if you intend to use production sessions.");
-    }
+        setError("Sandbox mode only permits the Wayne test avatar, but it was not returned by the catalogue. Check the API key's sandbox access, or set LIVEAVATAR_IS_SANDBOX=false if you intend to use production sessions.");
+      }
     } catch (cause) {
       setStatus("Catalogue unavailable");
       setError(cause instanceof Error ? cause.message : "Could not load the LiveAvatar catalogue.");
@@ -103,39 +125,46 @@ export function LiveAvatarCloudPanel() {
     }
   }
 
-  async function connect(targetAvatarId = avatarId, targetAvatarOverride?: LiveAvatar) {
-    if (!targetAvatarId) {
-      setError("Load the catalogue and choose an avatar first.");
+  async function connect() {
+    if (!avatarId) {
+      setError("Choose an avatar first.");
       return;
     }
-    const targetAvatar = targetAvatarOverride ?? avatars.find((item) => item.id === targetAvatarId);
+    const label = selectedAvatar?.name || "LiveAvatar";
     setBusy(true);
     setError("");
-    setStatus("Requesting a secure session token…");
+    setStatus("Requesting a secure session…");
     try {
       const response = await fetch("/api/liveavatar/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode: "FULL", avatar_id: targetAvatarId, voice_id: voiceId || targetAvatar?.default_voice?.id || "", language, tone }),
+        body: JSON.stringify({ mode: "FULL", avatar_id: avatarId, voice_id: voiceId || selectedAvatar?.default_voice?.id || "", language, tone }),
       });
       const payload = await response.json() as { session_token?: string; sandbox?: boolean; error?: string };
       if (!response.ok || !payload.session_token) throw new Error(payload.error || "Could not create a LiveAvatar session.");
       const session = new LiveAvatarSession(payload.session_token, { autoKeepAlive: true, voiceChat: { defaultMuted: true } });
       sessionRef.current = session;
       session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
-        setStatus(state === SessionState.CONNECTED ? "Connected · " + (selectedAvatar?.name || "LiveAvatar") : String(state).replaceAll("_", " "));
+        if (state === SessionState.CONNECTED) setStatus("Connected · " + label);
+        else setStatus(String(state).replaceAll("_", " "));
+        if (String(state).toUpperCase().includes("DISCONNECT")) setLive(false);
       });
       session.on(SessionEvent.SESSION_STREAM_READY, () => {
         if (videoRef.current) session.attach(videoRef.current);
-        setStatus("Live avatar stream ready · " + (selectedAvatar?.name || "LiveAvatar"));
+        setLive(true);
+        setTab("chat");
+        setStatus("Live · " + label);
       });
       await session.start();
       if (videoRef.current) session.attach(videoRef.current);
-      setStatus("Session started · waiting for avatar stream");
+      setLive(true);
+      setTab("chat");
+      setStatus("Session started · waiting for the avatar stream");
     } catch (cause) {
       const session = sessionRef.current;
       sessionRef.current = null;
       if (session) await session.stop().catch(() => undefined);
+      setLive(false);
       setError(cause instanceof Error ? cause.message : "LiveAvatar connection failed.");
       setStatus("Not connected");
     } finally {
@@ -153,7 +182,26 @@ export function LiveAvatarCloudPanel() {
       videoRef.current.pause();
       videoRef.current.srcObject = null;
     }
-    setStatus("Disconnected");
+    setLive(false);
+    setStatus("Session ended");
+  }
+
+  async function toggleCam() {
+    if (camStream.current) {
+      camStream.current.getTracks().forEach((track) => track.stop());
+      camStream.current = null;
+      if (camRef.current) camRef.current.srcObject = null;
+      setCamOn(false);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      camStream.current = stream;
+      if (camRef.current) camRef.current.srcObject = stream;
+      setCamOn(true);
+    } catch {
+      setError("Camera permission was denied.");
+    }
   }
 
   async function sendMessage(input = message) {
@@ -162,6 +210,7 @@ export function LiveAvatarCloudPanel() {
     setThinking(true);
     setError("");
     setMessage("");
+    setTab("chat");
     const recent = history.slice(-8).map((item) => ({
       role: (item.role === "you" ? "user" : "assistant") as "user" | "assistant",
       text: item.text,
@@ -183,7 +232,7 @@ export function LiveAvatarCloudPanel() {
       } catch (gpuError) {
         try {
           reply = await chatWithPuter(text, recent, "gpt-5.6-luna");
-          setStatus("AI reply via Puter.js · speaking through LiveAvatar");
+          setStatus("Reply via Puter.js · speaking through the avatar");
         } catch {
           throw gpuError;
         }
@@ -191,17 +240,15 @@ export function LiveAvatarCloudPanel() {
       const currentSession = sessionRef.current;
       if (currentSession && currentSession.state === SessionState.CONNECTED) {
         currentSession.repeat(reply);
-        setStatus("AI reply generated · speaking through LiveAvatar");
+        setStatus("Speaking · " + (selectedAvatar?.name || "LiveAvatar"));
       } else {
-        // Keep chat useful when a hosted avatar session or provider credentials are unavailable.
-        // This is explicitly a browser-voice fallback, not a simulated live avatar.
         if ("speechSynthesis" in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(reply);
           utterance.lang = language;
           window.speechSynthesis.speak(utterance);
         }
-        setStatus("AI chat available · live avatar disconnected · browser voice fallback");
+        setStatus("Avatar offline · browser voice fallback");
       }
       setHistory((items) => [...items, { role: "avatar", text: reply }]);
     } catch (cause) {
@@ -234,49 +281,192 @@ export function LiveAvatarCloudPanel() {
     }
   }
 
-  const card: React.CSSProperties = { background: "var(--mf-card, #111827)", border: "1px solid var(--mf-border, #273244)", borderRadius: 14, padding: 18, minWidth: 0 };
-  const label: React.CSSProperties = { display: "grid", gap: 7, color: "var(--mf-muted, #9ca3af)", fontSize: 12, fontWeight: 600 };
-  const field: React.CSSProperties = { width: "100%", minWidth: 0, padding: "11px 12px", borderRadius: 10, border: "1px solid var(--mf-border, #273244)", background: "var(--mf-input, #0b1220)", color: "var(--mf-text, #f8fafc)", font: "inherit" };
-  const button: React.CSSProperties = { borderRadius: 10, padding: "11px 14px", cursor: "pointer", border: "1px solid var(--mf-border, #344256)", color: "var(--mf-text, #f8fafc)", background: "var(--mf-card, #172033)", fontWeight: 600 };
-  const primary: React.CSSProperties = { ...button, background: "var(--mf-primary, #8b5cf6)", borderColor: "transparent", color: "#fff" };
+  const badge = live ? "live" : busy ? "busy" : "";
+  const badgeText = live ? "Live" : busy ? "Connecting" : "Offline";
 
-  return <section style={{ display: "grid", gap: 16, color: "var(--mf-text, #f8fafc)" }}>
-    <header style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-      <div><span style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 11, letterSpacing: ".16em", fontWeight: 700 }}>HEYGEN LIVEAVATAR</span><h3 style={{ fontSize: 23, margin: "5px 0" }}>Choose your live conversation partner</h3><p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 13, margin: 0 }}>Real-time hosted avatar streaming inside NKAI Studio.</p></div>
-      <button style={primary} disabled={loadingCatalog || busy} onClick={() => void loadCatalog()}>{loadingCatalog ? "Loading catalogue…" : "Load avatars & voices"}</button>
-    </header>
-    <div style={{ ...card, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))", gap: 12 }}>
-      <label style={label}>Search avatars<input style={field} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name or description" /></label>
-      <label style={label}>Avatar gender<select style={field} value={gender} onChange={(event) => setGender(event.target.value)}><option value="all">All / not specified</option><option value="female">Female</option><option value="male">Male</option><option value="unknown">Unknown only</option></select></label>
-      <label style={label}>Conversation tone<select style={field} value={tone} onChange={(event) => setTone(event.target.value)}><option value="warm">Warm & supportive</option><option value="professional">Professional</option><option value="calm">Calm & thoughtful</option><option value="energetic">Energetic & upbeat</option><option value="friendly">Friendly & casual</option></select></label>
-      <label style={label}>Language<select style={field} value={language} onChange={(event) => setLanguage(event.target.value)}>{LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}</select></label>
-      <label style={label}>Avatar<select style={field} value={avatarId} onChange={(event) => { const id = event.target.value; setAvatarId(id); if (id) { const selected = avatars.find((item) => item.id === id); if (selected) { void (async () => { await disconnect(); await connect(id, selected); })(); } } }}><option value="">Select an avatar…</option>{filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}</select><small style={{ color: "var(--mf-muted, #9ca3af)", fontWeight: 400 }}>{filteredAvatars.length} matching avatars · selecting one starts its live session</small></label>
-      <label style={label}>Voice<select style={field} value={voiceId} onChange={(event) => setVoiceId(event.target.value)}><option value="">Avatar default{selectedAvatar?.default_voice?.name ? " · " + selectedAvatar.default_voice.name : ""}</option>{voices.filter((voice) => !voice.language || voice.language.toLowerCase().startsWith(language) || voice.language.toLowerCase().startsWith(language + "-") || voice.language.toLowerCase().includes(LANGUAGES.find(([code]) => code === language)?.[1].toLowerCase() || language)).map((voice) => <option key={voice.id} value={voice.id}>{voice.name || voice.id}{voice.language ? " · " + voice.language : ""}</option>)}</select><small style={{ color: "var(--mf-muted, #9ca3af)", fontWeight: 400 }}>{selectedVoice?.name || selectedAvatar?.default_voice?.name || "Provider default voice"}</small></label>
+  return (
+    <div className="lm">
+      <style>{CSS}</style>
+      <div className="lm-grid">
+        <section className="lm-stage" aria-label="Live call">
+          <div className="lm-stage-head">
+            <div>
+              <h2>{selectedAvatar?.name || "Choose an avatar"}</h2>
+              <div className="lm-chips">
+                <span>{languageName}</span>
+                <span>{toneName}</span>
+                {selectedAvatar?.gender && <span>{selectedAvatar.gender}</span>}
+              </div>
+            </div>
+            <span className={"lm-badge " + badge}>{badgeText}</span>
+          </div>
+
+          <div className="lm-video">
+            <video ref={videoRef} autoPlay playsInline />
+            {!live && (
+              <div className="lm-ph">
+                <b>{initials(selectedAvatar?.name)}</b>
+                <span>{busy ? "Connecting to the avatar…" : "Pick an avatar in Setup, then press Start live video."}</span>
+              </div>
+            )}
+            <video ref={camRef} className={"lm-pip" + (camOn ? " on" : "")} autoPlay muted playsInline />
+            <div className="lm-status">{status}</div>
+          </div>
+
+          <div className="lm-controls">
+            <button type="button" className="lm-btn primary" disabled={busy || live || !avatarId} onClick={() => void connect()}>
+              {busy ? "Connecting…" : "Start live video"}
+            </button>
+            <button type="button" className="lm-btn" disabled={busy || !live} onClick={() => void disconnect()}>End session</button>
+            <button type="button" className={"lm-btn" + (camOn ? " active" : "")} onClick={() => void toggleCam()}>
+              {camOn ? "Hide my camera" : "Show my camera"}
+            </button>
+            <button type="button" className={"lm-btn" + (voiceListening ? " active" : "")} disabled={thinking} onClick={startVoiceInput}>
+              {voiceListening ? "Listening…" : "Voice"}
+            </button>
+          </div>
+          {error && <p className="lm-error" role="alert">{error}</p>}
+          <p className="lm-note">
+            Hosted avatar streaming by HeyGen. Live sessions may use account credits, and your API key stays on the server.
+          </p>
+        </section>
+
+        <aside className="lm-side">
+          <div className="lm-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={tab === "setup"} className={tab === "setup" ? "on" : ""} onClick={() => setTab("setup")}>Setup</button>
+            <button type="button" role="tab" aria-selected={tab === "chat"} className={tab === "chat" ? "on" : ""} onClick={() => setTab("chat")}>Conversation</button>
+          </div>
+
+          {tab === "setup" ? (
+            <div>
+              <label className="lm-field">Search avatars
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name or description" />
+              </label>
+              <div className="lm-seg" role="group" aria-label="Avatar gender">
+                {(["all", "female", "male"] as const).map((g) => (
+                  <button key={g} type="button" className={gender === g ? "on" : ""} onClick={() => setGender(g)}>
+                    {g === "all" ? "All" : g === "female" ? "Female" : "Male"}
+                  </button>
+                ))}
+              </div>
+              <div className="lm-list" role="listbox" aria-label="Avatars">
+                {filteredAvatars.slice(0, 80).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="option"
+                    aria-selected={item.id === avatarId}
+                    className={"lm-av" + (item.id === avatarId ? " sel" : "")}
+                    disabled={live || busy}
+                    onClick={() => setAvatarId(item.id)}
+                  >
+                    <i>{initials(item.name)}</i>
+                    <span>{item.name || item.id}<small>{item.gender || item.type || "avatar"}</small></span>
+                  </button>
+                ))}
+                {!filteredAvatars.length && <p className="lm-empty">{loadingCatalog ? "Loading…" : "No avatars match."}</p>}
+              </div>
+              <p className="lm-empty">{filteredAvatars.length} matching{filteredAvatars.length > 80 ? " · showing the first 80, search to narrow" : ""}</p>
+
+              <label className="lm-field">Language
+                <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={live || busy}>
+                  {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                </select>
+              </label>
+              <label className="lm-field">Conversation tone
+                <select value={tone} onChange={(event) => setTone(event.target.value)} disabled={live || busy}>
+                  {TONES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+                </select>
+              </label>
+              <label className="lm-field">Voice
+                <select value={voiceId} onChange={(event) => setVoiceId(event.target.value)} disabled={live || busy}>
+                  <option value="">Avatar default{selectedAvatar?.default_voice?.name ? " · " + selectedAvatar.default_voice.name : ""}</option>
+                  {voices.filter((voice) => !voice.language || voice.language.toLowerCase().startsWith(language) || voice.language.toLowerCase().includes(languageName.toLowerCase())).map((voice) => (
+                    <option key={voice.id} value={voice.id}>{voice.name || voice.id}{voice.language ? " · " + voice.language : ""}</option>
+                  ))}
+                </select>
+                <small>{selectedVoice?.name || selectedAvatar?.default_voice?.name || "Provider default voice"}</small>
+              </label>
+              <button type="button" className="lm-btn" disabled={loadingCatalog || busy} onClick={() => void loadCatalog()}>
+                {loadingCatalog ? "Loading…" : "Reload catalogue"}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="lm-log" aria-live="polite">
+                {history.length === 0 && <p className="lm-empty">Say hello. Speak with the Voice button or type below. When the avatar is live it speaks each reply.</p>}
+                {history.map((item, index) => (
+                  <div key={index} className={"lm-msg" + (item.role === "you" ? " you" : "")}>
+                    <small>{item.role === "you" ? "You" : selectedAvatar?.name || "Avatar"}</small>
+                    {item.text}
+                  </div>
+                ))}
+              </div>
+              <form className="lm-compose" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}>
+                <input
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  maxLength={1000}
+                  placeholder={thinking ? "Thinking…" : "Write a message…"}
+                  aria-label="Message to the avatar"
+                />
+                <button type="submit" className="lm-btn primary" disabled={!message.trim() || busy || thinking}>Send</button>
+              </form>
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 14 }}>
-      <section style={card}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}><div><b>{selectedAvatar?.name || "LiveAvatar preview"}</b><p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, margin: "4px 0 0" }}>{selectedAvatar?.type || "Hosted digital human"} · {language.toUpperCase()} · {tone}</p></div><span style={{ fontSize: 11, color: "var(--mf-muted, #9ca3af)" }}>{status}</span></div>
-        {selectedAvatar?.preview_url && !sessionRef.current && <img src={selectedAvatar.preview_url} alt={selectedAvatar.name || "Selected avatar"} style={{ display: "block", width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 10, marginBottom: 10 }} />}
-        <video ref={videoRef} autoPlay playsInline controls style={{ width: "100%", aspectRatio: "16 / 9", background: "#030712", borderRadius: 10, display: "block" }} />
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-          <button style={primary} disabled={busy || !!sessionRef.current || !avatarId} onClick={() => void connect()}>{busy ? "Connecting…" : "Start live video"}</button>
-          <button style={button} disabled={busy || !sessionRef.current} onClick={() => void disconnect()}>End session</button>
-        </div>
-        <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 12, lineHeight: 1.6 }}>LiveAvatar is hosted by HeyGen and may consume account credits. Your API key remains on the server. Voice input uses browser speech recognition; AI replies are spoken by the connected live avatar.</p>
-      </section>
-      <section style={card}>
-        <b>Talk to your avatar</b>
-        <div aria-live="polite" style={{ minHeight: 180, maxHeight: 320, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, margin: "12px 0" }}>
-          {history.length === 0 && <p style={{ color: "var(--mf-muted, #9ca3af)", fontSize: 13 }}>Speak or type at any time. When the live avatar is connected it speaks the reply; otherwise NKAI chat uses browser voice until the provider reconnects.</p>}
-          {history.map((item, index) => <div key={index} style={{ alignSelf: item.role === "you" ? "flex-end" : "flex-start", padding: 10, borderRadius: 10, background: item.role === "you" ? "#1d4ed8" : "#263244", maxWidth: "90%", overflowWrap: "anywhere" }}><small>{item.role === "you" ? "You" : "Avatar"}</small><div>{item.text}</div></div>)}
-        </div>
-        <form onSubmit={(event) => { event.preventDefault(); void sendMessage(); }} style={{ display: "flex", gap: 8 }}>
-          <input style={{ ...field, flex: 1 }} value={message} onChange={(event) => setMessage(event.target.value)} maxLength={1000} placeholder={thinking ? "AI is thinking; avatar will speak shortly…" : "Write or dictate a message…"} aria-label="Message to LiveAvatar" />
-          <button type="button" style={button} disabled={busy || thinking} onClick={startVoiceInput}>{voiceListening ? "Listening…" : "🎙 Voice"}</button>
-          <button type="submit" style={button} disabled={!message.trim() || busy || thinking}>{thinking ? "Thinking…" : "Send"}</button>
-        </form>
-        {error && <p role="alert" style={{ color: "#f87171", fontSize: 13, marginTop: 12 }}>{error}</p>}
-      </section>
-    </div>
-  </section>;
+  );
 }
+
+const CSS = `
+.lm{--bg:#0b0e14;--panel:#121722;--panel2:#171e2c;--line:#222c3f;--ink:#e8ecf5;--mut:#8a96ad;--acc:#6d7bff;--ok:#2dd4a3;--warn:#f5b84a;color:var(--ink)}
+.lm *{box-sizing:border-box}
+.lm-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);gap:18px;align-items:start}
+@media (max-width:920px){.lm-grid{grid-template-columns:1fr}}
+.lm-stage,.lm-side{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}
+.lm-stage-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+.lm-stage-head h2{margin:0;font-size:20px}
+.lm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.lm-chips span{font-size:12px;color:var(--mut);border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--panel2)}
+.lm-badge{font-size:12px;font-weight:600;padding:5px 12px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+.lm-badge.live{color:var(--ok);border-color:var(--ok)}
+.lm-badge.busy{color:var(--warn);border-color:var(--warn)}
+.lm-video{position:relative;aspect-ratio:16/9;background:#05070b;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.lm-video>video:first-child{width:100%;height:100%;object-fit:cover;display:block}
+.lm-ph{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:12px;text-align:center;color:var(--mut);padding:20px}
+.lm-ph b{width:84px;height:84px;border-radius:50%;display:grid;place-items:center;font-size:30px;color:#fff;background:linear-gradient(135deg,var(--acc),#a06bff)}
+.lm-pip{position:absolute;right:12px;bottom:12px;width:26%;min-width:120px;aspect-ratio:4/3;object-fit:cover;border-radius:12px;border:2px solid rgba(255,255,255,.25);background:#000;transform:scaleX(-1);display:none}
+.lm-pip.on{display:block}
+.lm-status{position:absolute;left:12px;bottom:12px;max-width:60%;font-size:12px;padding:5px 10px;border-radius:999px;background:rgba(5,7,11,.72);color:#dbe2f0}
+.lm-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.lm-btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:11px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer}
+.lm-btn:disabled{opacity:.5;cursor:not-allowed}
+.lm-btn.primary{background:var(--acc);border-color:var(--acc);color:#0b0e14}
+.lm-btn.active{border-color:var(--ok);color:var(--ok)}
+.lm-error{margin:12px 0 0;padding:10px 12px;border-radius:10px;border:1px solid #6b2b2b;background:#2a1216;color:#fca5a5;font-size:13px}
+.lm-note{margin:12px 0 0;color:var(--mut);font-size:12px;line-height:1.6}
+.lm-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel2);padding:4px;border-radius:12px;margin-bottom:14px}
+.lm-tabs button{border:0;background:transparent;color:var(--mut);padding:9px;border-radius:9px;font:inherit;font-weight:600;cursor:pointer}
+.lm-tabs button.on{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+.lm-field{display:grid;gap:6px;margin:12px 0;font-size:12px;font-weight:600;color:var(--mut)}
+.lm-field small{font-weight:400}
+.lm-field input,.lm-field select,.lm-compose input{width:100%;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:10px 12px;font:inherit}
+.lm-seg{display:flex;gap:6px;margin-bottom:10px}
+.lm-seg button{flex:1;border:1px solid var(--line);background:var(--panel2);color:var(--mut);border-radius:10px;padding:8px;font:inherit;font-weight:600;cursor:pointer}
+.lm-seg button.on{color:var(--ink);border-color:var(--acc)}
+.lm-list{display:grid;gap:6px;max-height:250px;overflow:auto;margin-bottom:8px;padding-right:2px}
+.lm-av{display:flex;gap:10px;align-items:center;text-align:left;border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:12px;padding:8px 10px;font:inherit;cursor:pointer}
+.lm-av:disabled{opacity:.6;cursor:not-allowed}
+.lm-av.sel{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.lm-av i{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--acc),#a06bff);flex:none}
+.lm-av small{display:block;color:var(--mut)}
+.lm-log{display:flex;flex-direction:column;gap:8px;min-height:240px;max-height:340px;overflow:auto;margin-bottom:12px}
+.lm-msg{padding:9px 12px;border-radius:12px;max-width:92%;overflow-wrap:anywhere;background:var(--panel2);border:1px solid var(--line)}
+.lm-msg.you{align-self:flex-end;background:#1d2545}
+.lm-msg small{display:block;color:var(--mut);font-size:11px}
+.lm-compose{display:flex;gap:8px}
+.lm-compose input{flex:1}
+.lm-empty{color:var(--mut);font-size:13px;margin:0}
+`;
