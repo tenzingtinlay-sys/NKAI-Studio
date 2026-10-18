@@ -85,4 +85,37 @@ jobs:
             exit 1
           }
           echo "Gateway URL: $GATEWAY_URL"
-          echo "AI proxy routes deployed. Register the running Colab worker using gateway/register_ai_worker.py."
+
+      - name: Verify AI proxy authentication and worker readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Invalid/missing credentials must be rejected; this catches a missing
+          # AI_CLIENT_SECRET binding or a proxy route that was not deployed.
+          unauth_code="$(curl --silent --output "$RUNNER_TEMP/ai-unauth.json" --write-out '%{http_code}' "$GATEWAY_URL/api/ai/health")"
+          if [[ "$unauth_code" != "401" ]]; then
+            echo "::error::AI health route should reject unauthenticated requests with HTTP 401, got $unauth_code."
+            cat "$RUNNER_TEMP/ai-unauth.json"
+            exit 1
+          fi
+
+          # With the configured secret, 200 means a registered worker is ready;
+          # 503 is an honest, expected deployment state if Colab is stopped or
+          # its 90-second registration has expired. Other responses are failures.
+          ai_code="$(curl --silent --output "$RUNNER_TEMP/ai-health.json" --write-out '%{http_code}' -H "Authorization: Bearer $AI_CLIENT_SECRET" "$GATEWAY_URL/api/ai/health")"
+          case "$ai_code" in
+            200)
+              node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/ai-health.json","utf8")); if(j.status!=="ready" || !j.worker) process.exit(1); console.log("AI gateway ready; worker:", j.worker)'
+              ;;
+            503)
+              node -e 'const fs=require("fs"); const j=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/ai-health.json","utf8")); if(j.status!=="unavailable") process.exit(1); console.log("AI gateway route and credentials verified, but no healthy AI worker is registered.")'
+              echo "::warning::Start the Colab Qwen worker and run gateway/register_ai_worker.py; worker registrations expire after 90 seconds without heartbeats."
+              ;;
+            *)
+              echo "::error::Authenticated AI health check returned unexpected HTTP $ai_code."
+              cat "$RUNNER_TEMP/ai-health.json"
+              exit 1
+              ;;
+          esac
+
+          echo "Gateway deployed. AI readiness above is separate from LiveTalking/WebRTC media verification."
