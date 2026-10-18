@@ -3,7 +3,7 @@ import { AuthNavActions } from "@/components/studio/auth-nav-actions";
 import { useCallback, useEffect, useState } from "react";
 import { Activity, ArrowDownToLine, AudioLines, Boxes, CheckCircle2, CircleAlert, ExternalLink, RefreshCw, Video, WifiOff } from "lucide-react";
 
-export const Route = createFileRoute("/avatar-library" as any)({
+export const Route = createFileRoute("/avatar-library")({
   component: AvatarLibraryPage,
 });
 
