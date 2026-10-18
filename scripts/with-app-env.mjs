@@ -121,7 +121,14 @@ function main(argv) {
       resolvedCommand = candidate;
     }
   } catch {}
-  const child = spawn(resolvedCommand, args, { stdio: "inherit", env });
+  // On Windows, spawning a .cmd directly can fail; run it through cmd /c.
+  let spawnCmd = resolvedCommand;
+  let spawnArgs = args;
+  if (process.platform === "win32" && resolvedCommand.toLowerCase().endsWith('.cmd')) {
+    spawnCmd = 'cmd';
+    spawnArgs = ['/c', resolvedCommand, ...args];
+  }
+  const child = spawn(spawnCmd, spawnArgs, { stdio: "inherit", env });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));
