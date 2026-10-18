@@ -93,7 +93,28 @@ export default defineEventHandler(async (event) => {
     const imagePath = imgs.webp ? resolvePath(`${LIB_NAME}/WebP/${encodeURIComponent(imgs.webp.split('/').pop() || imgs.webp)}`) : imgs.png ? resolvePath(`${LIB_NAME}/PNG (transparent background)/${encodeURIComponent(imgs.png.split('/').pop() || imgs.png)}`) : imgs.jpg ? resolvePath(`${LIB_NAME}/JPEG/${encodeURIComponent(imgs.jpg.split('/').pop() || imgs.jpg)}`) : null;
 
     const audioPaths = matches.map((m) => resolvePath(m));
-    avatars.push({ name, image: imagePath, audio: audioPaths });
+
+    // search for a generated video in public or vendor Videos/
+    let videoPath: string | null = null;
+    try {
+      const publicVideosDir = join(PUBLIC_ROOT, 'Videos');
+      const vendorVideosDir = join(ROOT, 'Videos');
+      const candidates: string[] = [];
+      if (existsSync(publicVideosDir)) candidates.push(...readdirSync(publicVideosDir).filter((x) => x.toLowerCase().endsWith('.mp4')));
+      if (!candidates.length && existsSync(vendorVideosDir)) candidates.push(...readdirSync(vendorVideosDir).filter((x) => x.toLowerCase().endsWith('.mp4')));
+      const foundVideo = candidates.find((vf) => {
+        const vbase = fileBase(vf).toLowerCase();
+        return vbase.includes(lname) || lname.includes(vbase);
+      });
+      if (foundVideo) {
+        // prefer public if present
+        const publicCandidate = join(PUBLIC_ROOT, 'Videos', foundVideo);
+        if (existsSync(publicCandidate)) videoPath = `/vendor/${LIB_FOLDER}/${LIB_NAME}/Videos/${encodeURIComponent(foundVideo)}`;
+        else videoPath = `${LIB_NAME}/Videos/${encodeURIComponent(foundVideo)}`;
+      }
+    } catch (e) { /* ignore */ }
+
+    avatars.push({ name, image: imagePath, audio: audioPaths, video: videoPath });
   }
 
   return { avatars };

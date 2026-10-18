@@ -65,6 +65,41 @@ export default function AvatarPlayer({ api = '/api/avatars/library', onUseAsStre
     }
     const a = audioRef.current!;
     a.crossOrigin = 'anonymous';
+
+    // detect video vs audio by extension
+    const isVideo = url.toLowerCase().endsWith('.mp4');
+    if (isVideo) {
+      // play as video
+      let vEl = document.getElementById('__avatar_local_video') as HTMLVideoElement | null;
+      if (!vEl) {
+        vEl = document.createElement('video');
+        vEl.id = '__avatar_local_video';
+        vEl.style.position = 'fixed';
+        vEl.style.left = '-9999px';
+        vEl.muted = false;
+        vEl.playsInline = true;
+        document.body.appendChild(vEl);
+      }
+      vEl.src = url;
+      vEl.crossOrigin = 'anonymous';
+
+      // try manifest for visemes
+      const manifestUrl = url + '.viseme.json';
+      try {
+        const res = await fetch(manifestUrl, { cache: 'no-cache' });
+        if (res.ok) {
+          const points = await res.json();
+          vEl.play().catch(() => {});
+          visemeSchedulerRef.current = scheduleVisemesFromManifest(vEl, points, (v: number) => setViseme(v));
+          return;
+        }
+      } catch (e) {}
+
+      vEl.play().catch(() => {});
+      visemeEngineRef.current = createRealTimeVisemeEngine(vEl, (v: number) => setViseme(v));
+      return;
+    }
+
     a.src = url;
 
     // try to load a precomputed viseme manifest next to the audio: same filename + .viseme.json
@@ -118,8 +153,20 @@ export default function AvatarPlayer({ api = '/api/avatars/library', onUseAsStre
             <div style={{ color: '#fff', fontWeight: 700 }}>{selected.name}</div>
             <div style={{ color: '#9ca3af' }}>{selected.audio && selected.audio.length ? `${selected.audio.length} sample(s)` : 'No voice samples'}</div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => { if (selected.audio && selected.audio[0]) playSample(`/api/vendor-file?path=${encodeURIComponent(selected.audio[0])}`); }} style={{ padding: '8px 12px', borderRadius: 8 }}>Play sample</button>
-              <button onClick={() => { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } }} style={{ padding: '8px 12px', borderRadius: 8 }}>Stop</button>
+              <button onClick={() => {
+                if (selected.video) {
+                  playSample(selected.video.startsWith('/') ? selected.video : `/api/vendor-file?path=${encodeURIComponent(selected.video)}`);
+                } else if (selected.audio && selected.audio[0]) {
+                  playSample(selected.audio[0].startsWith('/') ? selected.audio[0] : `/api/vendor-file?path=${encodeURIComponent(selected.audio[0])}`);
+                }
+              }} style={{ padding: '8px 12px', borderRadius: 8 }}>Play sample</button>
+              <button onClick={() => {
+                try { visemeEngineRef.current?.stop(); } catch {}
+                try { visemeSchedulerRef.current?.stop(); } catch {}
+                const v = document.getElementById('__avatar_local_video') as HTMLVideoElement | null;
+                if (v) { v.pause(); v.currentTime = 0; v.remove(); }
+                if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+              }} style={{ padding: '8px 12px', borderRadius: 8 }}>Stop</button>
               <button onClick={() => onUseAsStream && onUseAsStream(selected)} style={{ padding: '8px 12px', borderRadius: 8 }}>Use as local stream</button>
             </div>
           </div>
