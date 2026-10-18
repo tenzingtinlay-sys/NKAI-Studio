@@ -84,6 +84,10 @@ export default defineEventHandler(async (event) => {
       avatars: [...unique.values()],
       voices: [...uniqueVoices.values()],
       counts: { avatars: unique.size, voices: uniqueVoices.size },
+      // Sandbox session creation only accepts the official Wayne test avatar.
+      // Expose the mode so the client never auto-selects an avatar that the API will reject.
+      sandbox: process.env.LIVEAVATAR_IS_SANDBOX !== "false",
+      sandbox_avatar_id: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
     };
   } catch (cause) {
     setResponseStatus(event, 502);
