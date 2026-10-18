@@ -158,8 +158,8 @@ export default defineConfig(({ command, isPreview }) => ({
   },
     resolve: {
     tsconfigPaths: true,
-    // The HeyGen SDK imports "events"; without this Vite swaps in an empty browser stub.
-    alias: [{ find: /^events$/, replacement: "events/" }],
+    // Resolve HeyGen SDK EventEmitter to the actual browser-compatible events implementation.
+    alias: [{ find: /^events$/, replacement: "events/events.js" }],
   },
   plugins: [
     pgliteBootstrapPlugin(),
