@@ -17,7 +17,7 @@ import {
   type VoicePreset,
 } from "./types";
 
-const KEY = "mediaforge-v5";
+const KEY = "nkai-studio-v1";
 
 type Snap = {
   name: string;

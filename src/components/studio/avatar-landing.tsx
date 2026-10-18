@@ -13,7 +13,7 @@ class PanelBoundary extends Component<{ children: React.ReactNode }, { failed: b
   }
   render() {
     if (this.state.failed) {
-      return <div className="nkai-inline-error" role="status">HeyGen LiveAvatar could not load in this browser. The rest of NKAI Studio still works.</div>;
+      return <div className="nkai-inline-error" role="status">LiveAvatar could not load in this browser. The rest of NKAI-Studio still works.</div>;
     }
     return this.props.children;
   }
@@ -201,7 +201,7 @@ export function AvatarLandingPage() {
       });
       const payload = await response.json() as { reply?: string; error?: string; detail?: string; code?: string };
       if (!response.ok || typeof payload.reply !== "string" || !payload.reply.trim()) {
-        throw new Error(payload.error || payload.detail || (response.status === 401 ? "Sign in to use the GPU AI avatar." : "The NKAI GPU worker did not return a reply."));
+        throw new Error(payload.error || payload.detail || (response.status === 401 ? "Sign in to use the GPU AI avatar." : "The NKAI-Studio GPU worker did not return a reply."));
       }
       const reply = payload.reply.trim();
       setMessages((old) => [...old, { role: "avatar", text: reply, time: stamp() }]);
@@ -229,7 +229,7 @@ export function AvatarLandingPage() {
   return (
     <div className="nkai-home">
       <header className="nkai-home-nav">
-        <a className="nkai-home-brand" href="/" aria-label="NKAI Studio home"><span className="nkai-brand-glyph"><Sparkles size={18} /></span><span>NKAI <b>STUDIO</b></span></a>
+        <a className="nkai-home-brand" href="/" aria-label="NKAI-Studio home"><span className="nkai-brand-glyph"><Sparkles size={18} /></span><span>NKAI-Studio</span></a>
         <nav className="nkai-top-links" aria-label="Main navigation">
           <button className={tab === "call" ? "selected" : ""} onClick={() => setTab("call")}>Live call</button>
           <button className={tab === "voices" ? "selected" : ""} onClick={() => setTab("voices")}>Voices</button>
