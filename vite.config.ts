@@ -156,7 +156,11 @@ export default defineConfig(({ command, isPreview }) => ({
     port: 8081,
     strictPort: true,
   },
-  resolve: { tsconfigPaths: true },
+    resolve: {
+    tsconfigPaths: true,
+    // The HeyGen SDK imports "events"; without this Vite swaps in an empty browser stub.
+    alias: [{ find: /^events$/, replacement: "events/" }],
+  },
   plugins: [
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
