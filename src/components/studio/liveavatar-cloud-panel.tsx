@@ -73,6 +73,7 @@ export function LiveAvatarCloudPanel() {
   const [status, setStatus] = useState("Loading the avatar catalogue…");
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState(false);
+  const [streamReady, setStreamReady] = useState(false);
   const [camOn, setCamOn] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
@@ -163,24 +164,31 @@ export function LiveAvatarCloudPanel() {
       session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
         if (state === SessionState.CONNECTED) setStatus("Connected · " + label);
         else setStatus(String(state).replaceAll("_", " "));
-        if (String(state).toUpperCase().includes("DISCONNECT")) setLive(false);
+        if (String(state).toUpperCase().includes("DISCONNECT")) {
+          setLive(false);
+          setStreamReady(false);
+        }
       });
       session.on(SessionEvent.SESSION_STREAM_READY, () => {
         if (videoRef.current) session.attach(videoRef.current);
         setLive(true);
+        setStreamReady(true);
         setTab("chat");
         setStatus("Live · " + label);
       });
       await session.start();
       if (videoRef.current) session.attach(videoRef.current);
-      setLive(true);
-      setTab("chat");
-      setStatus("Session started · waiting for the avatar stream");
+      // Do not mark the call live until the SDK emits SESSION_STREAM_READY.
+      // Otherwise the loading poster disappears and users see a blank video frame.
+      setLive(false);
+      setStreamReady(false);
+      setStatus("Session connected · waiting for the avatar video stream…");
     } catch (cause) {
       const session = sessionRef.current;
       sessionRef.current = null;
       if (session) await session.stop().catch(() => undefined);
       setLive(false);
+      setStreamReady(false);
       setError(cause instanceof Error ? cause.message : "LiveAvatar connection failed.");
       setStatus("Not connected");
     } finally {
@@ -199,6 +207,7 @@ export function LiveAvatarCloudPanel() {
       videoRef.current.srcObject = null;
     }
     setLive(false);
+    setStreamReady(false);
     setStatus("Session ended");
   }
 
@@ -319,10 +328,10 @@ export function LiveAvatarCloudPanel() {
 
           <div className="lm-video-pair">
             <section className="lm-video-card" aria-label="AI avatar video">
-              <div className="lm-video-label"><span>AI AVATAR</span><span className={live ? "connected" : ""}>{live ? "LIVE" : "WAITING"}</span></div>
+              <div className="lm-video-label"><span>AI AVATAR</span><span className={streamReady ? "connected" : ""}>{streamReady ? "LIVE" : busy ? "CONNECTING" : "READY WHEN YOU ARE"}</span></div>
               <div className="lm-video">
                 <video ref={videoRef} autoPlay playsInline />
-                {!live && <div className="lm-ph">{selectedAvatar?.preview_url ? <img className="lm-avatar-preview" src={selectedAvatar.preview_url} alt="" /> : <b>{initials(selectedAvatar?.name)}</b>}<span>{busy ? "Connecting to the avatar…" : selectedAvatar ? "Ready to connect · " + (selectedAvatar.name || "Selected avatar") : "Choose an avatar to preview and start."}</span></div>}
+                {!streamReady && <div className="lm-ph">{selectedAvatar?.preview_url ? <img className="lm-avatar-preview" src={selectedAvatar.preview_url} alt="" /> : <b>{initials(selectedAvatar?.name)}</b>}<span>{busy ? "Connecting to the avatar…" : selectedAvatar ? "Ready to connect · " + (selectedAvatar.name || "Selected avatar") : "Choose an avatar to preview and start."}</span></div>}
               </div>
               <p className="lm-video-caption">{selectedAvatar?.name || "No avatar selected"}</p>
             </section>
