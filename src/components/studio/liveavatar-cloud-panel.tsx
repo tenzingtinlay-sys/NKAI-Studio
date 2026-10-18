@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { LiveAvatarSession, SessionEvent, SessionState } from "@heygen/liveavatar-web-sdk";
 import LifeMateFallback from "../LifeMateFallback";
-import AvatarPlayer from "../../AvatarPlayer";
+import AvatarPlayer from "../AvatarPlayer";
 import { createRealTimeVisemeEngine, scheduleVisemesFromManifest } from '@/lib/viseme';
 
 type LiveAvatar = {
@@ -184,21 +184,21 @@ export function LiveAvatarCloudPanel() {
       if (session) await session.stop().catch(() => undefined);
       setError(cause instanceof Error ? cause.message : "LiveAvatar connection failed.");
       setStatus("Not connected");
-+      // Offer quick fallback: use a local avatar if available
-+      try {
-+        const lib = await fetch('/api/avatars/library').then((r) => r.json()).catch(() => null);
-+        if (lib && Array.isArray(lib.avatars) && lib.avatars.length) {
-+          // choose first avatar with audio
-+          const found = lib.avatars.find((a: any) => Array.isArray(a.audio) && a.audio.length) || lib.avatars[0];
-+          if (found) {
-+            setLocalStreamAvatar(found);
-+            // auto-play first sample if present
-+            if (found.audio && found.audio[0]) playLocalStream(found.audio[0]);
-+          }
-+        }
-+      } catch (e) {
-+        /* ignore */
-+      }
+// Offer quick fallback: use a local avatar if available
+try {
+  const lib = await fetch('/api/avatars/library').then((r) => r.json()).catch(() => null);
+  if (lib && Array.isArray(lib.avatars) && lib.avatars.length) {
+    // choose first avatar with audio
+    const found = lib.avatars.find((a: any) => Array.isArray(a.audio) && a.audio.length) || lib.avatars[0];
+    if (found) {
+      setLocalStreamAvatar(found);
+      // auto-play first sample if present
+      if (found.audio && found.audio[0]) playLocalStream(found.audio[0]);
+    }
+  }
+} catch (e) {
+  /* ignore */
+}
     } finally {
       setBusy(false);
     }
