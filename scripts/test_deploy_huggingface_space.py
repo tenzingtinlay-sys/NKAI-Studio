@@ -106,6 +106,26 @@ class DeployHuggingFaceSpaceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "both NKAI_TTS_INTERNAL_URL"):
             build_space_secrets(env, "owner/nkai-studio")
 
+    def test_maps_optional_cloudflare_avatar_gateway_secrets(self):
+        env = valid_env()
+        env["NKAI_AI_GATEWAY_URL"] = "https://nkai-avatar-gateway.example.workers.dev"
+        env["NKAI_AI_CLIENT_SECRET"] = "c" * 40
+        mapped = build_space_secrets(env, "owner/nkai-studio")
+        self.assertEqual(mapped["NKAI_AI_GATEWAY_URL"], env["NKAI_AI_GATEWAY_URL"])
+        self.assertEqual(mapped["NKAI_AI_CLIENT_SECRET"], env["NKAI_AI_CLIENT_SECRET"])
+
+    def test_gateway_url_requires_client_secret(self):
+        env = valid_env()
+        env["NKAI_AI_GATEWAY_URL"] = "https://nkai-avatar-gateway.example.workers.dev"
+        with self.assertRaisesRegex(ValueError, "NKAI_AI_CLIENT_SECRET"):
+            build_space_secrets(env, "owner/nkai-studio")
+
+    def test_rejects_short_gateway_client_secret(self):
+        env = valid_env()
+        env["NKAI_AI_CLIENT_SECRET"] = "short"
+        with self.assertRaisesRegex(ValueError, "at least 32 characters"):
+            build_space_secrets(env, "owner/nkai-studio")
+
     def test_chat_worker_preflight_requires_ready_health_and_capabilities(self):
         def fake_urlopen(request, timeout):
             path = urlparse(request.full_url).path
