@@ -95,22 +95,27 @@ export function VideoPanel() {
   async function writeScript() {
     if (!prompt.trim()) return useStudio.getState().flash("Describe the video first");
     setBusy(true);
-    const s = useStudio.getState();
-    const r = await studioScript({
-      data: { topic: prompt + memoryBlock(s), scenes: count, kind: "avatar video" },
-    });
-    const av = s.avatars[s.avatar]?.src || BG_OFFICE;
-    s.setScenes(
-      r.scenes.map((sc, i) => ({
-        title: `Scene ${i + 1}`,
-        text: sc.text,
-        dur: 6,
-        img: i ? BG_OFFICE : av,
-      })),
-      prompt.slice(0, 40),
-    );
-    useStudio.getState().flash(`Script written (${r.engine})`);
-    setBusy(false);
+    try {
+      const s = useStudio.getState();
+      const r = await studioScript({
+        data: { topic: prompt + memoryBlock(s), scenes: count, kind: "avatar video" },
+      });
+      const av = s.avatars[s.avatar]?.src || BG_OFFICE;
+      s.setScenes(
+        r.scenes.map((sc, i) => ({
+          title: `Scene ${i + 1}`,
+          text: sc.text,
+          dur: 6,
+          img: i ? BG_OFFICE : av,
+        })),
+        prompt.slice(0, 40),
+      );
+      useStudio.getState().flash(`Script written (${r.engine})`);
+    } catch (e) {
+      useStudio.getState().flash(e instanceof Error ? `Script generation failed: ${e.message}` : "Script generation failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function render() {
@@ -119,7 +124,7 @@ export function VideoPanel() {
     try {
       const out = await renderScenes(
         s.scenes,
-        s.avatars[s.avatar].src,
+        s.avatars[s.avatar]?.src || BG_OFFICE,
         s.settings.aspect,
         Number(s.settings.res),
         Number(s.settings.fps),
@@ -127,10 +132,13 @@ export function VideoPanel() {
         (p) => useStudio.setState({ progress: `Rendering ${Math.round(p * 100)}%` }),
       );
       useStudio.setState({ lastVideo: out, progress: "" });
+      useStudio.getState().flash("Video render complete");
     } catch (e) {
-      useStudio.getState().flash(e instanceof Error ? e.message : "Render failed");
+      useStudio.setState({ progress: "" });
+      useStudio.getState().flash(e instanceof Error ? `Render failed: ${e.message}` : "Render failed");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   return (
@@ -289,35 +297,47 @@ export function ImagesPanel() {
   async function generate(kind: "gpu" | "photo") {
     const cv = canvasRef.current;
     if (!cv) return;
-    setBusy(true);
-    const [w, h] = size === "1:1" ? [768, 768] : size === "9:16" ? [540, 960] : [960, 540];
-    if (kind === "photo") {
-      const r = await studioImage({ data: { prompt: `${prompt}. ${size} composition, cinematic, no text.` } });
-      if (!r.ok) {
-        useStudio.getState().flash(r.error);
-        setBusy(false);
-        return;
-      }
-      const img = new Image();
-      img.onload = () => {
-        const c = document.createElement("canvas");
-        c.width = w;
-        c.height = h;
-        c.getContext("2d")?.drawImage(img, 0, 0, w, h);
-        source.current = c;
-        setEngine("grok imagine");
-        paintFilters();
-        setBusy(false);
-      };
-      img.src = r.dataUrl;
+    if (!prompt.trim()) {
+      useStudio.getState().flash("Describe the image first");
       return;
     }
-    const made = document.createElement("canvas");
-    const used = await paintArt(made, prompt, style, w, h);
-    source.current = made;
-    setEngine(used);
-    paintFilters();
-    setBusy(false);
+    setBusy(true);
+    const [w, h] = size === "1:1" ? [768, 768] : size === "9:16" ? [540, 960] : [960, 540];
+    try {
+      if (kind === "photo") {
+        const r = await studioImage({ data: { prompt: `${prompt}. ${size} composition, cinematic, no text.` } });
+        if (!r.ok) throw new Error(r.error || "Photoreal image generation is unavailable.");
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const c = document.createElement("canvas");
+              c.width = w;
+              c.height = h;
+              c.getContext("2d")?.drawImage(img, 0, 0, w, h);
+              source.current = c;
+              setEngine(r.engine || "photoreal");
+              paintFilters();
+              resolve();
+            } catch (error) {
+              reject(error);
+            }
+          };
+          img.onerror = () => reject(new Error("The generated image could not be decoded."));
+          img.src = r.dataUrl;
+        });
+        return;
+      }
+      const made = document.createElement("canvas");
+      const used = await paintArt(made, prompt, style, w, h);
+      source.current = made;
+      setEngine(used);
+      paintFilters();
+    } catch (error) {
+      useStudio.getState().flash(error instanceof Error ? error.message : "Image generation failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -738,17 +758,28 @@ export function AgentsPanel() {
     useStudio.setState({ agents: agentsNext });
     setDraft("");
     setBusy(true);
-    const r = await studioChat({
-      data: { system: current.prompt + memoryBlock(s), messages: hist },
-    });
-    const done = [...hist, { role: "assistant" as const, content: r.reply }].slice(-40);
-    useStudio.setState({
-      agents: useStudio.getState().agents.map((ag, i) => (i === s.agent ? { ...ag, hist: done } : ag)),
-    });
-    useStudio.getState().persist();
-    setEngine(r.engine);
-    setBusy(false);
-    if (useStudio.getState().settings.neural || true) void say(r.reply);
+    try {
+      const r = await studioChat({
+        data: { system: current.prompt + memoryBlock(s), messages: hist },
+      });
+      const done = [...hist, { role: "assistant" as const, content: r.reply }].slice(-40);
+      useStudio.setState({
+        agents: useStudio.getState().agents.map((ag, i) => (i === s.agent ? { ...ag, hist: done } : ag)),
+      });
+      useStudio.getState().persist();
+      setEngine(r.engine);
+      void say(r.reply).catch((error) => {
+        useStudio.getState().flash(error instanceof Error ? `Reply ready, but speech failed: ${error.message}` : "Reply ready, but speech failed");
+      });
+    } catch (error) {
+      useStudio.setState({
+        agents: useStudio.getState().agents.map((ag, i) => (i === s.agent ? { ...ag, hist: hist.slice(-40) } : ag)),
+      });
+      useStudio.getState().persist();
+      useStudio.getState().flash(error instanceof Error ? `Agent reply failed: ${error.message}` : "Agent reply failed");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -880,17 +911,24 @@ export function LivePanel() {
   }, []);
 
   async function reply(text: string) {
+    const clean = text.trim();
+    if (!clean) return;
     const s = useStudio.getState();
-    hist.current = [...hist.current, { role: "user", content: text }];
+    hist.current = [...hist.current, { role: "user", content: clean }];
     setLines([...hist.current]);
     setStatus("Thinking…");
-    const agent = s.agents[which] || s.agents[0];
-    const r = await studioChat({ data: { system: agent.prompt + memoryBlock(s), messages: hist.current } });
-    hist.current = [...hist.current, { role: "assistant", content: r.reply }];
-    setLines([...hist.current]);
-    setStatus("Speaking…");
-    await say(r.reply);
-    setStatus(useStudio.getState().liveOn ? "Listening…" : "Idle");
+    try {
+      const agent = s.agents[which] || s.agents[0];
+      const r = await studioChat({ data: { system: agent.prompt + memoryBlock(s), messages: hist.current } });
+      hist.current = [...hist.current, { role: "assistant", content: r.reply }];
+      setLines([...hist.current]);
+      setStatus("Speaking…");
+      await say(r.reply);
+      setStatus(useStudio.getState().liveOn ? "Listening…" : "Idle");
+    } catch (error) {
+      setStatus("Reply failed");
+      useStudio.getState().flash(error instanceof Error ? `Live avatar reply failed: ${error.message}` : "Live avatar reply failed");
+    }
   }
 
   async function loop(token: number) {
@@ -1593,19 +1631,27 @@ export function DesignPanel() {
   async function run(edit?: string) {
     setBusy(true);
     setNote("");
-    const r = await studioDesign({
-      data: {
-        prompt,
-        kind,
-        reference: ref,
-        previous: edit ? useStudio.getState().designHtml : "",
-        change: edit || "",
-      },
-    });
-    useStudio.setState({ designHtml: r.html });
-    setNote(`${r.engine} · ${chosen?.name || "reference"}`);
-    setMode("preview");
-    setBusy(false);
+    try {
+      const r = await studioDesign({
+        data: {
+          prompt,
+          kind,
+          reference: ref,
+          previous: edit ? useStudio.getState().designHtml : "",
+          change: edit || "",
+        },
+      });
+      useStudio.setState({ designHtml: r.html });
+      setNote(`${r.engine} · ${chosen?.name || "reference"}`);
+      setMode("preview");
+      useStudio.getState().flash("Design output ready");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Design generation failed";
+      setNote(message);
+      useStudio.getState().flash(message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
