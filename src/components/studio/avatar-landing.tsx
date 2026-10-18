@@ -1,6 +1,7 @@
 import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Camera, CameraOff, Check, ChevronDown, CircleHelp, Globe2, Languages, Mic, MicOff, MonitorPlay, Phone, Radio, Search, Send, Settings2, Sparkles, Volume2, VolumeX, Video, VideoOff, WandSparkles } from "lucide-react";
 import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
+import { AuthNavActions } from "@/components/studio/auth-nav-actions";
 const LiveAvatarCloudPanel = lazy(() =>
   import("@/components/studio/liveavatar-cloud-panel").then((module) => ({ default: module.LiveAvatarCloudPanel })),
 );
@@ -18,14 +19,14 @@ class PanelBoundary extends Component<{ children: React.ReactNode }, { failed: b
   }
 }
 
-type Avatar = { id: string; name: string; role: string; gender: "Woman" | "Man" | "Androgynous"; languages: string[]; tone: string; accent: string };
+type Avatar = { id: string; name: string; portrait: string; role: string; gender: "Woman" | "Man" | "Androgynous"; languages: string[]; tone: string; accent: string };
 const AVATARS: Avatar[] = [
-  { id: "maya", name: "Maya", role: "Warm conversation", gender: "Woman", languages: ["English", "Hindi", "Tamil"], tone: "warm", accent: "#b9a0ff" },
-  { id: "arjun", name: "Arjun", role: "Career coach", gender: "Man", languages: ["English", "Hindi", "Punjabi"], tone: "clear", accent: "#8bd9c5" },
-  { id: "sophia", name: "Sophia", role: "Language partner", gender: "Woman", languages: ["English", "French", "Spanish"], tone: "bright", accent: "#f1bd8b" },
-  { id: "noah", name: "Noah", role: "Learning companion", gender: "Man", languages: ["English", "German", "Japanese"], tone: "calm", accent: "#89bfff" },
-  { id: "isha", name: "Isha", role: "Mindful guide", gender: "Woman", languages: ["Hindi", "English", "Bengali"], tone: "gentle", accent: "#f2a9c5" },
-  { id: "leo", name: "Leo", role: "Creative partner", gender: "Man", languages: ["English", "Spanish", "French"], tone: "energetic", accent: "#e6bd73" },
+  { id: "maya", name: "Maya", portrait: "/avatar-portraits/maya.svg", role: "Warm conversation", gender: "Woman", languages: ["English", "Hindi", "Tamil"], tone: "warm", accent: "#b9a0ff" },
+  { id: "arjun", name: "Arjun", portrait: "/avatar-portraits/arjun.svg", role: "Career coach", gender: "Man", languages: ["English", "Hindi", "Punjabi"], tone: "clear", accent: "#8bd9c5" },
+  { id: "sophia", name: "Sophia", portrait: "/avatar-portraits/sophia.svg", role: "Language partner", gender: "Woman", languages: ["English", "French", "Spanish"], tone: "bright", accent: "#f1bd8b" },
+  { id: "noah", name: "Noah", portrait: "/avatar-portraits/noah.svg", role: "Learning companion", gender: "Man", languages: ["English", "German", "Japanese"], tone: "calm", accent: "#89bfff" },
+  { id: "isha", name: "Isha", portrait: "/avatar-portraits/isha.svg", role: "Mindful guide", gender: "Woman", languages: ["Hindi", "English", "Bengali"], tone: "gentle", accent: "#f2a9c5" },
+  { id: "leo", name: "Leo", portrait: "/avatar-portraits/leo.svg", role: "Creative partner", gender: "Man", languages: ["English", "Spanish", "French"], tone: "energetic", accent: "#e6bd73" },
 ];
 const LANGUAGES = ["English (India)", "Hindi", "Tamil", "Telugu", "Bengali", "Marathi", "Punjabi", "Kannada", "Malayalam", "English (US)", "French", "German", "Spanish", "Japanese", "Korean", "Mandarin"];
 const LANG_CODES: Record<string, string> = { "English (India)": "en-IN", Hindi: "hi-IN", Tamil: "ta-IN", Telugu: "te-IN", Bengali: "bn-IN", Marathi: "mr-IN", Punjabi: "pa-IN", Kannada: "kn-IN", Malayalam: "ml-IN", "English (US)": "en-US", French: "fr-FR", German: "de-DE", Spanish: "es-ES", Japanese: "ja-JP", Korean: "ko-KR", Mandarin: "zh-CN" };
@@ -47,7 +48,9 @@ export function AvatarLandingPage() {
   const [voiceName, setVoiceName] = useState("");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [cameraError, setCameraError] = useState("");
-  const [gpuOpen, setGpuOpen] = useState(false);
+  const [gpuOpen, setGpuOpen] = useState(true);
+  const [liveAvatarConnected, setLiveAvatarConnected] = useState(false);
+  const liveAvatarCommandRef = useRef<((text: string) => Promise<boolean>) | null>(null);
   const [sessionStarted, setSessionStarted] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -202,7 +205,16 @@ export function AvatarLandingPage() {
       }
       const reply = payload.reply.trim();
       setMessages((old) => [...old, { role: "avatar", text: reply, time: stamp() }]);
-      await speakGpuVoice(reply);
+      let spokenByLiveAvatar = false;
+      if (liveAvatarConnected && liveAvatarCommandRef.current) {
+        try {
+          spokenByLiveAvatar = await liveAvatarCommandRef.current(reply);
+        } catch {
+          // A dropped video stream must not break the conversation; use the voice fallback.
+          setLiveAvatarConnected(false);
+        }
+      }
+      if (!spokenByLiveAvatar) await speakGpuVoice(reply);
     } catch (cause) {
       setCameraError(cause instanceof Error ? cause.message : "Could not reach the NKAI GPU worker.");
     } finally {
@@ -225,7 +237,7 @@ export function AvatarLandingPage() {
           <button className={tab === "gallery" ? "selected" : ""} onClick={() => setTab("gallery")}>Avatar gallery</button>
           <button className={tab === "liveavatar" ? "selected" : ""} onClick={() => setTab("liveavatar")}>HeyGen LiveAvatar</button>
         </nav>
-        <div className="nkai-nav-actions"><a className="nkai-secondary-link" href="/features">Features</a><a className="nkai-secondary-link" href="/help">Help</a><a className="nkai-studio-link" href="/studio">Open full studio <span>↗</span></a></div>
+        <div className="nkai-nav-actions"><a className="nkai-secondary-link" href="/features">Features</a><a className="nkai-secondary-link" href="/help">Help</a><a className="nkai-studio-link" href="/studio">Open full studio <span>↗</span></a><AuthNavActions /></div>
       </header>
 
       <main className="nkai-home-main">
@@ -241,12 +253,12 @@ export function AvatarLandingPage() {
             <div className="nkai-orbit nkai-orbit-one" /><div className="nkai-orbit nkai-orbit-two" />
             <div className="nkai-avatar-monogram" aria-hidden="true"><span>{avatar.name.slice(0, 1)}</span><i /><i /><i /></div>
             <div className="nkai-hero-caption"><span className="nkai-status-dot" /><span><b>{avatar.name}</b><small>{avatar.role} · {language}</small></span></div>
-            <p className="nkai-hero-disclaimer">Portrait art is omitted until a real avatar model is connected.</p>
+            <p className="nkai-hero-disclaimer">{liveAvatarConnected ? "LiveTalking video/audio is connected in the stream panel below." : "No fake human portrait: connect the LiveTalking GPU worker below to show a real generated avatar stream."}</p>
           </div>
         </section>
 
         <section className="nkai-workspace" id="nkai-call-stage">
-          <div className="nkai-section-heading"><div><span className="nkai-eyebrow">YOUR PERSONAL AVATAR ROOM</span><h2>{tab === "call" ? "The conversation room" : tab === "voices" ? "Find your voice" : tab === "languages" ? "Speak your language" : tab === "liveavatar" ? "HeyGen LiveAvatar" : "Meet the avatars"}</h2><p>{tab === "call" ? "A familiar side-by-side call layout, with your camera and your AI together." : tab === "voices" ? "Choose a voice profile and preview it before you start." : tab === "languages" ? "Switch the language for voice playback and speech recognition." : tab === "liveavatar" ? "Choose a provider avatar, voice, tone and language for a real-time hosted video session." : "Browse people by presentation style and choose who you want to talk to."}</p></div><div className="nkai-live-badge"><span className="nkai-status-dot" /> LOCAL PREVIEW</div></div>
+          <div className="nkai-section-heading"><div><span className="nkai-eyebrow">YOUR PERSONAL AVATAR ROOM</span><h2>{tab === "call" ? "The conversation room" : tab === "voices" ? "Find your voice" : tab === "languages" ? "Speak your language" : tab === "liveavatar" ? "HeyGen LiveAvatar" : "Meet the avatars"}</h2><p>{tab === "call" ? "A familiar side-by-side call layout, with your camera and your AI together." : tab === "voices" ? "Choose a voice profile and preview it before you start." : tab === "languages" ? "Switch the language for voice playback and speech recognition." : tab === "liveavatar" ? "Choose a provider avatar, voice, tone and language for a real-time hosted video session." : "Browse people by presentation style and choose who you want to talk to."}</p></div><div className="nkai-live-badge"><span className="nkai-status-dot" /> {liveAvatarConnected ? "LIVE AVATAR STREAM" : "AVATAR STREAM NOT CONNECTED"}</div></div>
 
           <div className="nkai-tab-strip" role="tablist" aria-label="Avatar workspace">
             <button role="tab" aria-selected={tab === "call"} className={tab === "call" ? "active" : ""} onClick={() => setTab("call")}><Video size={15} /> Live call</button>
@@ -276,7 +288,7 @@ export function AvatarLandingPage() {
               </div>
               {cameraError && <div className="nkai-inline-error" role="status">{cameraError}</div>}
               <div className="nkai-call-controls"><button className={micOn ? "nkai-control active" : "nkai-control"} onClick={() => void toggleMic()}><span>{micOn ? <Mic size={17} /> : <MicOff size={17} />}</span><small>{micOn ? "Listening…" : "Mic"}</small></button><button className={cameraOn ? "nkai-control active" : "nkai-control"} onClick={() => void toggleCamera()}><span>{cameraOn ? <Camera size={17} /> : <VideoOff size={17} />}</span><small>{cameraOn ? "Camera on" : "Camera"}</small></button><button className="nkai-control" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }}><span><VolumeX size={17} /></span><small>Mute voice</small></button><button className="nkai-control nkai-control-settings" onClick={() => setTab("voices")}><span><Settings2 size={17} /></span><small>Settings</small></button><button className="nkai-end-call" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); setSessionStarted(false); if (recognitionRef.current) recognitionRef.current.stop(); setMicOn(false); }}><Phone size={17} /> End</button></div>
-              <div className="nkai-call-footnote"><CircleHelp size={14} /> Camera and microphone require browser permission. This is a local preview; GPU-generated video is available when the LiveTalking worker is configured.</div>
+              <div className="nkai-call-footnote"><CircleHelp size={14} /> Camera and microphone require browser permission. This preview uses browser speech until a live avatar stream connects. Connect LiveTalking below to have the video avatar speak the same NKAI reply.</div>
             </section>
             <aside className="nkai-chat-column"><div className="nkai-chat-head"><div><span className="nkai-chat-avatar" aria-hidden="true">{avatar.name.slice(0, 1)}</span><span><b>{avatar.name}</b><small>{sessionStarted ? "Conversation started" : "Ready when you are"}</small></span></div><span className="nkai-chat-dots">•••</span></div><div className="nkai-chat-meta"><span><Languages size={13} /> {language}</span><span><span className="nkai-status-dot" /> {aiBusy ? "AI responding…" : speaking ? "Speaking" : "Voice idle"}</span></div><div className="nkai-messages" aria-live="polite">{messages.map((m, i) => <div className={m.role === "you" ? "nkai-message you" : "nkai-message"} key={i}><span className="nkai-message-author">{m.role === "you" ? "YOU" : avatar.name.toUpperCase()} <time suppressHydrationWarning>{m.time}</time></span><p>{m.text}</p>{m.role === "avatar" && <button className="nkai-replay" onClick={() => speak(m.text)}><Volume2 size={12} /> Listen</button>}</div>)}</div><form className="nkai-composer" onSubmit={(e) => { e.preventDefault(); void sendMessage(); }}><input value={text} onChange={(e) => setText(e.target.value)} placeholder={aiBusy ? "The GPU avatar is thinking…" : `Message ${avatar.name}…`} aria-label="Message your avatar" disabled={aiBusy} /><button type="submit" disabled={!text.trim() || aiBusy} aria-label="Send message">{aiBusy ? <span className="nkai-pulse" /> : <Send size={16} />}</button></form><div className="nkai-chat-disclaimer">Replies use the connected NKAI GPU AI worker. Spoken audio uses GPU TTS when available, with browser voice as fallback.</div></aside>
           </div>}
@@ -285,10 +297,10 @@ export function AvatarLandingPage() {
 
           {tab === "languages" && <div className="nkai-tool-panel"><div className="nkai-tool-intro"><div className="nkai-tool-icon"><Globe2 size={22} /></div><div><h3>Choose a language</h3><p>Your selection updates voice playback and the language used for browser speech recognition.</p></div></div><div className="nkai-language-grid">{LANGUAGES.map((l) => <button key={l} className={language === l ? "chosen" : ""} onClick={() => { setLanguage(l); setVoiceName(""); }}><span className="nkai-language-symbol">{l === "Hindi" ? "हि" : l === "Tamil" ? "த" : l === "Japanese" ? "あ" : l === "Mandarin" ? "文" : l.slice(0,2).toUpperCase()}</span><span><b>{l}</b><small>{LANG_CODES[l]}</small></span>{language === l && <Check size={16} />}</button>)}</div><div className="nkai-language-footer"><span><Check size={16} /> Selected: <b>{language}</b></span><button className="nkai-button-primary" onClick={() => speak(language === "Hindi" ? "नमस्ते! चलिए बात शुरू करते हैं।" : `Hello! Let's start a conversation in ${language}.`)}><Volume2 size={15} /> Hear sample</button></div></div>}
 
-          {tab === "gallery" && <div className="nkai-gallery-panel"><div className="nkai-gallery-toolbar"><div className="nkai-filter-search"><Search size={15} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, role, language…" /></div><div className="nkai-gender-filters">{["All","Woman","Man","Androgynous"].map((g) => <button key={g} className={gender === g ? "active" : ""} onClick={() => setGender(g)}>{g === "Woman" ? "Women" : g === "Man" ? "Men" : g}</button>)}</div></div><div className="nkai-avatar-grid">{filtered.map((a) => <button key={a.id} className={avatarId === a.id ? "nkai-avatar-card chosen" : "nkai-avatar-card"} onClick={() => { chooseAvatar(a.id); setTab("call"); }}><span className="nkai-card-image nkai-card-initial" aria-hidden="true"><span>{a.name.slice(0, 1)}</span><span className="nkai-card-badge">{a.gender}</span><span className="nkai-card-select">{avatarId === a.id ? <Check size={15} /> : <Sparkles size={15} />}</span></span><span className="nkai-card-copy"><b>{a.name}</b><small>{a.role}</small><span>{a.languages.slice(0,3).join(" · ")}</span></span></button>)}</div>{filtered.length === 0 && <div className="nkai-empty-state">No avatars match those filters. Try another search.</div>}<p className="nkai-note">These are conversation profiles, not rendered 3D humans. A live digital-human stream appears only after a compatible GPU avatar service is connected.</p></div>}
+          {tab === "gallery" && <div className="nkai-gallery-panel"><div className="nkai-gallery-toolbar"><div className="nkai-filter-search"><Search size={15} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, role, language…" /></div><div className="nkai-gender-filters">{["All","Woman","Man","Androgynous"].map((g) => <button key={g} className={gender === g ? "active" : ""} onClick={() => setGender(g)}>{g === "Woman" ? "Women" : g === "Man" ? "Men" : g}</button>)}</div></div><div className="nkai-avatar-grid">{filtered.map((a) => <button key={a.id} className={avatarId === a.id ? "nkai-avatar-card chosen" : "nkai-avatar-card"} onClick={() => { chooseAvatar(a.id); setTab("call"); }}><span className="nkai-card-image"><img src={a.portrait} alt={`${a.name} portrait`} loading="lazy" decoding="async" /><span className="nkai-card-badge">{a.gender}</span><span className="nkai-card-select">{avatarId === a.id ? <Check size={15} /> : <Sparkles size={15} />}</span></span><span className="nkai-card-copy"><b>{a.name}</b><small>{a.role}</small><span>{a.languages.slice(0,3).join(" · ")}</span></span></button>)}</div>{filtered.length === 0 && <div className="nkai-empty-state">No avatars match those filters. Try another search.</div>}<p className="nkai-note">These are conversation profiles, not rendered 3D humans. A live digital-human stream appears only after a compatible GPU avatar service is connected.</p></div>}
 
-          <div className="nkai-gpu-connect"><div className="nkai-gpu-symbol"><Radio size={20} /></div><div><b>Want a real-time generated digital human?</b><p>Connect the LiveTalking GPU worker to replace the portrait preview with a live avatar video stream.</p></div><button className="nkai-button-secondary" onClick={() => setGpuOpen((v) => !v)}>{gpuOpen ? "Hide connection" : "Connect Live GPU"} <ChevronDown size={15} /></button></div>
-          {gpuOpen && <div className="nkai-gpu-panel"><LiveTalkingNativePanel /></div>}
+          <div className="nkai-gpu-connect"><div className="nkai-gpu-symbol"><Radio size={20} /></div><div><b>Live AI avatar stream</b><p>{liveAvatarConnected ? "Connected. New NKAI replies are sent to this avatar for synchronized video and speech." : "Connect the LiveTalking GPU worker to enable a real video avatar. Until then, replies use the configured voice fallback."}</p></div><button className="nkai-button-secondary" onClick={() => setGpuOpen((v) => !v)}>{gpuOpen ? "Hide connection" : "Connect Live GPU"} <ChevronDown size={15} /></button></div>
+          {gpuOpen && <div className="nkai-gpu-panel"><LiveTalkingNativePanel commandRef={liveAvatarCommandRef} onConnectionChange={setLiveAvatarConnected} /></div>}
         </section>
         <footer className="nkai-home-footer"><a className="nkai-home-brand" href="/"><span className="nkai-brand-glyph"><Sparkles size={16} /></span><span>NKAI <b>STUDIO</b></span></a><span>Open-source-first AI · Clear status · Responsive by design</span><span className="nkai-footer-links"><a href="/features">Features</a><a href="/help">Help &amp; setup</a><a href="/deployment">Deployment status</a><a href="/gateway">Gateway check</a><a href="/studio">Open studio ↗</a></span></footer>
       </main>

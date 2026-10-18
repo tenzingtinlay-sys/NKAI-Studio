@@ -1034,3 +1034,112 @@ body {
 .nkai-chat-avatar{display:grid;place-items:center;font:800 16px/1 Manrope,system-ui,sans-serif;color:#ded6ff;background:radial-gradient(circle at 35% 25%,#37345a,#171b2c 75%)}
 .nkai-chat-meta .nkai-status-dot{background:#8995a8}
 @media(max-width:680px){.nkai-avatar-stage-initial{font-size:clamp(90px,30vw,150px)}}
+
+
+/* Unified avatar library */
+.nkai-library{min-height:100vh;background:radial-gradient(ellipse at 75% -10%,#26374a55,transparent 42%),#080a0e;color:#f4f6fa;font-family:"DM Sans",system-ui,sans-serif;padding:0 clamp(16px,4vw,56px) 32px}
+.nkai-library a{color:inherit;text-decoration:none}
+.nkai-library-top{min-height:68px;display:flex;align-items:center;gap:28px;border-bottom:1px solid #242a33;flex-wrap:wrap}
+.nkai-library-brand{display:flex;align-items:center;gap:10px;font-family:"Manrope",sans-serif;font-weight:800;letter-spacing:.03em;font-size:13px}
+.nkai-library-brand b{color:#8ab4ff}
+.nkai-library-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#a9c9ff,#6d86e8);color:#08101d;font-weight:900}
+.nkai-library-top nav{display:flex;gap:20px;align-items:center;flex:1}
+.nkai-library-top nav a{font-size:12px;color:#929eae;padding:26px 0;border-bottom:2px solid transparent}
+.nkai-library-top nav a.active{color:#f6f8fb;border-color:#8ab4ff}
+.nkai-library-refresh{display:flex;align-items:center;gap:8px;background:#151c26;color:#f5f7fb;border:1px solid #303b4b;border-radius:9px;padding:10px 13px;font-size:12px;font-weight:700}
+.nkai-library-refresh:disabled{opacity:.6}
+.nkai-library-hero{max-width:980px;padding:clamp(48px,8vw,92px) 0 44px}
+.nkai-eyebrow{display:flex;align-items:center;gap:8px;color:#8ab4ff;font-size:10px;font-weight:800;letter-spacing:.17em;margin:0 0 14px}
+.nkai-library-hero h1{font-family:"Manrope",sans-serif;font-size:clamp(42px,7vw,76px);letter-spacing:-.065em;line-height:.99;margin:0;max-width:800px}
+.nkai-library-hero h1 span{color:#9aabc1}
+.nkai-library-hero>p{max-width:660px;color:#a3adbb;line-height:1.8;font-size:15px;margin:24px 0}
+.nkai-library-meta{display:flex;gap:22px;flex-wrap:wrap;color:#8b96a6;font-size:11px}
+.nkai-library-meta span:first-child{display:flex;align-items:center;gap:8px}
+.nkai-library-meta i{width:7px;height:7px;background:#78dfae;border-radius:50%;box-shadow:0 0 14px #78dfae88}
+.nkai-library-section{margin:0 0 48px}
+.nkai-section-heading{display:flex;align-items:end;justify-content:space-between;gap:16px;margin-bottom:18px}
+.nkai-section-heading .nkai-eyebrow{margin-bottom:8px}
+.nkai-section-heading h2{font-family:"Manrope",sans-serif;font-size:clamp(22px,3vw,30px);letter-spacing:-.04em;margin:0}
+.nkai-muted{color:#778394;font-size:11px}
+.nkai-provider-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.nkai-provider-card,.nkai-asset-card{min-width:0;border:1px solid #262e39;background:linear-gradient(145deg,#121720,#0c1016);border-radius:15px;padding:18px;display:flex;flex-direction:column;align-items:stretch}
+.nkai-provider-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:18px}
+.nkai-provider-icon{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:#202b3b;color:#a8c8ff}
+.nkai-provider-icon svg{width:19px;height:19px}
+.nkai-provider-badge{font-size:9px;letter-spacing:.07em;font-weight:800;padding:6px 7px;border-radius:6px;white-space:nowrap}
+.nkai-provider-badge.ready{background:#123a2d;color:#88e8b4}
+.nkai-provider-badge.checking{background:#2a2f39;color:#d4dce8}
+.nkai-provider-badge.offline{background:#40231f;color:#ffb1a7}
+.nkai-provider-badge.not-configured{background:#382d1b;color:#f4d49b}
+.nkai-card-kind{color:#8d9bb0;font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 8px}
+.nkai-provider-card h3,.nkai-asset-info h3{font-family:"Manrope",sans-serif;font-size:17px;letter-spacing:-.025em;margin:0 0 8px}
+.nkai-card-detail{font-size:12px;line-height:1.65;color:#9ba6b6;margin:0 0 16px;flex:1}
+.nkai-provider-status{display:flex;align-items:flex-start;gap:8px;border-top:1px solid #252d38;padding-top:12px;margin:0 0 14px;font-size:11px;line-height:1.5;color:#aeb8c7;overflow-wrap:anywhere}
+.nkai-provider-status svg{flex:none;margin-top:1px;color:#93baff}
+.nkai-library-button{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;box-sizing:border-box;border:1px solid #8eb7ff;background:#dce9ff;color:#0b1524!important;border-radius:8px;padding:10px 12px;font-size:11px;font-weight:800;cursor:pointer;margin-top:auto}
+.nkai-library-button.secondary{background:#151c26;color:#dbe6f7!important;border-color:#303b4b}
+.nkai-catalog-result{display:flex;align-items:center;gap:10px;padding:13px 15px;border:1px solid #2b3b4b;border-radius:10px;margin-top:14px;color:#a9c6ee;background:#111925;font-size:12px;line-height:1.6}
+.nkai-catalog-result svg{flex:none}
+.nkai-asset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;max-width:880px}
+.nkai-asset-card{padding:12px}
+.nkai-asset-art{height:185px;border-radius:10px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#415777,#171f2b 55%,#0d1219)}
+.nkai-asset-art.art-1{background:radial-gradient(ellipse at 50% 30%,#76556a,#27202d 58%,#100e16)}
+.nkai-asset-orbit{width:135px;height:135px;border:1px solid #c6d8f433;border-radius:50%;position:absolute;box-shadow:0 0 48px #8ab4ff16}
+.nkai-asset-silhouette{width:75px;height:100px;border-radius:42% 42% 28% 28%;display:grid;place-items:center;font-family:"Manrope",sans-serif;font-size:32px;font-weight:800;color:#d9e6fa;background:linear-gradient(160deg,#879db7,#2c3a4e);box-shadow:0 18px 38px #0008;z-index:1}
+.art-1 .nkai-asset-silhouette{background:linear-gradient(160deg,#d7a9b8,#5b3c54);color:#fff0f5}
+.nkai-asset-art>span{position:absolute;left:12px;bottom:12px;color:#b8c8df;font-size:9px;letter-spacing:.18em}
+.nkai-asset-info{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:15px 2px 8px}
+.nkai-asset-info h3{margin-bottom:4px}
+.nkai-asset-info .nkai-card-kind{margin:0}
+.nkai-asset-format{font-size:10px;color:#a6c5f6;border:1px solid #3b4b62;padding:5px 7px;border-radius:6px}
+.nkai-asset-card>.nkai-card-detail{margin:0 2px 15px;min-height:40px}
+.nkai-library-footer{display:flex;justify-content:space-between;gap:18px;border-top:1px solid #242a33;padding-top:18px;color:#687588;font-size:10px;line-height:1.6}
+.nkai-library-footer span:first-child{letter-spacing:.13em;font-weight:800;white-space:nowrap}
+.nkai-spin{animation:nkai-spin 1s linear infinite}
+@keyframes nkai-spin{to{transform:rotate(360deg)}}
+@media(max-width:1100px){.nkai-provider-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.nkai-library-top{gap:14px;padding:12px 0}.nkai-library-top nav{order:3;width:100%;gap:18px}.nkai-library-top nav a{padding:8px 0 12px}.nkai-library-refresh{margin-left:auto}.nkai-provider-grid,.nkai-asset-grid{grid-template-columns:1fr}.nkai-section-heading{align-items:flex-start;flex-direction:column}.nkai-library-footer{flex-direction:column}.nkai-library-hero{padding-top:48px}}
+
+
+/* Shared account navigation + sign-in page */
+.nkai-auth-link{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:0 13px;border:1px solid rgba(140,164,190,.28);border-radius:12px;color:#eaf1fb;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap;transition:background .2s,border-color .2s}
+.nkai-auth-link:hover{background:rgba(105,150,255,.12);border-color:rgba(140,164,255,.55)}
+.nkai-auth-user{display:flex;align-items:center;max-width:240px;color:#eaf1fb}
+.nkai-auth-user>div{gap:8px!important}
+.nkai-auth-user img{width:28px!important;height:28px!important}
+.nkai-auth-user button{border:1px solid rgba(140,164,190,.25);border-radius:9px;padding:6px 9px;text-decoration:none!important;color:#eaf1fb!important}
+.nkai-auth-skeleton{display:inline-block;width:92px;height:34px;border-radius:11px;background:rgba(255,255,255,.08);animation:nkai-auth-pulse 1.4s ease-in-out infinite}
+@keyframes nkai-auth-pulse{50%{opacity:.42}}
+.nkai-login-page{min-height:100vh;background:radial-gradient(ellipse at 50% 0%,rgba(53,91,160,.25),transparent 48%),#080b12;color:#edf3ff;padding:0 26px 28px;display:flex;flex-direction:column}
+.nkai-login-nav{width:min(1120px,100%);margin:0 auto;min-height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(155,177,211,.13)}
+.nkai-login-back{display:inline-flex;align-items:center;gap:8px;color:#aab8ce;text-decoration:none;font-size:13px}
+.nkai-login-card{width:min(460px,100%);margin:clamp(48px,9vh,100px) auto 54px;padding:36px;border:1px solid rgba(145,169,205,.2);border-radius:25px;background:linear-gradient(155deg,rgba(23,32,51,.94),rgba(12,17,28,.98));box-shadow:0 28px 90px rgba(0,0,0,.35)}
+.nkai-login-symbol{width:52px;height:52px;display:grid;place-items:center;border-radius:16px;background:linear-gradient(135deg,rgba(100,139,255,.24),rgba(95,225,201,.13));border:1px solid rgba(137,170,255,.25);color:#a9c3ff;margin-bottom:26px}
+.nkai-login-card>.nkai-eyebrow{font-size:10px;letter-spacing:.16em;color:#9ab6f6;font-weight:800}
+.nkai-login-card h1{font-size:clamp(27px,4vw,36px);line-height:1.12;letter-spacing:-.045em;margin:12px 0 13px}
+.nkai-login-subtitle{font-size:14px;line-height:1.7;color:#a8b5c9;margin:0 0 27px}
+.nkai-login-providers{display:grid;gap:11px}
+.nkai-login-provider{width:100%;display:flex;align-items:center;gap:12px;min-height:54px;padding:0 15px;border:1px solid rgba(160,181,213,.2);border-radius:13px;background:rgba(255,255,255,.035);color:#f0f4fc;font-size:13px;font-weight:700;text-align:left;cursor:pointer;transition:background .2s,border-color .2s}
+.nkai-login-provider:hover:not(:disabled){background:rgba(112,149,236,.12);border-color:rgba(133,165,255,.48)}
+.nkai-login-provider:disabled{opacity:.62;cursor:wait}
+.nkai-login-provider>span:nth-child(2){flex:1}
+.nkai-provider-letter{display:grid;place-items:center;width:29px;height:29px;border-radius:9px;background:rgba(255,255,255,.08);font-size:14px;font-weight:800}
+.nkai-login-state{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:16px;border:1px solid rgba(83,206,164,.25);border-radius:14px;background:rgba(45,175,132,.08);color:#9ce7c9}
+.nkai-login-state>div{display:grid;gap:4px;flex:1}
+.nkai-login-state strong{font-size:14px;color:#e8fff5}
+.nkai-login-state span{font-size:12px;color:#a8cbbb;overflow-wrap:anywhere}
+.nkai-login-primary{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;border:0;border-radius:11px;background:#dbe6ff;color:#101a2c;font-size:13px;font-weight:800;cursor:pointer}
+.nkai-login-config{padding:15px;border:1px solid rgba(236,184,98,.24);border-radius:13px;background:rgba(236,184,98,.06);font-size:13px;line-height:1.6;color:#f0d5a5}
+.nkai-login-config p{margin:8px 0 0;color:#c6bda9}
+.nkai-login-error{margin-top:13px;padding:10px 12px;border-radius:10px;background:rgba(255,85,104,.1);color:#ffb2bb;font-size:12px}
+.nkai-login-security{display:flex;align-items:flex-start;gap:9px;margin-top:25px;padding-top:20px;border-top:1px solid rgba(155,177,211,.13);color:#91a2bc;font-size:11px;line-height:1.65}
+.nkai-login-security svg{flex-shrink:0;color:#86cdbb;margin-top:1px}
+.nkai-login-footnote{margin:16px 0 0;color:#75859f;font-size:10px;line-height:1.6;text-align:center}
+.nkai-login-footer{width:min(1120px,100%);margin:auto auto 0;display:flex;justify-content:space-between;gap:15px;color:#71819a;font-size:10px;letter-spacing:.08em}
+.nkai-login-footer a{color:#a7bce8;text-decoration:none;letter-spacing:0;font-size:12px}
+.nkai-library-top .nkai-auth-user,.nkai-library-top .nkai-auth-link{margin-left:4px}
+@media(max-width:850px){.nkai-auth-user>div>span:not(:first-child){display:none}.nkai-auth-user{max-width:42px}.nkai-library-top{flex-wrap:wrap}.nkai-library-top .nkai-auth-user{max-width:42px}}
+@media(max-width:560px){.nkai-login-page{padding:0 16px 22px}.nkai-login-nav{min-height:70px}.nkai-login-card{padding:25px 20px;margin-top:42px}.nkai-login-footer{flex-direction:column;align-items:center;text-align:center}.nkai-login-back{font-size:12px}.nkai-auth-link{min-height:34px;padding:0 9px;font-size:11px}}
+
+.nkai-login-nav-actions{display:flex;align-items:center;gap:14px}
+@media(max-width:560px){.nkai-login-nav-actions{gap:8px}.nkai-login-nav-actions .nkai-login-back{font-size:0}.nkai-login-nav-actions .nkai-login-back svg{width:18px;height:18px}}
