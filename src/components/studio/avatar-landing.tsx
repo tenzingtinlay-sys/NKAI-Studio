@@ -1,7 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Component, Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { AudioLines, Camera, CameraOff, Check, ChevronDown, CircleHelp, Globe2, Languages, Mic, MicOff, MonitorPlay, Phone, Radio, Search, Send, Settings2, Sparkles, Volume2, VolumeX, Video, VideoOff, WandSparkles } from "lucide-react";
 import { LiveTalkingNativePanel } from "@/components/studio/livetalking-native-panel";
-import { LiveAvatarCloudPanel } from "@/components/studio/liveavatar-cloud-panel";
+const LiveAvatarCloudPanel = lazy(() =>
+  import("@/components/studio/liveavatar-cloud-panel").then((module) => ({ default: module.LiveAvatarCloudPanel })),
+);
+
+class PanelBoundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    if (this.state.failed) {
+      return <div className="nkai-inline-error" role="status">HeyGen LiveAvatar could not load in this browser. The rest of NKAI Studio still works.</div>;
+    }
+    return this.props.children;
+  }
+}
 
 type Avatar = { id: string; name: string; role: string; gender: "Woman" | "Man" | "Androgynous"; languages: string[]; tone: string; accent: string };
 const AVATARS: Avatar[] = [
@@ -241,7 +256,7 @@ export function AvatarLandingPage() {
             <button role="tab" aria-selected={tab === "liveavatar"} className={tab === "liveavatar" ? "active" : ""} onClick={() => setTab("liveavatar")}><Video size={15} /> HeyGen LiveAvatar</button>
           </div>
 
-          {tab === "liveavatar" && <LiveAvatarCloudPanel />}
+          {tab === "liveavatar" && <PanelBoundary><Suspense fallback={<div className="nkai-note">Loading LiveAvatar…</div>}><LiveAvatarCloudPanel /></Suspense></PanelBoundary>}
 
           {tab === "call" && <div className="nkai-call-layout">
             <section className="nkai-call-column">
