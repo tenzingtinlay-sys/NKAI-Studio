@@ -1,3 +1,4 @@
+import { signIn } from "@/lib/auth/client";
 import { Component, Suspense, lazy, useEffect, useState } from "react";
 
 const Panel = lazy(() =>
@@ -37,6 +38,9 @@ export function LifeMatePage() {
           <a href="/help">Help</a>
           <a href="/deployment">Status</a>
           <a href="/gateway">Gateway</a>
+  <button type="button" onClick={() => void signIn("grok-google", { callbackURL: "/" }).catch(() => undefined)} style={{ background: "#6d7bff", color: "#0b0e14", border: 0, borderRadius: 10, padding: "6px 12px", fontWeight: 600, cursor: "pointer" }}>
+    Sign in with Google
+  </button>
         </nav>
       </header>
 
