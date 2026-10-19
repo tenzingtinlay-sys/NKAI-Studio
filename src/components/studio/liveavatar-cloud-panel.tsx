@@ -325,7 +325,7 @@ export function LiveAvatarCloudPanel() {
         <button type="button" className={setupStep === 2 ? "on" : ""} aria-current={setupStep === 2 ? "step" : undefined} onClick={() => { setSetupStep(2); setTab("setup"); }}>
           <span>2</span><strong>Language &amp; tone</strong><small>{languageName} · {toneName}</small>
         </button>
-        <button type="button" className={setupStep === 3 ? "on" : ""} aria-current={setupStep === 3 ? "step" : undefined} onClick={() => { setSetupStep(3); if (live) setTab("chat"); else setTab("setup"); }}>
+        <button type="button" className={setupStep === 3 ? "on" : ""} aria-current={setupStep === 3 ? "step" : undefined} onClick={() => { setSetupStep(3); if (live) setTab("chat"); else { setTab("setup"); void connect(); } }}>
           <span>3</span><strong>Start the call</strong><small>{live ? "Call is live" : busy ? "Connecting…" : "Ready when you are"}</small>
         </button>
       </nav>
