@@ -204,6 +204,13 @@ export function LiveAvatarCloudPanel() {
   }
 
   async function disconnect() {
+    if (speechAudioRef.current) {
+      speechAudioRef.current.pause();
+      if (speechAudioRef.current.src.startsWith("blob:")) URL.revokeObjectURL(speechAudioRef.current.src);
+      speechAudioRef.current.src = "";
+      speechAudioRef.current = null;
+    }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     const session = sessionRef.current;
     sessionRef.current = null;
     if (session) {
@@ -323,6 +330,13 @@ export function LiveAvatarCloudPanel() {
           throw gpuError;
         }
       }
+      if (speechAudioRef.current) {
+        speechAudioRef.current.pause();
+        if (speechAudioRef.current.src.startsWith("blob:")) URL.revokeObjectURL(speechAudioRef.current.src);
+        speechAudioRef.current.src = "";
+        speechAudioRef.current = null;
+      }
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       const currentSession = sessionRef.current;
       if (currentSession && String(currentSession.state).toUpperCase() === "CONNECTED") {
         currentSession.repeat(reply);
