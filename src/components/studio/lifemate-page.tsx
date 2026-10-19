@@ -44,7 +44,7 @@ export function LifeMatePage() {
         <p className="lmp-eyebrow">Live conversation</p>
         <h1>Talk face to face with an AI avatar</h1>
         <p className="lmp-lead">
-          Choose a real-time digital human, pick your language and tone, and have a two-way video conversation. Your camera appears beside the avatar.
+          Choose a digital human, set your language and conversation style, then start a live avatar session. Your camera preview appears beside the avatar when enabled.
         </p>
         <ol className="lmp-steps">
           <li><b>1</b> Choose an avatar</li>
@@ -89,4 +89,15 @@ const CSS = `
 .lmp-steps b{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:#6d7bff;color:#0b0e14;font-size:12px}
 .lmp-foot{max-width:1180px;margin:0 auto;padding:18px 16px 28px;display:flex;gap:16px;flex-wrap:wrap;color:#8a96ad;font-size:13px;border-top:1px solid #1b2333}
 .lmp-foot a{color:#8a96ad;text-decoration:none}
+.lmp-top{position:relative;z-index:5;border-bottom:1px solid #ffffff0a}
+.lmp-brand{letter-spacing:-.02em}
+.lmp-top nav a,.lmp-foot a{transition:color .18s ease}
+.lmp-top nav a:hover,.lmp-foot a:hover{color:#e8ecf5}
+.lmp-main{padding-top:30px}
+.lmp-eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid #6d7bff35;background:#6d7bff12;border-radius:999px}
+.lmp-main h1{max-width:850px;letter-spacing:-.04em;font-weight:760}
+.lmp-lead{font-size:15px;line-height:1.75}
+.lmp-steps li{border-color:#ffffff14;box-shadow:0 8px 28px #0002}
+.lmp-foot{margin-top:12px}
+@media(max-width:600px){.lmp-main{padding:22px 14px 30px}.lmp-top{padding:14px}.lmp-top nav{gap:12px;flex-wrap:wrap;font-size:12px}.lmp-main h1{font-size:clamp(27px,8vw,36px)}.lmp-lead{font-size:14px}}
 `;
