@@ -60,6 +60,7 @@ export function LiveAvatarCloudPanel() {
   const streamReadyRef = useRef(false);
   const camRef = useRef<HTMLVideoElement | null>(null);
   const camStream = useRef<MediaStream | null>(null);
+  const speechAudioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef<LiveAvatarSession | null>(null);
   const [avatars, setAvatars] = useState<LiveAvatar[]>([]);
   const [voices, setVoices] = useState<LiveVoice[]>([]);
@@ -103,6 +104,7 @@ export function LiveAvatarCloudPanel() {
     sessionRef.current = null;
     if (session) void session.stop().catch(() => undefined);
     camStream.current?.getTracks().forEach((track) => track.stop());
+    if (speechAudioRef.current) { speechAudioRef.current.pause(); speechAudioRef.current.src = ""; }
   }, []);
 
   useEffect(() => {
@@ -217,6 +219,59 @@ export function LiveAvatarCloudPanel() {
     setStatus("Session ended");
   }
 
+  async function downloadAvatarPreview() {
+    const previewUrl = selectedAvatar?.preview_url;
+    if (!previewUrl) {
+      setError("This provider does not expose a downloadable avatar model or preview for the selected avatar.");
+      return;
+    }
+    setError("");
+    try {
+      const response = await fetch(previewUrl, { mode: "cors" });
+      if (!response.ok) throw new Error("Preview download failed.");
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = (selectedAvatar?.name || "nkai-avatar-preview").replace(/[^a-z0-9-_]+/gi, "-").toLowerCase() + ".jpg";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+      setStatus("Avatar preview downloaded · model files are not provided by this catalogue");
+    } catch {
+      setError("The provider blocks direct preview downloads for this image. You can open the preview image in a new tab; the actual rigged avatar model is not available from this catalogue.");
+    }
+  }
+
+  async function speakWithWorkerTts(text: string): Promise<boolean> {
+    const response = await fetch("/api/avatar-ai/tts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text: text.slice(0, 800), language }),
+    });
+    const payload = await response.json() as { audio_base64?: string; mime_type?: string; error?: string; detail?: string };
+    if (!response.ok || !payload.audio_base64) {
+      throw new Error(payload.error || payload.detail || "The NKAI voice worker did not return audio.");
+    }
+    const binary = window.atob(payload.audio_base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const audioUrl = URL.createObjectURL(new Blob([bytes], { type: payload.mime_type || "audio/wav" }));
+    if (speechAudioRef.current) {
+      speechAudioRef.current.pause();
+      URL.revokeObjectURL(speechAudioRef.current.src);
+    }
+    const audio = new Audio(audioUrl);
+    speechAudioRef.current = audio;
+    audio.onended = () => {
+      URL.revokeObjectURL(audioUrl);
+      if (speechAudioRef.current === audio) speechAudioRef.current = null;
+    };
+    await audio.play();
+    return true;
+  }
+
   async function toggleCam() {
     if (camStream.current) {
       camStream.current.getTracks().forEach((track) => track.stop());
@@ -273,13 +328,23 @@ export function LiveAvatarCloudPanel() {
         currentSession.repeat(reply);
         setStatus("Speaking · " + (selectedAvatar?.name || "LiveAvatar"));
       } else {
-        if ("speechSynthesis" in window) {
+        let modelVoicePlayed = false;
+        try {
+          modelVoicePlayed = await speakWithWorkerTts(reply);
+        } catch {
+          modelVoicePlayed = false;
+        }
+        if (modelVoicePlayed) {
+          setStatus("Speaking · self-hosted NKAI voice model");
+        } else if ("speechSynthesis" in window) {
           window.speechSynthesis.cancel();
           const utterance = new SpeechSynthesisUtterance(reply);
           utterance.lang = languageLocale;
           window.speechSynthesis.speak(utterance);
+          setStatus("Avatar offline · browser voice fallback (not the live avatar voice)");
+        } else {
+          setStatus("Reply ready · no speech engine available");
         }
-        setStatus("Avatar offline · browser voice fallback");
       }
       setHistory((items) => [...items, { role: "avatar", text: reply }]);
     } catch (cause) {
@@ -325,7 +390,7 @@ export function LiveAvatarCloudPanel() {
         <button type="button" className={setupStep === 2 ? "on" : ""} aria-current={setupStep === 2 ? "step" : undefined} onClick={() => { setSetupStep(2); setTab("setup"); }}>
           <span>2</span><strong>Language &amp; tone</strong><small>{languageName} · {toneName}</small>
         </button>
-        <button type="button" className={setupStep === 3 ? "on" : ""} aria-current={setupStep === 3 ? "step" : undefined} onClick={() => { setSetupStep(3); if (live) setTab("chat"); else { setTab("setup"); void connect(); } }}>
+        <button type="button" className={setupStep === 3 ? "on" : ""} aria-current={setupStep === 3 ? "step" : undefined} onClick={() => { setSetupStep(3); if (live) setTab("chat"); else { setTab("setup"); if (!busy) void connect(); } }}>
           <span>3</span><strong>Start the call</strong><small>{live ? "Call is live" : busy ? "Connecting…" : "Ready when you are"}</small>
         </button>
       </nav>
@@ -380,7 +445,7 @@ export function LiveAvatarCloudPanel() {
           </div>
           {error && <p className="lm-error" role="alert">{error}</p>}
           <p className="lm-note">
-            Hosted avatar streaming by HeyGen. Live sessions may use account credits, and your API key stays on the server.
+            Hosted real-time avatar streaming by HeyGen. Provider sessions may consume account credits; API credentials remain server-side. Offline speech uses the self-hosted NKAI TTS worker when available, then a browser voice fallback.
           </p>
         </section>
 
@@ -422,6 +487,10 @@ export function LiveAvatarCloudPanel() {
                   <span>{selectedAvatar?.gender || selectedAvatar?.type || "LiveAvatar"}</span>
                 </div>
               </div>
+              <button type="button" className="lm-btn lm-download-preview" disabled={!selectedAvatar?.preview_url || live || busy} onClick={() => void downloadAvatarPreview()}>
+                ↓ Download avatar preview
+              </button>
+              <p className="lm-download-note">Preview image only. The provider does not expose a downloadable rigged avatar model here.</p>
               {!filteredAvatars.length && <p className="lm-empty">{loadingCatalog ? "Loading…" : "No avatars match this search. Clear the search or change the gender filter."}</p>}
               <p className="lm-catalog-count">{filteredAvatars.length} matching avatar{filteredAvatars.length === 1 ? "" : "s"}{filteredAvatars.length > 80 ? " · search to narrow the list" : ""}</p>
 
@@ -585,6 +654,9 @@ const CSS = `
 .lm-selected-info small{font-size:9px;letter-spacing:.12em;color:#a99aff;font-weight:800}
 .lm-selected-info strong{font-size:16px;overflow-wrap:anywhere}
 .lm-selected-info>span{font-size:11px;color:var(--mut)}
+.lm-download-preview{width:100%;margin:4px 0 0;min-height:40px;border-color:#51467f;background:#1a2031;font-size:12px}
+.lm-download-preview:hover:not(:disabled){background:#242d44;border-color:#9383ff}
+.lm-download-note{margin:6px 0 10px;color:#7f8ca4;font-size:10px;line-height:1.45}
 .lm-catalog-count{margin:6px 0 12px;font-size:11px;color:#8290a8}
 .lm-config-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
 .lm-config-grid .lm-tone-field{grid-column:1/-1}
@@ -614,7 +686,7 @@ const CSS = `
 .lm-badge{background:#0b1019}
 .lm-list{max-height:220px}
 .lm-topic{min-height:34px}
-@media(max-width:560px){.lm-config-grid{grid-template-columns:1fr}.lm-config-grid .lm-tone-field{grid-column:auto}.lm-controls{grid-template-columns:1fr 1fr}.lm-controls .lm-start-call{grid-column:1/-1}.lm-stage,.lm-side{padding:12px}.lm-selected-avatar{gap:10px}}
+@media(max-width:560px){.lm-download-preview{min-height:42px}.lm-config-grid{grid-template-columns:1fr}.lm-config-grid .lm-tone-field{grid-column:auto}.lm-controls{grid-template-columns:1fr 1fr}.lm-controls .lm-start-call{grid-column:1/-1}.lm-stage,.lm-side{padding:12px}.lm-selected-avatar{gap:10px}}
 @media(min-width:921px){.lm-side{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto}.lm-grid{grid-template-columns:minmax(0,1.5fr) minmax(360px,.9fr)}}
 
 `;
