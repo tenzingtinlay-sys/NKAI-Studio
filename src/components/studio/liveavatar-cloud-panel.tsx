@@ -82,6 +82,7 @@ export function LiveAvatarCloudPanel() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState<{ role: "you" | "avatar"; text: string }[]>([]);
+  const [setupStep, setSetupStep] = useState<1 | 2 | 3>(1);
 
   const selectedAvatar = avatars.find((item) => item.id === avatarId);
   const selectedVoice = voices.find((item) => item.id === voiceId);
@@ -317,6 +318,17 @@ export function LiveAvatarCloudPanel() {
   return (
     <div className="lm">
       <style>{CSS}</style>
+      <nav className="lm-steps" aria-label="Live conversation setup">
+        <button type="button" className={setupStep === 1 ? "on" : ""} aria-current={setupStep === 1 ? "step" : undefined} onClick={() => { setSetupStep(1); setTab("setup"); }}>
+          <span>1</span><strong>Choose an avatar</strong><small>{selectedAvatar?.name || "Browse catalogue"}</small>
+        </button>
+        <button type="button" className={setupStep === 2 ? "on" : ""} aria-current={setupStep === 2 ? "step" : undefined} onClick={() => { setSetupStep(2); setTab("setup"); }}>
+          <span>2</span><strong>Language &amp; tone</strong><small>{languageName} · {toneName}</small>
+        </button>
+        <button type="button" className={setupStep === 3 ? "on" : ""} aria-current={setupStep === 3 ? "step" : undefined} onClick={() => { setSetupStep(3); if (live) setTab("chat"); else setTab("setup"); }}>
+          <span>3</span><strong>Start the call</strong><small>{live ? "Call is live" : busy ? "Connecting…" : "Ready when you are"}</small>
+        </button>
+      </nav>
       <div className="lm-grid">
         <section className="lm-stage" aria-label="Live call">
           <div className="lm-stage-head">
@@ -353,7 +365,7 @@ export function LiveAvatarCloudPanel() {
           </div>
 
           <div className="lm-controls" aria-label="Call controls">
-            <button type="button" className="lm-btn primary lm-start-call" disabled={busy || live || Boolean(sessionRef.current) || !avatarId} onClick={() => void connect()}>
+            <button type="button" className="lm-btn primary lm-start-call" disabled={busy || live || Boolean(sessionRef.current) || !avatarId} onClick={() => { setSetupStep(3); void connect(); }}>
               <span aria-hidden="true">▶</span> {busy ? "Connecting to avatar…" : sessionRef.current && !streamReady ? "Waiting for avatar stream…" : live ? "Live video started" : "Start live video"}
             </button>
             <button type="button" className={"lm-btn lm-mic-btn" + (voiceListening ? " active" : "")} disabled={thinking || busy} onClick={startVoiceInput} aria-pressed={voiceListening}>
@@ -391,7 +403,7 @@ export function LiveAvatarCloudPanel() {
                 ))}
               </div>
               <label className="lm-field lm-avatar-picker">Choose an avatar
-                <select aria-label="Choose an avatar" value={avatarId} onChange={(event) => setAvatarId(event.target.value)} disabled={live || busy || Boolean(sessionRef.current) || loadingCatalog}>
+                <select aria-label="Choose an avatar" value={avatarId} onChange={(event) => { setAvatarId(event.target.value); setSetupStep(1); }} disabled={live || busy || Boolean(sessionRef.current) || loadingCatalog}>
                   {!avatars.length && <option value="">No avatars available</option>}
                   {filteredAvatars.map((item) => <option key={item.id} value={item.id}>{item.name || item.id}{item.gender ? " · " + item.gender : ""}</option>)}
                 </select>
@@ -415,7 +427,7 @@ export function LiveAvatarCloudPanel() {
 
               <div className="lm-config-grid">
                 <label className="lm-field">Language
-                  <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={live || busy || Boolean(sessionRef.current)}>
+                  <select value={language} onChange={(event) => { setLanguage(event.target.value); setSetupStep(2); }} disabled={live || busy || Boolean(sessionRef.current)}>
                     {LANGUAGES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                   </select>
                 </label>
@@ -429,7 +441,7 @@ export function LiveAvatarCloudPanel() {
                   <small>{selectedVoice?.name || selectedAvatar?.default_voice?.name || "Provider default voice"}</small>
                 </label>
                 <label className="lm-field lm-tone-field">Conversation tone
-                  <select value={tone} onChange={(event) => setTone(event.target.value)} disabled={live || busy}>
+                  <select value={tone} onChange={(event) => { setTone(event.target.value); setSetupStep(2); }} disabled={live || busy}>
                     {TONES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                   </select>
                 </label>
@@ -479,6 +491,15 @@ const CSS = `
 .lm{--bg:#0b0e14;--panel:#121722;--panel2:#171e2c;--line:#222c3f;--ink:#e8ecf5;--mut:#8a96ad;--acc:#6d7bff;--ok:#2dd4a3;--warn:#f5b84a;color:var(--ink)}
 .lm *{box-sizing:border-box}
 .lm-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);gap:18px;align-items:start}
+.lm-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 16px}
+.lm-steps button{display:grid;grid-template-columns:30px minmax(0,1fr);column-gap:9px;align-items:center;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);padding:10px;cursor:pointer;font:inherit}
+.lm-steps button.on{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+.lm-steps button>span{grid-row:span 2;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--panel2);font-weight:700}
+.lm-steps button.on>span{background:var(--acc);color:#0b0e14}
+.lm-steps strong{font-size:13px}
+.lm-steps small{font-size:11px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:600px){.lm-steps{grid-template-columns:1fr}.lm-steps button{grid-template-columns:30px minmax(0,1fr)}}
+
 @media (max-width:920px){.lm-grid{grid-template-columns:1fr}}
 .lm-stage,.lm-side{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}
 .lm-stage-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
